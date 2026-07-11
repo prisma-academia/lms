@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Prisma LMS · Student dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect x=%223%22 y=%223%22 width=%2294%22 height=%2294%22 rx=%2222%22 fill=%22%23FFC53D%22 stroke=%22%23191420%22 stroke-width=%226%22/><path d=%22M50 26 84 43 50 60 16 43Z%22 fill=%22%23191420%22/><path d=%22M32 51v15c0 6 8 10 18 10s18-4 18-10V51%22 fill=%22none%22 stroke=%22%23191420%22 stroke-width=%226%22 stroke-linecap=%22round%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF1E4;
+  --card:#FFFDF6;
+  --ink:#191420;
+  --ink-60:rgba(25,20,32,.62);
+  --ink-35:rgba(25,20,32,.35);
+  --ink-15:rgba(25,20,32,.15);
+  --yellow:#FFC53D;
+  --pink:#FF6BA9;
+  --orange:#FF8A3D;
+  --green:#00C16A;
+  --blue:#3E9BFF;
+  --purple:#8C6BFF;
+  --red:#FF5A5F;
+  --r:14px;
+  --r-sm:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  background:var(--paper);color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  font-size:14.5px;line-height:1.5;
+}
+::selection{background:var(--yellow)}
+.num{font-variant-numeric:tabular-nums}
+.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.i-18{width:18px;height:18px}
+.i-20{width:20px;height:20px}
+button{font-family:inherit;color:var(--ink)}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+h1,h2,.logo-name,.snum,.stamp b{font-family:'Archivo Black',sans-serif;font-weight:400}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+.app{display:flex;min-height:100vh}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  width:240px;flex-shrink:0;background:var(--card);border-right:2px solid var(--ink);
+  padding:22px 16px;display:flex;flex-direction:column;gap:6px;
+  position:sticky;top:0;height:100vh;
+}
+.logo{display:flex;align-items:center;gap:12px;padding:2px 6px 20px}
+.logo-mark{
+  width:42px;height:42px;border-radius:12px;background:var(--yellow);color:var(--ink);
+  border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);transform:rotate(-5deg);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.logo-name{font-size:15px;line-height:1.2}
+.logo-sub{font-size:11.5px;color:var(--ink-60);font-weight:500}
+.nav-btn{
+  display:flex;align-items:center;gap:11px;width:100%;padding:10px 13px;
+  background:transparent;border:2px solid transparent;border-radius:var(--r-sm);
+  font-size:14px;font-weight:700;cursor:pointer;text-align:left;
+  transition:transform .12s ease,background .12s ease,border-color .12s ease,box-shadow .12s ease;
+}
+.nav-btn:hover{border-color:var(--ink);background:var(--card);transform:translate(-1px,-1px);box-shadow:2px 2px 0 var(--ink)}
+.nav-btn.active{background:var(--ink);color:var(--paper);border-color:var(--ink);box-shadow:3px 3px 0 var(--yellow)}
+.sidebar .spacer{flex:1}
+.user-card{display:flex;align-items:center;gap:10px;padding:16px 6px 4px;border-top:2px dashed var(--ink-35)}
+.avatar{
+  width:36px;height:36px;border-radius:50%;background:var(--pink);color:var(--ink);
+  border:2px solid var(--ink);font-weight:700;font-size:12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.user-card b{font-size:13px;font-weight:700;display:block;line-height:1.3}
+.user-card span{font-size:11.5px;color:var(--ink-60);font-weight:500}
+
+/* ---------- Main ---------- */
+.main-wrap{flex:1;min-width:0}
+main{max-width:1080px;margin:0 auto;padding:28px 32px 20px;display:flex;flex-direction:column;gap:20px}
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.greet h1{font-size:22px;letter-spacing:.01em}
+.greet p{color:var(--ink-60);font-size:13px;margin-top:4px;font-weight:500}
+.topbar .grow{flex:1}
+.search{
+  display:flex;align-items:center;gap:8px;background:var(--card);border:2px solid var(--ink);
+  border-radius:var(--r-sm);padding:0 12px;height:40px;width:250px;box-shadow:3px 3px 0 var(--ink);
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.search:focus-within{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--purple)}
+.search input{border:none;outline:none;font-family:inherit;font-size:13.5px;font-weight:500;background:transparent;width:100%;color:var(--ink)}
+.search input::placeholder{color:var(--ink-35)}
+.streak-pill{
+  display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border-radius:var(--r-sm);
+  background:var(--yellow);border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
+  font-size:13px;font-weight:700;white-space:nowrap;transform:rotate(1.5deg);
+}
+
+.view{display:none}
+.view.active{display:block;animation:popIn .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes popIn{from{opacity:0;transform:translateY(6px) scale(.995)}to{opacity:1;transform:none}}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--card);border:2px solid var(--ink);border-radius:var(--r);
+  box-shadow:5px 5px 0 var(--sh,var(--ink));padding:18px 20px;
+}
+.card h3{
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;
+}
+.card h3 .aside{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-60);text-transform:none;letter-spacing:0}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.stat{
+  background:var(--card);border:2px solid var(--ink);border-radius:var(--r);
+  box-shadow:5px 5px 0 var(--sh,var(--ink));padding:16px 18px;
+  transition:transform .15s ease,box-shadow .15s ease;
+}
+.stat:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--sh,var(--ink))}
+.stat .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chip36{
+  width:38px;height:38px;border-radius:var(--r-sm);border:2px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink);
+}
+.delta{
+  display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;
+  border:1.5px solid var(--ink);border-radius:6px;transform:rotate(2deg);white-space:nowrap;
+}
+.stat .snum{font-size:30px;margin-top:12px;line-height:1.15}
+.stat .slbl{font-size:13px;color:var(--ink-60);font-weight:700;margin-top:3px}
+.stampgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:14px;max-width:170px}
+.cell{
+  aspect-ratio:1;border:2px solid var(--ink);border-radius:5px;background:var(--orange);
+  display:flex;align-items:center;justify-content:center;
+}
+.cell .i{width:10px;height:10px;stroke-width:3.5}
+.cell.off{background:transparent;border-style:dashed;border-color:var(--ink-35)}
+
+.ov-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px}
+.ov-col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* activity chart */
+.chart{position:relative;height:196px;margin-top:6px}
+.gline{position:absolute;left:36px;right:0;border-top:2px dashed var(--ink-15)}
+.gline span{position:absolute;left:-36px;top:-9px;font-size:11px;font-weight:700;color:var(--ink-60);width:28px;text-align:right}
+.bars{position:absolute;left:36px;right:0;bottom:24px;top:2px;display:flex;align-items:flex-end;gap:14px}
+.colb{flex:1;display:flex;align-items:flex-end;justify-content:center;height:100%;position:relative}
+.colb .bar{
+  width:100%;max-width:34px;border-radius:8px 8px 4px 4px;background:var(--purple);
+  border:2px solid var(--ink);box-shadow:3px 3px 0 var(--ink);
+  transition:height .6s cubic-bezier(.2,.8,.2,1),transform .12s ease;height:2px;
+}
+.colb:hover .bar{transform:translate(-1px,-1px)}
+.colb.today .bar{background:var(--pink)}
+.colb.empty .bar,.colb.empty:hover .bar{background:transparent;border-style:dashed;border-color:var(--ink-35);box-shadow:none;transform:none}
+.colb .tip{
+  position:absolute;left:50%;transform:translateX(-50%) rotate(-2deg);background:var(--ink);color:var(--paper);
+  font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;opacity:0;pointer-events:none;
+  transition:opacity .12s ease;white-space:nowrap;
+}
+.colb:hover .tip{opacity:1}
+.dlabels{position:absolute;left:36px;right:0;bottom:0;display:flex;gap:14px}
+.dlabels .dl{flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--ink-60)}
+.dlabels .dl.today{color:var(--ink)}
+.tdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--pink);border:1.5px solid var(--ink);vertical-align:1px;margin-left:4px}
+
+/* continue learning */
+.cont-item{display:flex;align-items:center;gap:14px;padding:12px 0}
+.cont-item + .cont-item{border-top:2px dashed var(--ink-15)}
+.cont-item .info{flex:1;min-width:0}
+.cont-item .info b{font-size:14px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cont-item .info span{font-size:12.5px;color:var(--ink-60);font-weight:500}
+.cont-item .pct{font-size:14px;font-weight:700}
+.go{
+  width:36px;height:36px;border-radius:var(--r-sm);border:2px solid var(--ink);background:var(--card);
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  box-shadow:2px 2px 0 var(--ink);transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
+}
+.go:hover{background:var(--yellow);transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.go:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink)}
+
+.pbar{height:12px;border-radius:999px;background:var(--card);border:2px solid var(--ink);overflow:hidden;margin-top:8px}
+.pbar>i{display:block;height:100%;width:0;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+
+/* deadlines */
+.dl-item{display:flex;align-items:center;gap:12px;padding:10px 0}
+.dl-item + .dl-item{border-top:2px dashed var(--ink-15)}
+.date-sq{
+  width:44px;height:44px;border-radius:var(--r-sm);border:2px solid var(--ink);transform:rotate(-3deg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;line-height:1;
+}
+.date-sq b{font-size:15px;font-weight:700}
+.date-sq span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+.dl-item .info{flex:1;min-width:0}
+.dl-item .info b{font-size:13.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.dl-item .due{font-size:12px;font-weight:700;white-space:nowrap}
+
+.tag{
+  display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px;
+  border:1.5px solid var(--ink);white-space:nowrap;
+}
+
+/* segmented filter */
+.seg{display:inline-flex;background:var(--card);border:2px solid var(--ink);border-radius:var(--r-sm);overflow:hidden;box-shadow:3px 3px 0 var(--ink)}
+.seg button{
+  border:none;background:transparent;padding:8px 15px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:background .12s ease;
+}
+.seg button + button{border-left:2px solid var(--ink)}
+.seg button:hover{background:var(--paper)}
+.seg button.active{background:var(--yellow)}
+
+/* courses */
+.view-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.view-head h2{font-size:18px}
+.view-head .count{font-size:13px;color:var(--ink-60);font-weight:700}
+.view-head .grow{flex:1}
+.course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:18px}
+.course-card{
+  background:var(--card);border:2px solid var(--ink);border-radius:var(--r);
+  box-shadow:6px 6px 0 var(--sh,var(--ink));padding:18px 20px;display:flex;flex-direction:column;
+  transition:transform .15s ease,box-shadow .15s ease;
+}
+.course-card:hover{transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--sh,var(--ink))}
+.course-card .head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.chip40{
+  width:42px;height:42px;border-radius:var(--r-sm);border:2px solid var(--ink);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.course-card .title{font-size:15.5px;font-weight:700;margin-top:13px;line-height:1.3}
+.course-card .inst{font-size:12.5px;color:var(--ink-60);font-weight:500;margin-top:2px}
+.course-meta{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px}
+.course-meta .p{font-size:14px;font-weight:700}
+.course-meta .l{font-size:12px;color:var(--ink-60);font-weight:500}
+.course-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:2px dashed var(--ink-15)}
+.badge{
+  display:inline-block;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:6px;
+  border:1.5px solid var(--ink);white-space:nowrap;
+}
+.course-foot .badge{margin-left:auto;transform:rotate(-2deg)}
+
+.btn{
+  border:2px solid var(--ink);border-radius:var(--r-sm);padding:8px 16px;font-size:13px;font-weight:700;
+  cursor:pointer;box-shadow:3px 3px 0 var(--ink);
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn-primary{background:var(--yellow)}
+.btn-secondary{background:var(--card)}
+
+/* assignments */
+.asg-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start}
+.asg-item{display:flex;align-items:center;gap:12px;padding:11px 2px}
+.asg-item + .asg-item{border-top:2px dashed var(--ink-15)}
+.checkbox{
+  width:24px;height:24px;border-radius:7px;border:2px solid var(--ink);background:var(--card);
+  cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  box-shadow:2px 2px 0 var(--ink);padding:0;
+  transition:background .12s ease,transform .12s ease,box-shadow .12s ease;
+}
+.checkbox:hover{transform:translate(-1px,-1px) rotate(-4deg);box-shadow:3px 3px 0 var(--ink)}
+.checkbox.on{background:var(--green)}
+.checkbox .i{width:13px;height:13px;stroke-width:3.5;opacity:0}
+.checkbox.on .i{opacity:1}
+.asg-item .info{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.asg-item .info b{font-size:13.5px;font-weight:700}
+.asg-item.done .info b{text-decoration:line-through;color:var(--ink-35);font-weight:500}
+.asg-prog{display:flex;align-items:center;gap:14px;font-size:13px;font-weight:700}
+.asg-prog .pbar{flex:1;margin:0}
+.empty{padding:22px 0;font-size:13px;font-weight:500;color:var(--ink-60);display:flex;align-items:center;gap:8px;justify-content:center}
+
+/* grades */
+.grades-grid{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+.stamp-card{display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 20px 24px}
+.stamp{
+  border:6px double #00975A;border-radius:14px;padding:16px 28px 18px;color:#00975A;
+  transform:rotate(-5deg);text-align:center;
+}
+.stamp b{font-size:44px;display:block;line-height:1}
+.stamp span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;display:block;margin-top:7px}
+.stamp-sub{font-size:12.5px;color:var(--ink-60);font-weight:500;text-align:center}
+.g-row{display:flex;align-items:center;gap:14px;padding:10px 0}
+.g-row + .g-row{border-top:2px dashed var(--ink-15)}
+.g-row .name{width:180px;font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.g-row .pbar{flex:1;margin:0;height:11px}
+.g-row .pct{width:44px;text-align:right;font-weight:700;font-size:13.5px;flex-shrink:0}
+.banner{display:flex;align-items:center;gap:13px;margin-top:16px}
+.banner b{font-size:13.5px;font-weight:700;display:block}
+.banner span{font-size:12.5px;color:var(--ink-60);font-weight:500}
+
+/* toast */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px) rotate(-1deg);
+  background:var(--ink);color:var(--paper);border-radius:var(--r-sm);
+  padding:12px 20px;font-size:13.5px;font-weight:700;opacity:0;
+  box-shadow:4px 4px 0 var(--pink);z-index:1000;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .25s;
+  max-width:90vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#toast.show{transform:translate(-50%,0) rotate(-1deg);opacity:1}
+.confetti{position:fixed;top:-16px;z-index:999;pointer-events:none;animation:cfall linear forwards}
+@keyframes cfall{to{transform:translateY(106vh) rotate(600deg)}}
+
+footer{padding:6px 4px 18px;text-align:center;font-size:12.5px;font-weight:500;color:var(--ink-60)}
+footer a{color:var(--ink);cursor:pointer;font-weight:700;text-decoration:underline wavy var(--pink) 1.5px;text-underline-offset:3px}
+
+@media (max-width:960px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;height:auto;position:static;flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px;padding:12px 14px;border-right:none;border-bottom:2px solid var(--ink)}
+  .logo{padding:0 10px 0 0}
+  .logo-sub{display:none}
+  .nav-btn{width:auto;padding:8px 12px}
+  .sidebar .spacer,.user-card{display:none}
+  main{padding:20px 16px}
+  .ov-grid,.asg-grid,.grades-grid{grid-template-columns:1fr}
+  .search{width:100%;order:5}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+<symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 13 2 2 4-4"/></symbol>
+<symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.5 12.9 17 22l-5-3-5 3 1.5-9.1"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9h18"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 5-5"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M10 2v7.5L4.7 20a1.2 1.2 0 0 0 1.1 1.7h12.4a1.2 1.2 0 0 0 1.1-1.7L14 9.5V2"/><path d="M8.5 2h7"/><path d="M7.5 15h9"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 3.5 9 13.5 13.5 0 0 1-3.5 9 13.5 13.5 0 0 1-3.5-9A13.5 13.5 0 0 1 12 3z"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M8 17v-4M13 17V8M18 17v-7"/></symbol>
+<symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 1 9-9c0 1.66-1.34 3-3 3h-1.6a2 2 0 0 0-1.5 3.3c.3.36.5.82.5 1.2A1.5 1.5 0 0 1 13.9 21z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/><circle cx="17" cy="11" r="1"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><path d="M12 18v4"/></symbol>
+<symbol id="i-trending-up" viewBox="0 0 24 24"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="m2 10 10-5 10 5-10 5z"/><path d="M6 12.5V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-4.5"/><path d="M22 10v5"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark"><svg class="i i-20"><use href="#i-cap"/></svg></div>
+      <div>
+        <div class="logo-name">Prisma LMS</div>
+        <div class="logo-sub">Student portal</div>
+      </div>
+    </div>
+    <button class="nav-btn active" data-view="overview"><svg class="i i-18"><use href="#i-grid"/></svg>Overview</button>
+    <button class="nav-btn" data-view="courses"><svg class="i i-18"><use href="#i-book"/></svg>My courses</button>
+    <button class="nav-btn" data-view="assignments"><svg class="i i-18"><use href="#i-clipboard"/></svg>Assignments</button>
+    <button class="nav-btn" data-view="grades"><svg class="i i-18"><use href="#i-award"/></svg>Grades</button>
+    <div class="spacer"></div>
+    <div class="user-card">
+      <div class="avatar">RH</div>
+      <div><b>Rashida Haruna</b><span>Student</span></div>
+    </div>
+  </aside>
+
+  <div class="main-wrap">
+  <main>
+    <header class="topbar">
+      <div class="greet">
+        <h1 id="greet"></h1>
+        <p id="date-line"></p>
+      </div>
+      <div class="grow"></div>
+      <div class="search"><svg class="i"><use href="#i-search"/></svg><input id="search" type="text" placeholder="Search courses" aria-label="Search courses"></div>
+      <div class="streak-pill"><svg class="i"><use href="#i-flame"/></svg><span class="num">12-day streak</span></div>
+    </header>
+
+    <section id="view-overview" class="view active">
+      <div class="stats" id="stats" style="margin-bottom:16px"></div>
+      <div class="ov-grid">
+        <div class="ov-col">
+          <div class="card" style="--sh:var(--purple)">
+            <h3>The week so far <span class="aside num" id="week-total"></span></h3>
+            <div class="chart" id="chart" role="img" aria-label="Bar chart of study hours per day this week"></div>
+          </div>
+          <div class="card">
+            <h3>Jump back in</h3>
+            <div id="continue-list"></div>
+          </div>
+        </div>
+        <div class="ov-col">
+          <div class="card" style="--sh:var(--blue)">
+            <h3>Due radar</h3>
+            <div id="deadline-list"></div>
+          </div>
+          <div class="card" id="tip-card" style="background:var(--yellow)"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-courses" class="view">
+      <div class="view-head">
+        <h2>My courses</h2><span class="count num" id="course-count"></span>
+        <div class="grow"></div>
+        <div class="seg" id="course-chips" role="group" aria-label="Filter courses">
+          <button class="active" data-filter="all">All</button>
+          <button data-filter="progress">In progress</button>
+          <button data-filter="done">Completed</button>
+        </div>
+      </div>
+      <div class="course-grid" id="course-grid"></div>
+    </section>
+
+    <section id="view-assignments" class="view">
+      <div class="view-head"><h2>Assignments</h2><span class="count num" id="asg-count"></span></div>
+      <div class="card asg-prog" style="padding:14px 20px;margin-bottom:16px;--sh:var(--green)">
+        <span class="num" id="asg-prog-label"></span>
+        <div class="pbar"><i id="asg-prog-bar" style="background:var(--green)"></i></div>
+      </div>
+      <div class="asg-grid">
+        <div class="card"><h3>To do</h3><div id="todo-list"></div></div>
+        <div class="card" style="--sh:var(--green)"><h3>Done</h3><div id="done-list"></div></div>
+      </div>
+    </section>
+
+    <section id="view-grades" class="view">
+      <div class="view-head"><h2>Grades</h2></div>
+      <div class="grades-grid">
+        <div class="card stamp-card" style="--sh:var(--green)">
+          <div class="stamp" role="img" aria-label="Term average 85 percent">
+            <b class="num" id="avg-num">0%</b>
+            <span>Term average</span>
+          </div>
+          <div class="stamp-sub">Across 6 courses this term.<br>The stamp doesn't lie.</div>
+        </div>
+        <div>
+          <div class="card"><h3>By course</h3><div id="grade-rows"></div></div>
+          <div class="card banner" style="--sh:var(--orange)">
+            <span class="chip40" style="background:var(--orange)"><svg class="i i-20"><use href="#i-award"/></svg></span>
+            <div><b>Course MVP — Graphic design basics</b><span class="num">97% final grade, completed June 2026</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Prisma LMS · fake data, real vibes · <a id="reset">Reset demo</a></footer>
+  </main>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+const REF = new Date(2026, 6, 10); // demo "today": Fri Jul 10 2026 — deadlines stay relative to it
+
+const ic = (name, cls) => `<svg class="i ${cls || ''}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+
+const CATS = {
+  science:   {c:'var(--green)',  icon:'flask'},
+  coding:    {c:'var(--purple)', icon:'code'},
+  humanities:{c:'var(--orange)', icon:'globe'},
+  math:      {c:'var(--pink)',   icon:'chart'},
+  design:    {c:'var(--blue)',   icon:'palette'},
+  soft:      {c:'var(--yellow)', icon:'mic'},
+};
+
+const courses = [
+  {id:'bio',  title:'Biology 101',            cat:'science',    catLabel:'Science',     inst:'Dr. Amina Yusuf',  done:17, total:25, grade:88, next:'Lesson 18 · Osmosis & diffusion'},
+  {id:'js',   title:'Intro to JavaScript',    cat:'coding',     catLabel:'Coding',      inst:'Kwame Mensah',     done:13, total:31, grade:76, next:'Lesson 14 · Array methods deep dive'},
+  {id:'hist', title:'World History',          cat:'humanities', catLabel:'Humanities',  inst:'Prof. Laila Odoi', done:29, total:32, grade:94, next:'Lesson 30 · The Silk Road'},
+  {id:'stat', title:'Statistics fundamentals',cat:'math',       catLabel:'Math',        inst:'Dr. Chen Wei',     done:6,  total:24, grade:71, next:'Lesson 7 · Normal distributions'},
+  {id:'des',  title:'Graphic design basics',  cat:'design',     catLabel:'Design',      inst:'Sofia Reyes',      done:18, total:18, grade:97, next:null},
+  {id:'pub',  title:'Public speaking',        cat:'soft',       catLabel:'Soft skills', inst:'Marcus Cole',      done:11, total:20, grade:83, next:'Lesson 12 · Handling Q&A'},
+];
+
+let assignments = [
+  {id:1, title:'Quiz: CSS selectors',              course:'js',   due:new Date(2026,6,11), done:false},
+  {id:2, title:'Lab report: osmosis experiment',   course:'bio',  due:new Date(2026,6,12), done:false},
+  {id:3, title:'Array methods practice set',       course:'js',   due:new Date(2026,6,14), done:false},
+  {id:4, title:'Essay: trade routes of the Sahel', course:'hist', due:new Date(2026,6,15), done:false},
+  {id:5, title:'Problem set 3: distributions',     course:'stat', due:new Date(2026,6,18), done:false},
+  {id:6, title:'Peer review: logo critique',       course:'des',  due:new Date(2026,6,6),  done:true},
+  {id:7, title:'Reflection: debate performance',   course:'pub',  due:new Date(2026,6,3),  done:true},
+];
+
+const week = [['Mon',1.5],['Tue',2.5],['Wed',0.8],['Thu',3],['Fri',1.2],['Sat',0],['Sun',0]];
+const TODAY_IDX = 4;
+const STREAK = 12, STREAK_GOAL = 14;
+
+let courseFilter = 'all', courseSearch = '', statsAnimated = false;
+
+// --- persistence (best-effort; skipped in sandboxed contexts) ---
+try {
+  const saved = JSON.parse(localStorage.getItem('prisma-lms-demo') || 'null');
+  if (Array.isArray(saved)) assignments.forEach(a => a.done = saved.includes(a.id));
+} catch (e) {}
+function persist() {
+  try { localStorage.setItem('prisma-lms-demo', JSON.stringify(assignments.filter(a => a.done).map(a => a.id))); } catch (e) {}
+}
+
+// --- helpers ---
+const byId = id => courses.find(c => c.id === id);
+const pct = c => Math.round(c.done / c.total * 100);
+const daysUntil = d => Math.round((d - REF) / 86400000);
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function dueInfo(d) {
+  const n = daysUntil(d);
+  if (n < 0)   return {text:'Past due',        color:'var(--ink-35)'};
+  if (n === 0) return {text:'Due today',       color:'#DA2C3E'};
+  if (n === 1) return {text:'Due tomorrow',    color:'#DA2C3E'};
+  if (n <= 4)  return {text:`Due in ${n} days`, color:'#C75E13'};
+  return {text:`Due in ${n} days`,             color:'var(--ink-60)'};
+}
+function catTag(c) {
+  const k = CATS[c.cat];
+  return `<span class="tag" style="background:${k.c}">${c.catLabel}</span>`;
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function confetti() {
+  const colors = ['#FFC53D','#FF6BA9','#FF8A3D','#00C16A','#3E9BFF','#8C6BFF','#FF5A5F'];
+  for (let i = 0; i < 70; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    const s = 6 + Math.random() * 7;
+    const shape = i % 3 === 0 ? 'clip-path:polygon(50% 0,100% 100%,0 100%);'
+      : (Math.random() > .5 ? 'border-radius:50%;' : 'border-radius:2px;border:1.5px solid #191420;');
+    d.style.cssText = `left:${Math.random()*100}vw;width:${s}px;height:${s*1.2}px;background:${colors[i%colors.length]};`
+      + shape + `animation-duration:${2+Math.random()*1.4}s;`
+      + `animation-delay:${Math.random()*.4}s;transform:rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 4400);
+  }
+}
+
+function countUp(el, target, suffix = '') {
+  const t0 = performance.now(), dur = 700;
+  (function tick(t) {
+    const p = Math.min((t - t0) / dur, 1);
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix;
+    if (p < 1) requestAnimationFrame(tick);
+  })(t0);
+}
+
+// --- renders ---
+function renderStats() {
+  const inProg = courses.filter(c => c.done < c.total).length;
+  const lessons = courses.reduce((s, c) => s + c.done, 0);
+  const dueWeek = assignments.filter(a => !a.done && daysUntil(a.due) >= 0 && daysUntil(a.due) <= 7).length;
+  const data = [
+    {n:inProg,  lbl:'Courses in progress', icon:'book',         chip:'var(--purple)', sh:'var(--purple)', delta:'+1 this month', db:'var(--green)'},
+    {n:lessons, lbl:'Lessons completed',   icon:'check-circle', chip:'var(--green)',  sh:'var(--green)',  delta:'+6 this week',  db:'var(--green)'},
+    {n:dueWeek, lbl:'Due this week',       icon:'clock',        chip:'var(--orange)', sh:'var(--orange)', delta:dueWeek ? `${dueWeek} open` : 'All clear', db:'var(--card)'},
+  ];
+  const stamps = Array.from({length: STREAK_GOAL}, (_, i) =>
+    `<span class="cell ${i < STREAK ? '' : 'off'}">${i < STREAK ? ic('check') : ''}</span>`).join('');
+  document.getElementById('stats').innerHTML = data.map((s, i) => `
+    <div class="stat" style="--sh:${s.sh}">
+      <div class="top">
+        <span class="chip36" style="background:${s.chip}">${ic(s.icon, 'i-18')}</span>
+        <span class="delta num" style="background:${s.db}">${s.delta}</span>
+      </div>
+      <div class="snum num" id="stat-${i}">${statsAnimated ? s.n : 0}</div>
+      <div class="slbl">${s.lbl}</div>
+    </div>`).join('') + `
+    <div class="stat" style="--sh:var(--pink)">
+      <div class="top">
+        <span class="chip36" style="background:var(--red)">${ic('flame', 'i-18')}</span>
+        <span class="delta num" style="background:var(--card)">Best: 21</span>
+      </div>
+      <div class="stampgrid" role="img" aria-label="Streak card: 12 of 14 days stamped">${stamps}</div>
+      <div class="slbl"><span class="num">12-day streak</span> · 2 to fill the card</div>
+    </div>`;
+  if (!statsAnimated) {
+    data.forEach((s, i) => countUp(document.getElementById('stat-' + i), s.n));
+    statsAnimated = true;
+  }
+}
+
+function renderChart() {
+  const max = 3, areaH = 164;
+  const total = week.reduce((s, w) => s + w[1], 0);
+  document.getElementById('week-total').textContent = `${Math.round(total * 10) / 10}h logged`;
+  document.getElementById('chart').innerHTML =
+    [1, 2, 3].map(h => `<div class="gline" style="bottom:${24 + h / max * areaH}px"><span class="num">${h}h</span></div>`).join('')
+    + `<div class="bars">` + week.map(([day, h], i) => {
+        const rest = h === 0;
+        const hp = rest ? 30 : Math.max(Math.round(h / max * areaH), 8);
+        return `<div class="colb ${i === TODAY_IDX ? 'today' : ''} ${rest ? 'empty' : ''}">
+          <span class="tip num" style="bottom:${hp + 10}px">${rest ? 'rest day' : h + 'h'}</span>
+          <div class="bar" data-h="${hp}"></div>
+        </div>`;
+      }).join('') + `</div>`
+    + `<div class="dlabels">` + week.map(([day], i) =>
+        `<span class="dl ${i === TODAY_IDX ? 'today' : ''}">${day}${i === TODAY_IDX ? '<span class="tdot"></span>' : ''}</span>`
+      ).join('') + `</div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll('#chart .bar').forEach(b => b.style.height = b.dataset.h + 'px')));
+}
+
+function renderContinue() {
+  const list = ['js', 'bio'].map(byId);
+  document.getElementById('continue-list').innerHTML = list.map(c => {
+    const k = CATS[c.cat];
+    return `
+    <div class="cont-item">
+      <span class="chip40" style="background:${k.c}">${ic(k.icon, 'i-20')}</span>
+      <div class="info">
+        <b>${c.title}</b><span>Next: ${c.next}</span>
+        <div class="pbar"><i data-w="${pct(c)}" style="background:${k.c}"></i></div>
+      </div>
+      <span class="pct num">${pct(c)}%</span>
+      <button class="go" data-resume="${c.id}" aria-label="Resume ${c.title}">${ic('arrow-right')}</button>
+    </div>`;
+  }).join('');
+  animateBars('#continue-list');
+}
+
+function renderDeadlines() {
+  const pending = assignments.filter(a => !a.done && daysUntil(a.due) >= 0)
+    .sort((a, b) => a.due - b.due).slice(0, 4);
+  document.getElementById('deadline-list').innerHTML = pending.length ? pending.map(a => {
+    const c = byId(a.course), k = CATS[c.cat], d = dueInfo(a.due);
+    return `
+    <div class="dl-item">
+      <div class="date-sq num" style="background:${k.c}">
+        <b>${a.due.getDate()}</b><span>${MONTHS[a.due.getMonth()]}</span>
+      </div>
+      <div class="info"><b>${a.title}</b>${catTag(c)}</div>
+      <span class="due num" style="color:${d.color}">${d.text}</span>
+    </div>`;
+  }).join('') : `<div class="empty">${ic('check-circle')}Radar's clear. Suspicious, but enjoy it.</div>`;
+
+  const focus = courses.filter(c => c.done < c.total).sort((a, b) => pct(b) - pct(a))[0];
+  document.getElementById('tip-card').innerHTML =
+    `<h3>${ic('target')}Closest to done</h3>
+     <p style="font-size:13.5px;font-weight:500;line-height:1.6">
+       <b>${focus.title}</b> is ${pct(focus)}% in. ${focus.total - focus.done} lessons and it's off your plate for good.
+     </p>`;
+}
+
+function renderCourses() {
+  const q = courseSearch.trim().toLowerCase();
+  const list = courses.filter(c => {
+    if (courseFilter === 'progress' && c.done >= c.total) return false;
+    if (courseFilter === 'done' && c.done < c.total) return false;
+    return !q || c.title.toLowerCase().includes(q) || c.catLabel.toLowerCase().includes(q) || c.inst.toLowerCase().includes(q);
+  });
+  document.getElementById('course-count').textContent =
+    `${list.length} course${list.length === 1 ? '' : 's'}${q ? ` · “${courseSearch.trim()}”` : ''}`;
+  document.getElementById('course-grid').innerHTML = list.length ? list.map(c => {
+    const k = CATS[c.cat], done = c.done >= c.total;
+    return `
+    <div class="course-card" style="--sh:${k.c}">
+      <div class="head">
+        <span class="chip40" style="background:${k.c}">${ic(k.icon, 'i-20')}</span>
+        ${catTag(c)}
+      </div>
+      <div class="title">${c.title}</div>
+      <div class="inst">${c.inst}</div>
+      <div class="pbar" style="margin-top:14px"><i data-w="${pct(c)}" style="background:${k.c}"></i></div>
+      <div class="course-meta"><span class="p num">${pct(c)}%</span><span class="l num">${c.done}/${c.total} lessons</span></div>
+      <div class="course-foot">
+        <button class="btn ${done ? 'btn-secondary' : 'btn-primary'}" data-resume="${c.id}">${done ? 'Review' : 'Continue'}</button>
+        ${done ? `<span class="badge num" style="background:var(--green)">Final: ${c.grade}%</span>` : ''}
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty" style="grid-column:1/-1;padding:40px 0">${ic('search')}No matches. The search bar tried its best.</div>`;
+  animateBars('#course-grid');
+}
+
+function renderAssignments() {
+  const todo = assignments.filter(a => !a.done).sort((a, b) => a.due - b.due);
+  const done = assignments.filter(a => a.done);
+  const row = a => {
+    const c = byId(a.course), d = dueInfo(a.due);
+    return `
+    <div class="asg-item ${a.done ? 'done' : ''}">
+      <button class="checkbox ${a.done ? 'on' : ''}" data-check="${a.id}" role="checkbox" aria-checked="${a.done}"
+        aria-label="Mark ${a.title} as ${a.done ? 'not done' : 'done'}">${ic('check')}</button>
+      <div class="info"><b>${a.title}</b>${catTag(c)}</div>
+      ${a.done ? '<span class="badge" style="background:var(--green);transform:rotate(-2deg)">Done</span>'
+               : `<span class="due num" style="font-size:12px;font-weight:700;color:${d.color};white-space:nowrap">${d.text}</span>`}
+    </div>`;
+  };
+  document.getElementById('todo-list').innerHTML = todo.length ? todo.map(row).join('')
+    : `<div class="empty">${ic('check-circle')}Nothing due. Go outside.</div>`;
+  document.getElementById('done-list').innerHTML = done.length ? done.map(row).join('')
+    : `<div class="empty">Nothing finished yet — the day is young.</div>`;
+  document.getElementById('asg-count').textContent = `${todo.length} open · ${done.length} done`;
+  document.getElementById('asg-prog-label').textContent = `${done.length} of ${assignments.length} cleared`;
+  const bar = document.getElementById('asg-prog-bar');
+  requestAnimationFrame(() => bar.style.width = (done.length / assignments.length * 100) + '%');
+}
+
+function renderGrades() {
+  const sorted = courses.slice().sort((a, b) => b.grade - a.grade);
+  document.getElementById('grade-rows').innerHTML = sorted.map(c => `
+    <div class="g-row">
+      <span class="name">${c.title}</span>
+      <div class="pbar"><i data-w="${c.grade}" style="background:${CATS[c.cat].c}"></i></div>
+      <span class="pct num">${c.grade}%</span>
+    </div>`).join('');
+  animateBars('#grade-rows');
+  const avg = Math.round(courses.reduce((s, c) => s + c.grade, 0) / courses.length);
+  countUp(document.getElementById('avg-num'), avg, '%');
+}
+
+function animateBars(scope) {
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.querySelectorAll(scope + ' .pbar i').forEach(b => b.style.width = b.dataset.w + '%')));
+}
+
+// --- navigation & events ---
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+    b.setAttribute('aria-current', b.dataset.view === name ? 'page' : 'false');
+  });
+  if (name === 'grades') renderGrades();
+  if (name === 'courses') renderCourses();
+  if (name === 'overview') { renderChart(); renderContinue(); }
+}
+
+document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => switchView(b.dataset.view)));
+
+document.getElementById('search').addEventListener('input', e => {
+  courseSearch = e.target.value;
+  if (!document.getElementById('view-courses').classList.contains('active')) switchView('courses');
+  renderCourses();
+});
+
+document.getElementById('course-chips').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  courseFilter = btn.dataset.filter;
+  document.querySelectorAll('#course-chips button').forEach(c => c.classList.toggle('active', c === btn));
+  renderCourses();
+});
+
+document.body.addEventListener('click', e => {
+  const resume = e.target.closest('[data-resume]');
+  if (resume) {
+    const c = byId(resume.dataset.resume);
+    toast(c.next ? `On it — ${c.next}` : `Reopening ${c.title}. Victory lap.`);
+    return;
+  }
+  const check = e.target.closest('[data-check]');
+  if (check) {
+    const a = assignments.find(x => x.id === +check.dataset.check);
+    a.done = !a.done;
+    persist();
+    renderAssignments(); renderStats(); renderDeadlines();
+    if (a.done && !assignments.some(x => !x.done)) { confetti(); toast('Clean sweep. The syllabus fears you.'); }
+    else if (a.done) toast(`Done: “${a.title}”`);
+    else toast(`Back on the list: “${a.title}”`);
+  }
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  try { localStorage.removeItem('prisma-lms-demo'); } catch (e) {}
+  location.reload();
+});
+
+// --- boot ---
+(function () {
+  const h = new Date().getHours();
+  const word = h < 12 ? 'Morning' : h < 18 ? 'Afternoon' : 'Evening';
+  document.getElementById('greet').textContent = `${word}, Rashida.`;
+  const due = assignments.filter(a => !a.done && daysUntil(a.due) >= 0 && daysUntil(a.due) <= 7).length;
+  document.getElementById('date-line').textContent = `Friday, July 10 · ${due} due this week · streak intact`;
+  renderStats(); renderChart(); renderContinue(); renderDeadlines(); renderAssignments();
+})();
+</script>
+</body>
+</html>

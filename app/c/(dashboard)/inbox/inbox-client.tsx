@@ -1,0 +1,80 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { apiGet, apiPost } from "@/lib/client/api";
+import { Spinner } from "@/components/spinner";
+import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
+
+type Receipt = {
+  id: string;
+  readAt: string | null;
+  message: { subject: string; body: string; category: string; createdAt: string };
+};
+
+export function InboxClient() {
+  const [receipts, setReceipts] = useState<Receipt[] | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await apiGet<{ receipts: Receipt[] }>("/api/client/inbox");
+    if (res.data) setReceipts(res.data.receipts);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader sets state after await
+    void load();
+  }, [load]);
+
+  async function open(r: Receipt) {
+    setOpenId((prev) => (prev === r.id ? null : r.id));
+    if (!r.readAt) {
+      await apiPost("/api/client/inbox", { recipientId: r.id });
+      setReceipts((prev) =>
+        prev ? prev.map((x) => (x.id === r.id ? { ...x, readAt: new Date().toISOString() } : x)) : prev
+      );
+    }
+  }
+
+  if (!receipts) return <Spinner label="Loading inbox…" />;
+  if (receipts.length === 0) {
+    return (
+      <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <EmptyState icon="mail" title="No messages">
+          You have no messages yet.
+        </EmptyState>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {receipts.map((r) => {
+        const unread = !r.readAt;
+        const isOpen = openId === r.id;
+        return (
+          <li key={r.id} className="overflow-hidden rounded-[12px] border-2 border-ink bg-card shadow-brutal-sm">
+            <button
+              type="button"
+              onClick={() => open(r)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            >
+              <span className={cn("size-2.5 shrink-0 rounded-full border-2 border-ink", unread ? "bg-pink" : "bg-transparent")} />
+              <span className="min-w-0 flex-1">
+                <span className={cn("block truncate", unread ? "font-bold" : "font-medium")}>{r.message.subject}</span>
+                <span className="block text-xs text-ink/50">{new Date(r.message.createdAt).toLocaleString()}</span>
+              </span>
+              <Badge>{r.message.category}</Badge>
+            </button>
+            {isOpen ? (
+              <div className="border-t-2 border-dashed border-ink/15 px-4 py-3 text-sm whitespace-pre-wrap text-ink/90">
+                {r.message.body}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

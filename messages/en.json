@@ -1,0 +1,56 @@
+{
+  "common": {
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  },
+  "nav": {
+    "overview": "Overview",
+    "users": "Users",
+    "userGroups": "User groups",
+    "clients": "Learners",
+    "learners": "Learners",
+    "clientGroups": "Client groups",
+    "courses": "Courses",
+    "programmes": "Programmes",
+    "enrollments": "Enrollments",
+    "assignments": "Assignments",
+    "questionBanks": "Question banks",
+    "quizzes": "Quizzes",
+    "certificates": "Certificates",
+    "events": "Calendar",
+    "messages": "Messages",
+    "resources": "Resources",
+    "billing": "Billing",
+    "fees": "Fees",
+    "coursePayments": "Course payments",
+    "roles": "Roles",
+    "templates": "Templates",
+    "activity": "Activity",
+    "settings": "Settings"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "forgotPassword": "Forgot password?"
+  },
+  "settings": {
+    "title": "Settings",
+    "tenantName": "Tenant name",
+    "primaryColor": "Primary color",
+    "timezone": "Timezone",
+    "locale": "Locale",
+    "currency": "Default currency",
+    "enabledModules": "Enabled modules",
+    "logo": "Logo",
+    "storageUnconfigured": "Object storage is not configured."
+  },
+  "maintenance": {
+    "title": "Academy unavailable",
+    "body": "This academy is temporarily unavailable — your trial may have ended or the account was suspended. Contact support or upgrade your plan.",
+    "trialExpired": "Your free trial has ended. Upgrade your subscription to restore access."
+  }
+}
