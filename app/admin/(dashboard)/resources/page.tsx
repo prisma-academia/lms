@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
+import { createPresignedDownload, s3Configured } from "@/lib/storage/s3";
 import { PageHeader } from "@/components/shell";
 import { ResourceLibrary, type ResourceItem } from "./resource-library";
 
@@ -20,16 +20,28 @@ export default async function ResourcesPage() {
     prisma.resourceTag.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
-  const items: ResourceItem[] = resources.map((r) => ({
-    id: r.id,
-    name: r.name,
-    contentType: r.contentType,
-    sizeBytes: Number(r.sizeBytes),
-    groupId: r.groupId,
-    tagIds: r.tags.map((t) => t.tagId),
-    url: configured ? publicUrlForKey(r.key) : null,
-    createdAt: r.createdAt.toISOString(),
-  }));
+  const items: ResourceItem[] = await Promise.all(
+    resources.map(async (r) => {
+      let url: string | null = null;
+      if (configured) {
+        try {
+          url = await createPresignedDownload(r.key);
+        } catch {
+          url = null;
+        }
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        contentType: r.contentType,
+        sizeBytes: Number(r.sizeBytes),
+        groupId: r.groupId,
+        tagIds: r.tags.map((t) => t.tagId),
+        url,
+        createdAt: r.createdAt.toISOString(),
+      };
+    })
+  );
 
   return (
     <div>

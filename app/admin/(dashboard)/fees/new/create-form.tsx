@@ -5,12 +5,19 @@ import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
+import type { SelectOption } from "@/lib/geo/options";
 
-const CURRENCY_OPTIONS = getCurrencyOptions();
 type Option = { value: string; label: string };
 
-export function CreateFeeForm({ clients, groups }: { clients: Option[]; groups: Option[] }) {
+export function CreateFeeForm({
+  clients,
+  groups,
+  currencyOptions,
+}: {
+  clients: Option[];
+  groups: Option[];
+  currencyOptions: SelectOption[];
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -70,7 +77,7 @@ export function CreateFeeForm({ clients, groups }: { clients: Option[]; groups: 
           <SelectInput
             id="fee-currency"
             allowEmpty={false}
-            options={CURRENCY_OPTIONS}
+            options={currencyOptions}
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
           />

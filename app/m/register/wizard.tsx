@@ -11,18 +11,19 @@ import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import { OtpInput } from "@/components/ui/otp-input";
 import { getCountryOptions } from "@/lib/geo/countries";
+import { invalidEmail, minLength, required } from "@/lib/validation/messages";
 
 const RESEND_COOLDOWN = 60;
 
 const AccountSchema = z
   .object({
-    firstName: z.string().min(1).max(100),
-    lastName: z.string().min(1).max(100),
+    firstName: z.string().min(1, required("First name")).max(100),
+    lastName: z.string().min(1, required("Last name")).max(100),
     otherName: z.string().max(100).optional().or(z.literal("")),
     phone: z.string().max(40).optional().or(z.literal("")),
-    email: z.email(),
-    password: z.string().min(12),
-    confirmPassword: z.string().min(12),
+    email: z.email(invalidEmail),
+    password: z.string().min(12, minLength("Password", 12)),
+    confirmPassword: z.string().min(12, minLength("Confirm password", 12)),
   })
   .refine((v) => v.password === v.confirmPassword, {
     path: ["confirmPassword"],
@@ -30,9 +31,9 @@ const AccountSchema = z
   });
 
 const CompanySchema = z.object({
-  name: z.string().min(1).max(200),
-  slug: z.string().min(3).max(32).regex(/^[a-z0-9-]+$/, "Lowercase letters, digits, hyphens."),
-  companyEmail: z.email().optional().or(z.literal("")),
+  name: z.string().min(1, required("Company name")).max(200),
+  slug: z.string().min(3, "Workspace URL must be at least 3 characters.").max(32).regex(/^[a-z0-9-]+$/, "Lowercase letters, digits, hyphens."),
+  companyEmail: z.email(invalidEmail).optional().or(z.literal("")),
   companyPhone: z.string().max(40).optional().or(z.literal("")),
   website: z.string().max(200).optional().or(z.literal("")),
   addressLine1: z.string().max(200).optional().or(z.literal("")),

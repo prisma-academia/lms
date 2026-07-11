@@ -56,7 +56,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
         month={month0}
         occurrences={occurrences}
         basePath="/admin/events"
-        eventHref={(id) => `/admin/events/${id}`}
+        eventHrefPrefix="/admin/events"
       />
     </div>
   );

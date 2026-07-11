@@ -6,6 +6,9 @@ import { PERMISSIONS } from "@/lib/auth/permissions";
 import { parseTenantSettings } from "@/lib/tenant/settings";
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { env } from "@/lib/env";
+import { getCurrencyOptions } from "@/lib/geo/currencies";
+import { getLocaleOptions } from "@/lib/geo/locales";
+import { getTimezoneOptions } from "@/lib/geo/timezones";
 import { PageHeader, Card } from "@/components/shell";
 import { SettingsForm } from "./form";
 
@@ -20,6 +23,9 @@ export default async function TenantSettingsPage() {
   const logoUrl =
     settings.logoKey && s3Configured() ? publicUrlForKey(settings.logoKey) : null;
   const t = await getTranslations("settings");
+  const timezoneOptions = getTimezoneOptions();
+  const localeOptions = getLocaleOptions(env.SUPPORTED_LOCALES);
+  const currencyOptions = getCurrencyOptions();
 
   return (
     <div>
@@ -28,7 +34,9 @@ export default async function TenantSettingsPage() {
         <SettingsForm
           initial={{ name: tenant.name, settings, logoUrl }}
           storageEnabled={s3Configured()}
-          supportedLocales={env.SUPPORTED_LOCALES}
+          timezoneOptions={timezoneOptions}
+          localeOptions={localeOptions}
+          currencyOptions={currencyOptions}
         />
       </Card>
     </div>

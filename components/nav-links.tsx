@@ -11,17 +11,20 @@ export function NavLinks({
   items,
   onNavigate,
   className,
+  isActive: isActiveFn,
 }: {
   items: NavItem[];
   onNavigate?: () => void;
   className?: string;
+  isActive?: (pathname: string, href: string) => boolean;
 }) {
   const pathname = usePathname();
   return (
     <nav className={cn("flex flex-col gap-1", className)}>
       {items.map((n) => {
-        const active =
-          pathname === n.href || pathname.startsWith(n.href + "/");
+        const active = isActiveFn
+          ? isActiveFn(pathname, n.href)
+          : pathname === n.href || pathname.startsWith(n.href + "/");
         return (
           <Link
             key={n.href}

@@ -28,6 +28,26 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
 
+function ResourceThumbnail({ item }: { item: ResourceItem }) {
+  const [failed, setFailed] = useState(false);
+  if (!item.url || !item.contentType.startsWith("image/") || failed) {
+    return (
+      <div className="flex h-28 items-center justify-center rounded-[8px] border-2 border-ink bg-paper">
+        <Icon name="file" className="size-8 text-ink/40" />
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={item.url}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-28 w-full rounded-[8px] border-2 border-ink object-cover"
+    />
+  );
+}
+
 export function ResourceLibrary({
   items: initialItems,
   groups: initialGroups,
@@ -202,14 +222,7 @@ export function ResourceLibrary({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (
             <Card key={item.id} className="flex flex-col gap-2">
-              {item.url && item.contentType.startsWith("image/") ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.url} alt="" className="h-28 w-full rounded-[8px] border-2 border-ink object-cover" />
-              ) : (
-                <div className="flex h-28 items-center justify-center rounded-[8px] border-2 border-ink bg-paper">
-                  <Icon name="file" className="size-8 text-ink/40" />
-                </div>
-              )}
+              <ResourceThumbnail item={item} />
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold" title={item.name}>{item.name}</div>
                 <div className="text-xs text-ink/50">{formatSize(item.sizeBytes)} · {groupName(item.groupId)}</div>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
+import { getCurrencyOptions } from "@/lib/geo/currencies";
 import { PageHeader } from "@/components/shell";
 import { CourseEditor } from "./course-editor";
 
@@ -35,6 +36,8 @@ export default async function CourseDetailPage({
     take: 500,
     select: { id: true, name: true, key: true },
   });
+
+  const currencyOptions = getCurrencyOptions();
 
   const initial = {
     id: course.id,
@@ -73,6 +76,7 @@ export default async function CourseDetailPage({
         canWrite={hasPermission(actor, PERMISSIONS.TENANT_COURSES_WRITE.key)}
         quizzes={quizzes}
         resources={resources}
+        currencyOptions={currencyOptions}
       />
     </div>
   );

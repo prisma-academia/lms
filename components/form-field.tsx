@@ -55,18 +55,20 @@ export function SelectInput({
   options,
   placeholder = "Select…",
   allowEmpty = true,
+  optionKey,
   className,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   options: { value: string; label: string }[];
   placeholder?: string;
   allowEmpty?: boolean;
+  optionKey?: (opt: { value: string; label: string }) => string;
 }) {
   return (
     <select {...props} className={cn(controlClass, "appearance-none pr-9", className)}>
       {allowEmpty ? <option value="">{placeholder}</option> : null}
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
+        <option key={optionKey ? optionKey(opt) : opt.value} value={opt.value}>
           {opt.label}
         </option>
       ))}

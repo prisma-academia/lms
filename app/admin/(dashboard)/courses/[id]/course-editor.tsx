@@ -7,9 +7,7 @@ import { uploadViaPresign } from "@/lib/client/upload";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/shell";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
-
-const CURRENCY_OPTIONS = getCurrencyOptions();
+import type { SelectOption } from "@/lib/geo/options";
 
 type LessonContentType = "TEXT" | "VIDEO_URL" | "FILE" | "QUIZ";
 
@@ -76,11 +74,13 @@ export function CourseEditor({
   canWrite,
   quizzes,
   resources,
+  currencyOptions,
 }: {
   initial: CourseInitial;
   canWrite: boolean;
   quizzes: { id: string; title: string }[];
   resources: { id: string; name: string; key: string }[];
+  currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -408,7 +408,7 @@ export function CourseEditor({
               <SelectInput
                 id="course-currency"
                 allowEmpty={false}
-                options={CURRENCY_OPTIONS}
+                options={currencyOptions}
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 disabled={!canWrite}

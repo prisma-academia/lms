@@ -5,9 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput, TextArea } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
-
-const CURRENCY_OPTIONS = getCurrencyOptions();
+import type { SelectOption } from "@/lib/geo/options";
 
 function slugFromTitle(title: string) {
   return title
@@ -18,7 +16,7 @@ function slugFromTitle(title: string) {
     .slice(0, 80);
 }
 
-export function NewCourseForm() {
+export function NewCourseForm({ currencyOptions }: { currencyOptions: SelectOption[] }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -107,7 +105,7 @@ export function NewCourseForm() {
           <SelectInput
             id="currency"
             allowEmpty={false}
-            options={CURRENCY_OPTIONS}
+            options={currencyOptions}
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
           />

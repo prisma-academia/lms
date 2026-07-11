@@ -26,7 +26,7 @@ export default async function ClientsPage() {
   }));
   return (
     <div>
-      <DataTableToolbar title="Clients" createHref="/admin/clients/new" createLabel="New client" />
+      <DataTableToolbar title="Learners" createHref="/admin/clients/new" createLabel="New learner" />
       <ClientsTable data={rows} />
     </div>
   );

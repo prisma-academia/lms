@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 
@@ -157,6 +157,14 @@ export async function createPresignedUpload(input: {
   });
   const url = await getSignedUrl(getClient(), command, { expiresIn: 300 });
   return { url, key, publicUrl: publicUrlForKey(key) };
+}
+
+export async function createPresignedDownload(key: string, expiresIn = 3600): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: env.S3_BUCKET!,
+    Key: key,
+  });
+  return getSignedUrl(getClient(), command, { expiresIn });
 }
 
 /** @deprecated use isAllowedUploadType */

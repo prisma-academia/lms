@@ -61,7 +61,43 @@ export function DataTable<TData>({
           onChange={(e) => table.getColumn(filterColumnId)?.setFilterValue(e.target.value)}
         />
       ) : null}
-      <div className="overflow-x-auto rounded-[14px] border-2 border-ink bg-card shadow-brutal [scrollbar-gutter:stable]">
+      <div className="flex flex-col gap-2 md:hidden">
+        {table.getRowModel().rows.length === 0 ? (
+          <div className="rounded-[14px] border-2 border-ink bg-card px-4 py-6 text-center text-sm font-medium text-ink/60 shadow-brutal">
+            {empty}
+          </div>
+        ) : (
+          table.getRowModel().rows.map((row) => {
+            const href = rowHref ? rowHref(row.original) : null;
+            const cells = row.getVisibleCells();
+            const primary = cells[0];
+            const secondary = cells.slice(1, 3);
+            return (
+              <button
+                key={row.id}
+                type="button"
+                disabled={!href}
+                onClick={() => {
+                  if (href) router.push(href);
+                }}
+                className={`rounded-[14px] border-2 border-ink bg-card p-4 text-left shadow-brutal ${href ? "cursor-pointer hover:bg-paper" : ""}`}
+              >
+                <div className="text-sm font-bold">
+                  {primary ? flexRender(primary.column.columnDef.cell, primary.getContext()) : null}
+                </div>
+                {secondary.length > 0 ? (
+                  <div className="mt-2 flex flex-col gap-1 text-xs text-ink/60">
+                    {secondary.map((c) => (
+                      <div key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</div>
+                    ))}
+                  </div>
+                ) : null}
+              </button>
+            );
+          })
+        )}
+      </div>
+      <div className="hidden overflow-x-auto rounded-[14px] border-2 border-ink bg-card shadow-brutal [scrollbar-gutter:stable] md:block">
         <table className="w-full text-left text-sm">
           <thead className="border-b-2 border-ink bg-paper">
             {table.getHeaderGroups().map((hg) => (

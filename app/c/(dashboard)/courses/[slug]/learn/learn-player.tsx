@@ -39,6 +39,23 @@ function lessonBody(lesson: LearnLesson): string | null {
   return null;
 }
 
+function renderLessonBody(text: string) {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          className="rounded bg-paper px-1 py-0.5 font-mono text-[13px] text-ink"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 function LessonContent({ lesson }: { lesson: LearnLesson }) {
   if (lesson.contentType === "QUIZ") {
     const quizId = typeof lesson.contentJson.quizId === "string" ? lesson.contentJson.quizId : null;
@@ -79,7 +96,7 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
   if (body) {
     return (
       <div className="whitespace-pre-wrap text-[15px] font-medium leading-relaxed text-ink/90">
-        {body}
+        {renderLessonBody(body)}
       </div>
     );
   }

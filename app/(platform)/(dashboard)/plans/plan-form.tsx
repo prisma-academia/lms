@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiPost, apiPatch, apiDelete } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput, SelectInput } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
+import type { SelectOption } from "@/lib/geo/options";
 
-const CURRENCY_OPTIONS = getCurrencyOptions();
 const GB = 1024 ** 3;
 
 export type PlanInitial = {
@@ -34,10 +33,12 @@ export function PlanForm({
   mode,
   id,
   initial,
+  currencyOptions,
 }: {
   mode: "create" | "edit";
   id?: string;
   initial: PlanInitial;
+  currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
   const [v, setV] = useState(initial);
@@ -129,7 +130,7 @@ export function PlanForm({
           <SelectInput
             id="p-currency"
             allowEmpty={false}
-            options={CURRENCY_OPTIONS}
+            options={currencyOptions}
             value={v.currency}
             onChange={(e) => set("currency", e.target.value)}
           />

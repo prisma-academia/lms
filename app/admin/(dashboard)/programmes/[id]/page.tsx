@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
+import { getCurrencyOptions } from "@/lib/geo/currencies";
 import { PageHeader } from "@/components/shell";
 import { ProgrammeEditor } from "./programme-editor";
 
@@ -27,6 +28,7 @@ export default async function EditProgrammePage({ params }: { params: Promise<{ 
   });
 
   const canWrite = hasPermission(actor, PERMISSIONS.TENANT_PROGRAMMES_WRITE.key);
+  const currencyOptions = getCurrencyOptions();
 
   return (
     <div>
@@ -50,6 +52,7 @@ export default async function EditProgrammePage({ params }: { params: Promise<{ 
         }))}
         allCourses={allCourses}
         canWrite={canWrite}
+        currencyOptions={currencyOptions}
       />
     </div>
   );

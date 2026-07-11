@@ -24,20 +24,20 @@ function monthParam(year: number, month0: number): string {
 
 /**
  * Renders a month grid with event occurrences. `basePath` is used to build
- * prev/next month links (?month=YYYY-MM). `eventHref` optionally links an event.
+ * prev/next month links (?month=YYYY-MM). `eventHrefPrefix` optionally links an event.
  */
 export function MonthCalendar({
   year,
   month,
   occurrences,
   basePath,
-  eventHref,
+  eventHrefPrefix,
 }: {
   year: number;
   month: number; // 0-11
   occurrences: CalOccurrence[];
   basePath: string;
-  eventHref?: (id: string) => string;
+  eventHrefPrefix?: string;
 }) {
   const first = new Date(year, month, 1);
   const startWeekday = first.getDay();
@@ -106,8 +106,8 @@ export function MonthCalendar({
                         {o.title}
                       </span>
                     );
-                    return eventHref ? (
-                      <Link key={`${o.id}-${idx}`} href={eventHref(o.id)}>{chip}</Link>
+                    return eventHrefPrefix ? (
+                      <Link key={`${o.id}-${idx}`} href={`${eventHrefPrefix}/${o.id}`}>{chip}</Link>
                     ) : (
                       <div key={`${o.id}-${idx}`}>{chip}</div>
                     );

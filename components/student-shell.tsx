@@ -1,16 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
+import { NavLinks, type NavItem } from "@/components/nav-links";
 import { ToastProvider } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-type Tab = { href: string; label: string; icon: IconName };
+type Tab = NavItem & { icon: IconName };
 
-const TABS: Tab[] = [
+const PRIMARY_TABS: Tab[] = [
   { href: "/dashboard", label: "Home", icon: "grid" },
   { href: "/my-courses", label: "Courses", icon: "book" },
   { href: "/assignments", label: "Tasks", icon: "clipboard" },
@@ -18,10 +20,22 @@ const TABS: Tab[] = [
   { href: "/profile", label: "Profile", icon: "user" },
 ];
 
+const SECONDARY_NAV: Tab[] = [
+  { href: "/courses", label: "Catalog", icon: "search" },
+  { href: "/programmes", label: "Programmes", icon: "book" },
+  { href: "/certificates", label: "Certificates", icon: "award" },
+  { href: "/calendar", label: "Calendar", icon: "calendar" },
+  { href: "/inbox", label: "Inbox", icon: "mail" },
+  { href: "/notifications", label: "Notifications", icon: "bell" },
+];
+
+const SIDEBAR_NAV: Tab[] = [...PRIMARY_TABS, ...SECONDARY_NAV];
+
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
   if (href === "/my-courses")
-    return pathname === "/my-courses" || pathname.startsWith("/courses");
+    return pathname === "/my-courses" || pathname.startsWith("/courses/");
+  if (href === "/courses") return pathname === "/courses";
   return pathname === href || pathname.startsWith(href + "/");
 }
 
@@ -45,6 +59,7 @@ export function StudentShell({
 }) {
   const pathname = usePathname();
   const accent = accentColor || "var(--yellow)";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <ToastProvider>
@@ -68,99 +83,7 @@ export function StudentShell({
             </div>
           </div>
 
-          <nav className="flex flex-col gap-1">
-            {TABS.map((t) => {
-              const active = isActive(pathname, t.href);
-              return (
-                <Link
-                  key={t.href}
-                  href={t.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                    active
-                      ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                      : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-                  )}
-                >
-                  <Icon name={t.icon} className="size-[18px]" />
-                  {t.label}
-                </Link>
-              );
-            })}
-            <Link
-              href="/courses"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname === "/courses"
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="search" className="size-[18px]" />
-              Catalog
-            </Link>
-            <Link
-              href="/programmes"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname === "/programmes"
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="book" className="size-[18px]" />
-              Programmes
-            </Link>
-            <Link
-              href="/certificates"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname.startsWith("/certificates")
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="award" className="size-[18px]" />
-              Certificates
-            </Link>
-            <Link
-              href="/calendar"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname.startsWith("/calendar")
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="calendar" className="size-[18px]" />
-              Calendar
-            </Link>
-            <Link
-              href="/inbox"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname.startsWith("/inbox")
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="mail" className="size-[18px]" />
-              Inbox
-            </Link>
-            <Link
-              href="/notifications"
-              className={cn(
-                "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color]",
-                pathname.startsWith("/notifications")
-                  ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                  : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
-              )}
-            >
-              <Icon name="bell" className="size-[18px]" />
-              Notifications
-            </Link>
-          </nav>
+          <NavLinks items={SIDEBAR_NAV} isActive={isActive} />
 
           <div className="mt-auto pt-6">
             <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-ink/35 pt-4">
@@ -183,15 +106,24 @@ export function StudentShell({
         </aside>
 
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b-2 border-ink bg-card px-4 py-3 lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b-2 border-ink bg-card px-3 py-3 sm:gap-3 sm:px-4 lg:hidden">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink bg-card shadow-brutal-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+          >
+            <Icon name={menuOpen ? "x" : "menu"} className="size-[18px]" />
+          </button>
           <span
-            className="flex size-9 -rotate-3 items-center justify-center rounded-[10px] border-2 border-ink text-ink shadow-brutal-sm"
+            className="flex size-9 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-ink text-ink shadow-brutal-sm"
             style={{ background: accent }}
           >
             <Icon name="cap" className="size-[18px]" />
           </span>
-          <span className="truncate font-heading text-base">{title}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <span className="min-w-0 truncate font-heading text-base">{title}</span>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <NotificationBell />
           </div>
           <Link
@@ -204,6 +136,30 @@ export function StudentShell({
           </Link>
         </header>
 
+        {menuOpen ? (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              className="absolute inset-0 bg-ink/40"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div className="safe-b absolute inset-x-0 top-0 max-h-[100dvh] overflow-y-auto border-b-2 border-ink bg-card px-4 pb-6 pt-[68px] shadow-brutal">
+              <NavLinks items={SECONDARY_NAV} onNavigate={() => setMenuOpen(false)} />
+              <div className="mt-4 border-t-2 border-dashed border-ink/35 pt-4">
+                <div className="mb-2 truncate text-sm font-bold text-ink/60">
+                  {userLabel}
+                </div>
+                <LogoutButton
+                  endpoint="/api/auth/logout"
+                  postLogoutPath="/auth/login"
+                  logoutContext="client"
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {/* Main content */}
         <main className="min-w-0 flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-10 lg:py-8">
           <div className="mx-auto w-full max-w-4xl">{children}</div>
@@ -214,7 +170,7 @@ export function StudentShell({
           aria-label="Primary"
           className="safe-b fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t-2 border-ink bg-card lg:hidden"
         >
-          {TABS.map((t) => {
+          {PRIMARY_TABS.map((t) => {
             const active = isActive(pathname, t.href);
             return (
               <Link

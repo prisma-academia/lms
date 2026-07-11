@@ -1,5 +1,7 @@
+import { format } from "date-fns";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
+import { formatActivityAction } from "@/lib/activity/display";
 import { PageHeader, Card } from "@/components/shell";
 
 export default async function AdminOverviewPage() {
@@ -45,9 +47,11 @@ export default async function AdminOverviewPage() {
             <li className="py-3 text-stone-500">No activity yet.</li>
           ) : (
             recent.map((l) => (
-              <li key={l.id} className="flex justify-between py-2">
-                <span className="font-mono text-xs">{l.action}</span>
-                <span className="text-xs text-stone-500">{l.createdAt.toISOString()}</span>
+              <li key={l.id} className="flex justify-between gap-3 py-2">
+                <span className="text-sm font-medium">{formatActivityAction(l.action)}</span>
+                <span className="shrink-0 text-xs text-stone-500">
+                  {format(l.createdAt, "dd/MM/yyyy, HH:mm:ss")}
+                </span>
               </li>
             ))
           )}

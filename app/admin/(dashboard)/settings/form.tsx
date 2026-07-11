@@ -4,13 +4,8 @@ import { useState } from "react";
 import { apiPatch, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
-import { getLocaleOptions } from "@/lib/geo/locales";
-import { getTimezoneOptions } from "@/lib/geo/timezones";
+import type { SelectOption } from "@/lib/geo/options";
 import { MODULE_KEYS, type ModuleKey, type TenantSettings } from "@/lib/tenant/settings";
-
-const TIMEZONE_OPTIONS = getTimezoneOptions();
-const CURRENCY_OPTIONS = getCurrencyOptions();
 
 type Initial = {
   name: string;
@@ -21,13 +16,16 @@ type Initial = {
 export function SettingsForm({
   initial,
   storageEnabled,
-  supportedLocales,
+  timezoneOptions,
+  localeOptions,
+  currencyOptions,
 }: {
   initial: Initial;
   storageEnabled: boolean;
-  supportedLocales: string[];
+  timezoneOptions: SelectOption[];
+  localeOptions: SelectOption[];
+  currencyOptions: SelectOption[];
 }) {
-  const localeOptions = getLocaleOptions(supportedLocales);
   const [name, setName] = useState(initial.name);
   const [primaryColor, setPrimaryColor] = useState(initial.settings.primaryColor);
   const [timezone, setTimezone] = useState(initial.settings.timezone);
@@ -122,7 +120,7 @@ export function SettingsForm({
         <SelectInput
           id="timezone"
           allowEmpty={false}
-          options={TIMEZONE_OPTIONS}
+          options={timezoneOptions}
           value={timezone}
           onChange={(e) => setTimezone(e.target.value)}
         />
@@ -142,7 +140,7 @@ export function SettingsForm({
         <SelectInput
           id="currency"
           allowEmpty={false}
-          options={CURRENCY_OPTIONS}
+          options={currencyOptions}
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
         />

@@ -3,6 +3,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
 
+import { formatTemplateType } from "@/lib/templates/types";
+
 export type TemplateRow = {
   id: string;
   name: string;
@@ -12,7 +14,7 @@ export type TemplateRow = {
 
 const columns: ColumnDef<TemplateRow>[] = [
   { accessorKey: "name", header: "Name" },
-  { accessorKey: "type", header: "Type", cell: (i) => <span className="font-mono text-xs">{i.getValue() as string}</span> },
+  { accessorKey: "type", header: "Type", cell: (i) => <span className="text-xs">{formatTemplateType(i.getValue() as string)}</span> },
   {
     accessorKey: "createdAt",
     header: "Created",

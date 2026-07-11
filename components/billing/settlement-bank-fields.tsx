@@ -131,6 +131,7 @@ export function SettlementBankFields({
         <SelectInput
           id={bankFieldId}
           options={banks}
+          optionKey={(opt) => `${opt.value}::${opt.label}`}
           value={bankCode}
           onChange={(e) => handleBankChange(e.target.value)}
           disabled={disabled || banksLoading}

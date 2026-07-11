@@ -6,9 +6,7 @@ import { apiPatch, apiPost, apiDelete } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/shell";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
-import { getCurrencyOptions } from "@/lib/geo/currencies";
-
-const CURRENCY_OPTIONS = getCurrencyOptions();
+import type { SelectOption } from "@/lib/geo/options";
 
 type CourseOption = { id: string; title: string; status: string };
 type SelectedCourse = { courseId: string; title: string; required: boolean; groupLabel: string };
@@ -19,6 +17,7 @@ export function ProgrammeEditor({
   selectedCourses,
   allCourses,
   canWrite,
+  currencyOptions,
 }: {
   id: string;
   initial: {
@@ -33,6 +32,7 @@ export function ProgrammeEditor({
   selectedCourses: SelectedCourse[];
   allCourses: CourseOption[];
   canWrite: boolean;
+  currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
@@ -161,7 +161,7 @@ export function ProgrammeEditor({
               <SelectInput
                 id="p-currency"
                 allowEmpty={false}
-                options={CURRENCY_OPTIONS}
+                options={currencyOptions}
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 disabled={!canWrite}

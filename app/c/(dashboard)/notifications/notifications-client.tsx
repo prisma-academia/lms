@@ -55,7 +55,7 @@ export function NotificationsClient() {
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase text-stone-500">Notifications</h2>
           {notifs.some((n) => !n.readAt) ? (
             <Button type="button" variant="outline" size="sm" onClick={markAll}>Mark all read</Button>

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
+import { getCurrencyOptions } from "@/lib/geo/currencies";
 import { PageHeader, Card } from "@/components/shell";
 import { CreateFeeForm } from "./create-form";
 
@@ -20,6 +21,7 @@ export default async function NewFeePage() {
       select: { id: true, name: true },
     }),
   ]);
+  const currencyOptions = getCurrencyOptions();
   return (
     <div>
       <PageHeader title="New fee" />
@@ -30,6 +32,7 @@ export default async function NewFeePage() {
             label: `${`${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || c.email} — ${c.email}`,
           }))}
           groups={groups.map((g) => ({ value: g.id, label: g.name }))}
+          currencyOptions={currencyOptions}
         />
       </Card>
     </div>

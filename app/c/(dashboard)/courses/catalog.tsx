@@ -69,7 +69,7 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
             return (
               <div
                 key={course.id}
-                className="flex flex-col rounded-[14px] border-2 border-ink bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="flex h-full flex-col rounded-[14px] border-2 border-ink bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
                 style={{ boxShadow: `6px 6px 0 ${accent}` }}
               >
                 {course.thumbnailUrl ? (
@@ -113,7 +113,7 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
                     />
                   </div>
                 ) : null}
-                <div className="mt-4 border-t-2 border-dashed border-ink/15 pt-4">
+                <div className="mt-auto border-t-2 border-dashed border-ink/15 pt-4">
                   <CourseEnrollButton
                     slug={course.slug}
                     priceCents={course.priceCents}
