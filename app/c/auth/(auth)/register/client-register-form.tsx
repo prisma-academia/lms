@@ -8,6 +8,7 @@ import Link from "next/link";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { OtpInput } from "@/components/ui/otp-input";
 
 const DetailsSchema = z
   .object({
@@ -100,11 +101,16 @@ export function ClientRegisterForm() {
         </p>
         <form onSubmit={onOtp} className="flex flex-col gap-4">
           <FormField label="Verification code" htmlFor="code" error={otpForm.formState.errors.code?.message}>
-            <TextInput
+            <OtpInput
               id="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              {...otpForm.register("code")}
+              autoFocus
+              value={otpForm.watch("code") ?? ""}
+              onChange={(v) =>
+                otpForm.setValue("code", v, {
+                  shouldValidate: otpForm.formState.isSubmitted,
+                })
+              }
+              aria-invalid={Boolean(otpForm.formState.errors.code)}
             />
           </FormField>
           {otpInfo ? <p className="text-sm text-green-700">{otpInfo}</p> : null}
