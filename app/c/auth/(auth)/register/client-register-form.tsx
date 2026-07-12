@@ -126,11 +126,21 @@ export function ClientRegisterForm() {
   }
 
   return (
-    <form onSubmit={onDetails} className="flex flex-col gap-4">
-      <FormField label="Email" htmlFor="email" error={detailsForm.formState.errors.email?.message}>
+    <form onSubmit={onDetails} className="grid gap-4 lg:grid-cols-2">
+      <FormField
+        className="lg:col-span-2"
+        label="Email"
+        htmlFor="email"
+        error={detailsForm.formState.errors.email?.message}
+      >
         <TextInput id="email" type="email" autoComplete="email" {...detailsForm.register("email")} />
       </FormField>
-      <FormField label="Display name" htmlFor="displayName" error={detailsForm.formState.errors.displayName?.message}>
+      <FormField
+        className="lg:col-span-2"
+        label="Display name"
+        htmlFor="displayName"
+        error={detailsForm.formState.errors.displayName?.message}
+      >
         <TextInput id="displayName" autoComplete="name" {...detailsForm.register("displayName")} />
       </FormField>
       <FormField label="First name (optional)" htmlFor="firstName" error={detailsForm.formState.errors.firstName?.message}>
@@ -152,13 +162,17 @@ export function ClientRegisterForm() {
         <TextInput id="confirm" type="password" autoComplete="new-password" {...detailsForm.register("confirm")} />
       </FormField>
       {detailsForm.formState.errors.root?.message ? (
-        <p className="text-sm text-red-600">{detailsForm.formState.errors.root.message}</p>
+        <p className="text-sm text-red-600 lg:col-span-2">{detailsForm.formState.errors.root.message}</p>
       ) : null}
-      <p className="text-xs text-stone-500">12+ characters with upper, lower, digit, and symbol.</p>
-      <Button type="submit" disabled={detailsForm.formState.isSubmitting}>
-        {detailsForm.formState.isSubmitting ? "Sending code…" : "Continue — verify email"}
-      </Button>
-      <p className="text-center text-xs text-stone-500">
+      <p className="text-xs text-stone-500 lg:col-span-2">
+        12+ characters with upper, lower, digit, and symbol.
+      </p>
+      <div className="lg:col-span-2">
+        <Button type="submit" className="w-full" disabled={detailsForm.formState.isSubmitting}>
+          {detailsForm.formState.isSubmitting ? "Sending code…" : "Continue — verify email"}
+        </Button>
+      </div>
+      <p className="text-center text-xs text-stone-500 lg:col-span-2">
         <Link href="/auth/login" className="underline">
           Back to sign in
         </Link>

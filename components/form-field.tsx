@@ -12,15 +12,17 @@ export function FormField({
   error,
   hint,
   children,
+  className,
 }: {
   label: string;
   htmlFor: string;
   error?: string;
   hint?: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm" htmlFor={htmlFor}>
+    <label className={cn("flex flex-col gap-1.5 text-sm", className)} htmlFor={htmlFor}>
       <span className="text-[13px] font-bold text-ink">{label}</span>
       {children}
       {hint && !error ? (

@@ -7,16 +7,18 @@ export function AuthCard({
   children,
   footer,
   accent,
+  wide = false,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
   accent?: string;
+  wide?: boolean;
 }) {
   return (
     <main className="flex min-h-[100dvh] flex-1 items-center justify-center p-5">
-      <div className="w-full max-w-sm">
+      <div className={`w-full ${wide ? "max-w-3xl" : "max-w-sm"}`}>
         <div className="mb-5 flex justify-center">
           <span
             className="flex size-11 -rotate-3 items-center justify-center rounded-[12px] border-2 border-ink text-ink shadow-brutal-sm"
