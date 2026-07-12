@@ -1,53 +1,109 @@
-import Link from "next/link";
 import { requireExistingTenant } from "@/lib/auth/tenant-page";
-import { parseTenantSettings } from "@/lib/tenant/settings";
 import { prisma } from "@/lib/db/client";
-import { Button } from "@/components/ui/button";
-import { Decor } from "@/components/marketing/decor";
+import { parseTenantSettings } from "@/lib/tenant/settings";
+import {
+  formatTenantAddress,
+  formatTenantLocation,
+} from "@/lib/tenant/landing";
+import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
+import { TenantLandingShell } from "@/components/tenant/landing-shell";
+import { LandingHero } from "@/components/tenant/landing-hero";
+import { LandingAbout } from "@/components/tenant/landing-about";
+import { LandingBenefits } from "@/components/tenant/landing-benefits";
+import {
+  LandingCourses,
+  type LandingCourse,
+} from "@/components/tenant/landing-courses";
+import { LandingSteps } from "@/components/tenant/landing-steps";
 
 export default async function TenantLandingPage() {
   const page = await requireExistingTenant();
-  const tenant = page.tenant!;
+  const tenantId = page.tenant!.id;
 
-  const row = await prisma.tenant.findUnique({
-    where: { id: tenant.id },
-    select: { settingsJson: true },
-  });
-  const settings = parseTenantSettings(row?.settingsJson);
-  const accent = settings.primaryColor;
+  const [row, courses] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        name: true,
+        companyEmail: true,
+        companyPhone: true,
+        website: true,
+        addressLine1: true,
+        addressLine2: true,
+        city: true,
+        region: true,
+        postalCode: true,
+        country: true,
+        settingsJson: true,
+      },
+    }),
+    prisma.course.findMany({
+      where: { status: "PUBLISHED", visibility: "PUBLIC" },
+      orderBy: { publishedAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        priceCents: true,
+        currency: true,
+        thumbnailKey: true,
+        _count: { select: { lessons: true } },
+      },
+    }),
+  ]);
+
+  if (!row) return null;
+
+  const settings = parseTenantSettings(row.settingsJson);
+  const logoUrl =
+    settings.logoKey && s3Configured()
+      ? publicUrlForKey(settings.logoKey)
+      : null;
+  const location = formatTenantLocation(row.city, row.country, settings.locale);
+  const addressLines = formatTenantAddress(
+    {
+      addressLine1: row.addressLine1,
+      addressLine2: row.addressLine2,
+      city: row.city,
+      region: row.region,
+      postalCode: row.postalCode,
+      country: row.country,
+    },
+    settings.locale
+  );
+
+  const landingCourses: LandingCourse[] = courses.map((c) => ({
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    priceCents: c.priceCents,
+    currency: c.currency,
+    thumbnailUrl:
+      c.thumbnailKey && s3Configured() ? publicUrlForKey(c.thumbnailKey) : null,
+    lessonCount: c._count.lessons,
+  }));
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-1 flex-col items-center justify-center overflow-hidden p-5">
-      <Decor preset="tenant" />
-      <div className="relative w-full max-w-lg rounded-[14px] border-2 border-ink bg-card p-8 text-center shadow-brutal">
-        <div
-          className="mx-auto mb-4 flex size-16 -rotate-3 items-center justify-center rounded-[14px] border-2 border-ink font-heading text-2xl text-ink shadow-brutal-sm"
-          style={{ background: accent }}
-        >
-          {tenant.name.charAt(0).toUpperCase()}
-        </div>
-        <h1 className="font-heading text-3xl leading-tight">{tenant.name}</h1>
-        <p className="mt-2 text-sm font-medium text-ink/60">
-          Welcome to your workspace. Sign in as a learner or administrator.
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button asChild>
-            <Link href="/auth/login">Learner sign in</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/admin/auth/login">Admin sign in</Link>
-          </Button>
-        </div>
-        <p className="mt-6 text-[13px] font-medium text-ink/60">
-          New learner?{" "}
-          <Link
-            href="/auth/register"
-            className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
-          >
-            Create an account
-          </Link>
-        </p>
-      </div>
-    </main>
+    <TenantLandingShell orgName={row.name}>
+      <main>
+        <LandingHero
+          name={row.name}
+          logoUrl={logoUrl}
+          accentColor={settings.primaryColor}
+          location={location}
+          hasCourses={landingCourses.length > 0}
+        />
+        <LandingAbout
+          companyEmail={row.companyEmail}
+          companyPhone={row.companyPhone}
+          website={row.website}
+          addressLines={addressLines}
+        />
+        <LandingBenefits />
+        <LandingCourses courses={landingCourses} />
+        <LandingSteps accentColor={settings.primaryColor} />
+      </main>
+    </TenantLandingShell>
   );
 }

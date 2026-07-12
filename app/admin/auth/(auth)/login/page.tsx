@@ -5,8 +5,8 @@ import { AuthCard } from "@/components/auth-card";
 export default function AdminLoginPage() {
   return (
     <AuthCard
-      title="Admin sign in"
-      subtitle="Use the credentials your administrator sent."
+      title="Admin portal"
+      subtitle="Staff and instructor access."
       footer={
         <Link
           href="/admin/auth/forgot-password"

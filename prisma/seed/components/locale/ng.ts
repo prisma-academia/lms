@@ -2,6 +2,9 @@
 export const NG_LOCALE = {
   tenantName: "Greenfield Academy Lagos",
   companyEmail: "hello@greenfieldacademy.ng",
+  companyPhone: "+234 801 234 5678",
+  website: "greenfieldacademy.ng",
+  addressLine1: "12 Admiralty Way, Lekki Phase 1",
   currency: "NGN",
   locale: "en-NG",
   timezone: "Africa/Lagos",
