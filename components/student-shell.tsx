@@ -66,7 +66,7 @@ export function StudentShell({
       <div className="flex min-h-[100dvh] flex-col lg:flex-row">
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-ink bg-card px-4 py-6 lg:flex">
-          <div className="mb-6 flex items-center gap-3 px-1">
+          <div className="mb-6 flex shrink-0 items-center gap-3 px-1">
             <span
               className="flex size-10 -rotate-3 items-center justify-center rounded-[12px] border-2 border-ink text-ink shadow-brutal-sm"
               style={{ background: accent }}
@@ -83,9 +83,11 @@ export function StudentShell({
             </div>
           </div>
 
-          <NavLinks items={SIDEBAR_NAV} isActive={isActive} />
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+            <NavLinks items={SIDEBAR_NAV} isActive={isActive} />
+          </div>
 
-          <div className="mt-auto pt-6">
+          <div className="shrink-0 pt-6">
             <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-ink/35 pt-4">
               <span
                 className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-ink text-[12px] font-bold text-ink"
