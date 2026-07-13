@@ -30,6 +30,7 @@ export const STRICT_SCOPED: ReadonlySet<string> = new Set([
   "Enrollment",
   "LessonProgress",
   "CoursePayment",
+  "ProgrammePayment",
   "Fee",
   "FeePayment",
   "Assignment",

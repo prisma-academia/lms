@@ -30,15 +30,21 @@ export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme
 
   async function enroll(p: CatalogProgramme) {
     setPendingSlug(p.slug);
-    const res = await apiPost<{ enrolledCourses: number }>(
+    const res = await apiPost<{ enrolledCourses?: number; checkoutUrl?: string | null }>(
       `/api/client/programmes/${p.slug}/enroll`,
       {}
     );
-    setPendingSlug(null);
     if (res.error) {
+      setPendingSlug(null);
       toast(res.error.message);
       return;
     }
+    // Paid programme — redirect to the provider checkout.
+    if (res.data?.checkoutUrl) {
+      window.location.assign(res.data.checkoutUrl);
+      return;
+    }
+    setPendingSlug(null);
     celebrate();
     toast(`Enrolled in ${res.data!.enrolledCourses} course(s).`);
     setState((prev) =>
@@ -82,7 +88,11 @@ export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme
                   onClick={() => enroll(p)}
                   disabled={pendingSlug === p.slug}
                 >
-                  {pendingSlug === p.slug ? "Enrolling…" : "Enroll"}
+                  {pendingSlug === p.slug
+                    ? "Working…"
+                    : p.priceCents && p.priceCents > 0
+                      ? `Buy · ${formatPrice(p.priceCents, p.currency)}`
+                      : "Enroll"}
                 </Button>
               )}
             </div>

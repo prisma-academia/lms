@@ -12,7 +12,7 @@ export async function seedProgrammes(ctx: SeedContext): Promise<void> {
         description: p.description,
         status: "PUBLISHED",
         visibility: "PUBLIC",
-        priceCents: 0,
+        priceCents: p.priceCents ?? 0,
         currency: NG_LOCALE.currency,
         publishedAt: new Date(ctx.now - 25 * DAY),
       },

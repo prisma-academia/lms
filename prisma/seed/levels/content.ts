@@ -7,6 +7,7 @@ import { seedAssignments } from "../modules/assignments";
 import { seedCertificates } from "../modules/certificates";
 import { seedComms } from "../modules/comms";
 import { seedAdminData } from "../modules/admin-data";
+import { seedBilling } from "../modules/billing";
 
 export async function seedContent(ctx: SeedContext): Promise<void> {
   await seedCourses(ctx);
@@ -17,4 +18,5 @@ export async function seedContent(ctx: SeedContext): Promise<void> {
   await seedCertificates(ctx);
   await seedComms(ctx);
   await seedAdminData(ctx);
+  await seedBilling(ctx);
 }

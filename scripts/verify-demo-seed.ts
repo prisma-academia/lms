@@ -29,11 +29,16 @@ async function main() {
     resources,
     lessonGroups,
     quizLessons,
+    videoLessons,
     questionBanks,
     clientGroups,
     userGroups,
     templates,
     activityLogs,
+    paidCourses,
+    coursePayments,
+    platformPayments,
+    subaccounts,
   ] = await Promise.all([
     prisma.course.count({ where: { tenantId: tid } }),
     prisma.programme.count({ where: { tenantId: tid } }),
@@ -45,11 +50,16 @@ async function main() {
     prisma.resource.count({ where: { tenantId: tid } }),
     prisma.lessonGroup.count({ where: { tenantId: tid } }),
     prisma.lesson.count({ where: { tenantId: tid, contentType: "QUIZ" } }),
+    prisma.lesson.count({ where: { tenantId: tid, contentType: "VIDEO_URL" } }),
     prisma.questionBank.count({ where: { tenantId: tid } }),
     prisma.clientGroup.count({ where: { tenantId: tid } }),
     prisma.userGroup.count({ where: { tenantId: tid } }),
     prisma.template.count({ where: { tenantId: tid } }),
     prisma.activityLog.count({ where: { tenantId: tid } }),
+    prisma.course.count({ where: { tenantId: tid, priceCents: { gt: 0 } } }),
+    prisma.coursePayment.count({ where: { tenantId: tid, status: "SUCCESS" } }),
+    prisma.platformPayment.count({ where: { tenantId: tid, status: "SUCCESS" } }),
+    prisma.tenantSubaccount.count({ where: { tenantId: tid, courseSalesEnabled: true } }),
   ]);
 
   const checks: Check[] = [
@@ -62,12 +72,17 @@ async function main() {
     { label: "fees", actual: fees, min: 2 },
     { label: "resources", actual: resources, min: 3 },
     { label: "lesson groups", actual: lessonGroups, min: 2 },
-    { label: "quiz lessons", actual: quizLessons, min: 1 },
-    { label: "question banks", actual: questionBanks, min: 1 },
+    { label: "quiz lessons", actual: quizLessons, min: 3 },
+    { label: "video lessons", actual: videoLessons, min: 4 },
+    { label: "question banks", actual: questionBanks, min: 3 },
     { label: "client groups", actual: clientGroups, min: 1 },
     { label: "user groups", actual: userGroups, min: 1 },
     { label: "templates", actual: templates, min: 1 },
     { label: "activity logs", actual: activityLogs, min: 5 },
+    { label: "paid courses", actual: paidCourses, min: 2 },
+    { label: "course payments (SUCCESS)", actual: coursePayments, min: 2 },
+    { label: "platform payments (SUCCESS)", actual: platformPayments, min: 3 },
+    { label: "active subaccount", actual: subaccounts, min: 1 },
   ];
 
   let failed = false;
@@ -83,6 +98,16 @@ async function main() {
     failed = true;
   } else {
     console.log("OK  tenant currency: NGN");
+  }
+
+  if (tenant.subscriptionStatus !== "ACTIVE" || !tenant.subscriptionPlanId) {
+    console.log(
+      "FAIL  tenant subscription: expected ACTIVE with a plan, got",
+      tenant.subscriptionStatus
+    );
+    failed = true;
+  } else {
+    console.log("OK  tenant subscription: ACTIVE");
   }
 
   if (failed) {

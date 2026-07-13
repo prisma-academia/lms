@@ -8,6 +8,7 @@ import {
   SettlementBankFields,
   type VerificationState,
 } from "@/components/billing/settlement-bank-fields";
+import { CheckoutVerifier } from "@/components/billing/checkout-verifier";
 
 type BillingSnapshot = {
   plan: string;
@@ -151,6 +152,7 @@ export function BillingPanel({
 
   return (
     <div className="flex max-w-2xl flex-col gap-8">
+      <CheckoutVerifier successMessage="Subscription activated." />
       <section>
         <h2 className="text-sm font-semibold uppercase text-stone-500">Current plan</h2>
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">

@@ -142,3 +142,63 @@ export async function completeCoursePurchase(input: {
 
   return { payment, enrollment };
 }
+
+export async function completeProgrammePurchase(input: {
+  tenantId: string;
+  programmeId: string;
+  clientId: string;
+  reference: string;
+  amountCents: number;
+  currency: string;
+  provider: "PAYSTACK" | "FLUTTERWAVE";
+  platformFeeCents?: number;
+  tenantPayoutCents?: number;
+  providerData?: object;
+}) {
+  const existing = await prisma.programmePayment.findUnique({ where: { externalRef: input.reference } });
+
+  const payment =
+    existing?.status === "SUCCESS"
+      ? existing
+      : await prisma.programmePayment.upsert({
+          where: { externalRef: input.reference },
+          create: {
+            tenantId: input.tenantId,
+            programmeId: input.programmeId,
+            clientId: input.clientId,
+            provider: input.provider,
+            amountCents: input.amountCents,
+            currency: input.currency,
+            status: "SUCCESS",
+            externalRef: input.reference,
+            platformFeeCents: input.platformFeeCents ?? null,
+            tenantPayoutCents: input.tenantPayoutCents ?? null,
+            providerData: input.providerData as object,
+            completedAt: new Date(),
+          },
+          update: {
+            status: "SUCCESS",
+            completedAt: new Date(),
+            platformFeeCents: input.platformFeeCents ?? null,
+            tenantPayoutCents: input.tenantPayoutCents ?? null,
+          },
+        });
+
+  // Enroll the learner into every published course in the programme.
+  const links = await prisma.programmeCourse.findMany({
+    where: { programmeId: input.programmeId },
+    include: { course: { select: { id: true, status: true } } },
+  });
+  let enrolled = 0;
+  for (const link of links) {
+    if (link.course.status !== "PUBLISHED") continue;
+    await prisma.enrollment.upsert({
+      where: { courseId_clientId: { courseId: link.courseId, clientId: input.clientId } },
+      create: { tenantId: input.tenantId, courseId: link.courseId, clientId: input.clientId },
+      update: {},
+    });
+    enrolled += 1;
+  }
+
+  return { payment, enrolled };
+}

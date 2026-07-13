@@ -1,4 +1,4 @@
-import { textLesson, type LessonSeed } from "../factories/lesson";
+import { textLesson, videoLesson, SAMPLE_VIDEOS, type LessonSeed } from "../factories/lesson";
 
 export type LessonGroupSeed = {
   title: string;
@@ -17,6 +17,8 @@ export type CourseSeed = {
   completed?: boolean;
   /** If true, demo student is NOT enrolled (catalog demo). */
   catalogOnly?: boolean;
+  /** Price in kobo. Omit or 0 = free. */
+  priceCents?: number;
 };
 
 function biologyLessons(): LessonGroupSeed[] {
@@ -29,10 +31,11 @@ function biologyLessons(): LessonGroupSeed[] {
           "Every living thing — from the yam in your market stall to the cells in your own body — is built from cells.\n\nIn WAEC Biology, you must know the difference between plant and animal cells, and be able to label the nucleus, cytoplasm, and cell membrane.\n\nTry sketching a simple cell diagram before your next class.",
           0
         ),
-        textLesson(
-          "The plasma membrane",
-          "The plasma membrane controls what enters and leaves a cell — like a security gate at a Lagos office block.\n\nKey terms: selective permeability, osmosis, diffusion. WAEC often asks you to explain why red blood cells burst in distilled water.",
-          1
+        videoLesson(
+          "Watch: inside the plasma membrane",
+          SAMPLE_VIDEOS.bunny,
+          1,
+          "A short walkthrough of how the plasma membrane controls what enters and leaves a cell.\n\nKey terms: selective permeability, osmosis, diffusion. WAEC often asks you to explain why red blood cells burst in distilled water."
         ),
         textLesson(
           "Diffusion basics",
@@ -54,10 +57,11 @@ function biologyLessons(): LessonGroupSeed[] {
           "Cells release energy from glucose through respiration — aerobic (with oxygen) and anaerobic (without).\n\nAthletes in Abuja marathons rely on efficient respiration. Know the word equation and where it happens in the cell.",
           4
         ),
-        textLesson(
-          "Photosynthesis",
-          "Plants make food using sunlight, carbon dioxide, and water. Nigeria's agriculture depends on healthy photosynthesis in cassava, maize, and rice.\n\nMemorise the balanced equation and the role of chlorophyll.",
-          5
+        videoLesson(
+          "Watch: photosynthesis explained",
+          SAMPLE_VIDEOS.elephants,
+          5,
+          "Plants make food using sunlight, carbon dioxide, and water. Nigeria's agriculture depends on healthy photosynthesis in cassava, maize, and rice.\n\nMemorise the balanced equation and the role of chlorophyll."
         ),
       ],
     },
@@ -78,7 +82,14 @@ export const COURSE_CATALOG: CourseSeed[] = [
     slug: "intro-javascript",
     description:
       "Build your first web apps — variables, functions, and DOM basics for Nigerian freelancers.",
+    priceCents: 1_500_000, // ₦15,000
     lessons: [
+      videoLesson(
+        "Welcome & setup (video)",
+        SAMPLE_VIDEOS.blazes,
+        0,
+        "A quick tour of your editor and the browser console before we write any code."
+      ),
       textLesson(
         "Variables & types",
         "JavaScript stores data in variables. A Lagos freelancer might track prices in Naira:\n\n`let lessonFee = 5000;`\n\nLearn `let`, `const`, strings, numbers, and booleans.",
@@ -195,7 +206,14 @@ export const COURSE_CATALOG: CourseSeed[] = [
     slug: "graphic-design-social",
     description:
       "Type, colour, and layouts for Instagram, WhatsApp promos, and small-brand visuals.",
+    priceCents: 1_000_000, // ₦10,000
     lessons: [
+      videoLesson(
+        "Course intro (video)",
+        SAMPLE_VIDEOS.escapes,
+        0,
+        "What we'll build together — a full set of branded promo templates for a small Nigerian business."
+      ),
       textLesson(
         "Design principles",
         "Contrast, alignment, repetition, proximity — the CRAP principles apply whether you're designing for a Lagos boutique or a church flyer.",
@@ -264,7 +282,14 @@ export const COURSE_CATALOG: CourseSeed[] = [
     slug: "digital-marketing-basics",
     description:
       "Reach customers online — social ads, email, and WhatsApp Business for Nigerian SMEs.",
+    priceCents: 1_200_000, // ₦12,000
     lessons: [
+      videoLesson(
+        "Watch: your first campaign (video)",
+        SAMPLE_VIDEOS.bunny,
+        0,
+        "A walkthrough of planning a low-budget campaign from scratch."
+      ),
       textLesson(
         "Know your audience",
         "Define who buys from you — age, location (Lagos vs PH), and pain points — before spending on ads.",

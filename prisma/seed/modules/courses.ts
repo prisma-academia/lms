@@ -22,7 +22,9 @@ async function createLessons(
     const contentJson =
       contentType === "QUIZ" && l.quizId
         ? ({ quizId: l.quizId } as object)
-        : ({ body: l.body } as object);
+        : contentType === "VIDEO_URL" && l.url
+          ? ({ url: l.url, body: l.body } as object)
+          : ({ body: l.body } as object);
 
     const lesson = await ctx.prisma.lesson.create({
       data: {
@@ -75,7 +77,7 @@ async function seedOneCourse(ctx: SeedContext, c: CourseSeed): Promise<void> {
       description: c.description,
       status: "PUBLISHED",
       visibility: "PUBLIC",
-      priceCents: 0,
+      priceCents: c.priceCents ?? 0,
       currency: NG_LOCALE.currency,
       instructorId: ctx.ids.instructorId,
       publishedAt: new Date(ctx.now - 30 * DAY),

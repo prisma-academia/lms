@@ -193,6 +193,7 @@ model Tenant {
   programmes                   Programme[]
   platformPayments             PlatformPayment[]
   coursePayments               CoursePayment[]
+  programmePayments            ProgrammePayment[]
   assignments                  Assignment[]
   submissions                  Submission[]
   grades                       Grade[]
@@ -264,6 +265,32 @@ model PlatformPayment {
   completedAt  DateTime?
 
   @@index([tenantId, createdAt])
+}
+
+/// A Client pays a Tenant for a whole Programme (course bundle); supports split
+/// payout. On success every published course in the programme is enrolled.
+model ProgrammePayment {
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programmeId       String
+  programme         Programme       @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider          PaymentProvider
+  amountCents       Int
+  currency          String
+  status            PaymentStatus   @default(PENDING)
+  externalRef       String          @unique
+  platformFeeCents  Int?
+  tenantPayoutCents Int?
+  providerData      Json?
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+
+  @@index([tenantId, createdAt])
+  @@index([programmeId])
+  @@index([clientId])
 }
 
 model Course {
@@ -354,6 +381,7 @@ model Programme {
   updatedAt    DateTime          @updatedAt
   courses      ProgrammeCourse[]
   certificates Certificate[]
+  payments     ProgrammePayment[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, status])
@@ -916,6 +944,7 @@ model Client {
   lockedUntil          DateTime?
   enrollments          Enrollment[]
   coursePayments       CoursePayment[]
+  programmePayments    ProgrammePayment[]
   submissions          Submission[]
   grades               Grade[]
   groupMemberships     ClientGroupMembership[]

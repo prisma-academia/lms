@@ -71,6 +71,28 @@ export const paystackProvider: BillingProvider = {
       raw: payload,
     };
   },
+
+  async verifyTransaction(reference) {
+    if (!paystackConfigured()) return null;
+    const data = await paystackFetch<{
+      reference: string;
+      status: string;
+      amount: number;
+      currency: string;
+      metadata?: PaymentMetadata;
+    }>(`/transaction/verify/${encodeURIComponent(reference)}`);
+    const meta = data.metadata;
+    if (!meta?.type) return null;
+    if (data.status !== "success") return null;
+    return {
+      reference: data.reference,
+      status: "success",
+      amountCents: data.amount,
+      currency: data.currency,
+      metadata: meta,
+      raw: data,
+    };
+  },
 };
 
 export async function createPaystackSubaccount(input: {

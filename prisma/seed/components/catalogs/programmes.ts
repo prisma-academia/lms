@@ -12,6 +12,8 @@ export type ProgrammeSeed = {
   courses: ProgrammeCourseSeed[];
   /** Demo student enrolled in this programme. */
   studentEnrolled?: boolean;
+  /** Price in kobo. Omit or 0 = free (bundle self-enroll). */
+  priceCents?: number;
 };
 
 export const PROGRAMME_CATALOG: ProgrammeSeed[] = [
@@ -33,6 +35,7 @@ export const PROGRAMME_CATALOG: ProgrammeSeed[] = [
     description:
       "Design and communication skills for graduates entering the workforce.",
     studentEnrolled: false,
+    priceCents: 2_500_000, // ₦25,000 bundle
     courses: [
       { courseSlug: "graphic-design-social", required: true, sortOrder: 0, groupLabel: "Creative" },
       { courseSlug: "public-speaking-grads", required: true, sortOrder: 1, groupLabel: "Communication" },

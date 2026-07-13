@@ -66,6 +66,29 @@ export const flutterwaveProvider: BillingProvider = {
       raw: payload,
     };
   },
+
+  async verifyTransaction(reference) {
+    if (!flutterwaveConfigured()) return null;
+    const params = new URLSearchParams({ tx_ref: reference });
+    const data = await flutterwaveFetch<{
+      tx_ref: string;
+      status: string;
+      amount: number;
+      currency: string;
+      meta?: PaymentMetadata;
+    }>(`/transactions/verify_by_reference?${params}`);
+    const meta = data.meta;
+    if (!meta?.type) return null;
+    if (data.status !== "successful") return null;
+    return {
+      reference: data.tx_ref,
+      status: "success",
+      amountCents: Math.round(data.amount * 100),
+      currency: data.currency,
+      metadata: meta,
+      raw: data,
+    };
+  },
 };
 
 export async function createFlutterwaveSubaccount(input: {

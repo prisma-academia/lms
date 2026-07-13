@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
 import { courseAccent, courseIcon } from "@/lib/ui/course-color";
+import { CheckoutVerifier } from "@/components/billing/checkout-verifier";
 
 export default async function MyCoursesPage() {
   const actor = await requireClientPage();
@@ -23,6 +24,7 @@ export default async function MyCoursesPage() {
 
   return (
     <div>
+      <CheckoutVerifier successMessage="You're enrolled! 🎉" />
       <PageHeader
         title="My courses"
         subtitle={`${enrollments.length} enrolled`}
