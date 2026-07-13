@@ -4,7 +4,11 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import { env } from "@/lib/env";
+import {
+  buildPlatformMetadata,
+  buildPlatformViewport,
+  requestOrigin,
+} from "@/lib/site/metadata";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -22,17 +26,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: env.PRODUCT_NAME,
-  description: `${env.PRODUCT_NAME} — deliver learning content, assess learners, keep everyone engaged, and manage your organization with built-in billing.`,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPlatformMetadata(await requestOrigin());
+}
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#faf1e4",
-};
+export const viewport: Viewport = buildPlatformViewport();
 
 export default async function RootLayout({
   children,
