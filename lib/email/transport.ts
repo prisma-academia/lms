@@ -18,3 +18,10 @@ export function getTransport(): Transporter {
 }
 
 export const FROM = `${env.EMAIL_FROM_NAME} <${env.EMAIL_FROM}>`;
+
+/** From header with a custom display name (e.g. the tenant's name) but the
+ * verified EMAIL_FROM address, so SMTP deliverability is preserved. */
+export function fromWithName(name: string): string {
+  const clean = name.replace(/[<>"\r\n]/g, "").trim() || env.EMAIL_FROM_NAME;
+  return `${clean} <${env.EMAIL_FROM}>`;
+}

@@ -8,6 +8,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
 import { NavLinks, type NavItem } from "@/components/nav-links";
 import { ToastProvider } from "@/components/ui/toast";
+import { BrandColorSync } from "@/components/brand-color-sync";
 import { cn } from "@/lib/utils";
 
 type Tab = NavItem & { icon: IconName };
@@ -63,6 +64,7 @@ export function StudentShell({
 
   return (
     <ToastProvider>
+      <BrandColorSync color={accentColor} />
       <div className="flex min-h-[100dvh] flex-col lg:flex-row">
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-ink bg-card px-4 py-6 lg:flex">

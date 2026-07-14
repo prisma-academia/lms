@@ -4,6 +4,7 @@ import { requirePlatformActor, PERMISSIONS } from "@/lib/auth/guards";
 import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/password";
 import { sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
+import { platformBranding } from "@/lib/email/branding";
 import { platformHttpOrigin } from "@/lib/url/platform";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     await sendEmail({
       to: body.email,
       subject: "You're invited to the platform",
-      html: inviteEmail({
+      html: inviteEmail(platformBranding(), {
         name: `${body.firstName} ${body.lastName}`,
         loginUrl,
         tempPassword,

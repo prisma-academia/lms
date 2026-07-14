@@ -32,8 +32,17 @@ export async function expireTrials() {
   return expired.length;
 }
 
-export async function sendTrialReminders(sendEmailFn: (input: { to: string; subject: string; html: string }) => Promise<void>) {
+export async function sendTrialReminders(
+  sendEmailFn: (input: {
+    to: string;
+    subject: string;
+    html: string;
+    replyTo?: string;
+    fromName?: string;
+  }) => Promise<void>
+) {
   const { trialReminderEmail } = await import("@/lib/email/templates");
+  const { tenantBranding, tenantOrigin } = await import("@/lib/email/branding");
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
   const tenants = await prisma.tenant.findMany({
@@ -50,12 +59,16 @@ export async function sendTrialReminders(sendEmailFn: (input: { to: string; subj
 
     const settings = (tenant.settingsJson ?? {}) as { onboarding?: { trialReminder7dSentAt?: string; trialReminder1dSentAt?: string } };
     const onboarding = settings.onboarding ?? {};
+    const branding = tenantBranding(tenant);
+    const billingUrl = `${tenantOrigin(tenant.slug)}/admin/billing`;
 
     if (daysLeft <= 7 && daysLeft > 6 && !onboarding.trialReminder7dSentAt) {
       await sendEmailFn({
         to: owner.email,
         subject: `${tenant.name}: 7 days left on your trial`,
-        html: trialReminderEmail({ tenantName: tenant.name, daysLeft: 7 }),
+        replyTo: branding.supportEmail,
+        fromName: branding.name,
+        html: trialReminderEmail(branding, { daysLeft: 7, billingUrl }),
       });
       await prisma.tenant.update({
         where: { id: tenant.id },
@@ -72,7 +85,9 @@ export async function sendTrialReminders(sendEmailFn: (input: { to: string; subj
       await sendEmailFn({
         to: owner.email,
         subject: `${tenant.name}: trial ends tomorrow`,
-        html: trialReminderEmail({ tenantName: tenant.name, daysLeft: 1 }),
+        replyTo: branding.supportEmail,
+        fromName: branding.name,
+        html: trialReminderEmail(branding, { daysLeft: 1, billingUrl }),
       });
       await prisma.tenant.update({
         where: { id: tenant.id },

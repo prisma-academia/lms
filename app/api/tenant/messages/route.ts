@@ -8,6 +8,7 @@ import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { sendEmail } from "@/lib/email/send";
 import { notificationEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
 import { logger } from "@/lib/logger";
 
 const CreateBody = z
@@ -115,12 +116,15 @@ export async function POST(request: Request) {
 
       // Email channel — best-effort, don't fail the request on delivery errors.
       const emailTargets = recipients.filter((r) => wantsEmail(r.id));
+      const branding = await loadTenantBrandingById(actor.tenantId);
       await Promise.allSettled(
         emailTargets.map((r) =>
           sendEmail({
             to: r.email,
             subject: body.subject,
-            html: notificationEmail({
+            replyTo: branding.supportEmail,
+            fromName: branding.name,
+            html: notificationEmail(branding, {
               name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || null,
               subject: body.subject,
               body: body.body,

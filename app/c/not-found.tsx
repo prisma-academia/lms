@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export default function NotFound() {
+export default function ClientAreaNotFound() {
   return (
     <main className="flex flex-1 items-center justify-center p-8">
       <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
@@ -10,7 +10,7 @@ export default function NotFound() {
           The page you requested could not be found.
         </p>
         <Button asChild variant="outline">
-          <Link href="/">Back to home</Link>
+          <Link href="/c/dashboard">Back to dashboard</Link>
         </Button>
       </div>
     </main>

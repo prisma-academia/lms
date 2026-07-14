@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,6 +7,7 @@ import Link from "next/link";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useApiError } from "@/components/use-api-error";
 
 const Schema = z.object({
   email: z.email(),
@@ -19,19 +19,15 @@ export function ClientLoginForm() {
   const { register, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(Schema),
   });
-  const [error, setError] = useState<string | null>(null);
+  const report = useApiError();
 
   const onSubmit = handleSubmit(async (values) => {
-    setError(null);
     const res = await apiPost<{ redirect: string }>("/api/auth/login", {
       email: values.email,
       password: values.password,
       surface: "tenant_client",
     });
-    if (res.error) {
-      setError(res.error.message);
-      return;
-    }
+    if (!report(res, () => onSubmit())) return;
     if (res.data?.redirect) window.location.assign(res.data.redirect);
   });
 
@@ -43,7 +39,6 @@ export function ClientLoginForm() {
       <FormField label="Password" htmlFor="password" error={formState.errors.password?.message}>
         <TextInput id="password" type="password" autoComplete="current-password" {...register("password")} />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Signing in…" : "Sign in"}
       </Button>

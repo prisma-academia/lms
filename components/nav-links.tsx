@@ -1,11 +1,29 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/icon";
 import { cn } from "@/lib/utils";
 
 export type NavItem = { href: string; label: string; icon?: IconName };
+
+/**
+ * Inline pending indicator for the clicked nav link. Fixed size so it never
+ * shifts layout; only visible while the link's navigation is pending.
+ * Reduced-motion is handled by the global rule in globals.css.
+ */
+function LinkSpinner() {
+  const { pending } = useLinkStatus();
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "ml-auto size-4 shrink-0 rounded-full border-2 border-current border-t-transparent transition-opacity",
+        pending ? "animate-spin opacity-70" : "opacity-0"
+      )}
+    />
+  );
+}
 
 export function NavLinks({
   items,
@@ -40,6 +58,7 @@ export function NavLinks({
           >
             {n.icon ? <Icon name={n.icon} className="size-[18px]" /> : null}
             {n.label}
+            <LinkSpinner />
           </Link>
         );
       })}

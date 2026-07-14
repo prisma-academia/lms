@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Archivo_Black, Space_Grotesk, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { RouteProgress } from "@/components/route-progress";
+import { ErrorDialogProvider } from "@/components/error-dialog";
 import {
   buildPlatformMetadata,
   buildPlatformViewport,
@@ -52,8 +55,11 @@ export default async function RootLayout({
       )}
     >
       <body className="flex min-h-[100dvh] flex-col">
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
+          <ErrorDialogProvider>{children}</ErrorDialogProvider>
         </NextIntlClientProvider>
       </body>
     </html>

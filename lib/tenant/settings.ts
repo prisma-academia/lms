@@ -41,6 +41,8 @@ export const tenantSettingsSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #1e293b")
     .default("#0f172a"),
+  /** Optional custom instruction appended to the footer of tenant emails. */
+  emailInstruction: z.string().max(500).optional(),
   timezone: z.string().min(1).max(64).default("UTC"),
   locale: z.string().min(2).max(10).default("en"),
   currency: z.string().length(3).default("NGN"),

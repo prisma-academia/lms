@@ -8,6 +8,7 @@ import {
 import { revokeAllSessionsForUser } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/email/send";
 import { tempPasswordEmail } from "@/lib/email/templates";
+import { platformBranding } from "@/lib/email/branding";
 import { platformHttpOrigin } from "@/lib/url/platform";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
@@ -48,7 +49,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     await sendEmail({
       to: user.email,
       subject: "Your password has been reset",
-      html: tempPasswordEmail({ name: displayName(user), loginUrl, tempPassword }),
+      html: tempPasswordEmail(platformBranding(), { name: displayName(user), loginUrl, tempPassword }),
     });
     return ok({ reset: true });
   } catch (e) {

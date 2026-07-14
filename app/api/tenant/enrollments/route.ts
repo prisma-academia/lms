@@ -5,6 +5,10 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
+import { sendEmail } from "@/lib/email/send";
+import { enrollmentConfirmationEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
+import { logger } from "@/lib/logger";
 
 const EnrollBody = z.object({
   clientId: z.string().min(1),
@@ -54,6 +58,10 @@ export async function POST(request: Request) {
     });
     if (!client) throw new DomainError(404, "not_found", "Learner not found.");
 
+    const existing = await prisma.enrollment.findUnique({
+      where: { courseId_clientId: { courseId: body.courseId, clientId: body.clientId } },
+      select: { id: true },
+    });
     const enrollment = await prisma.enrollment.upsert({
       where: { courseId_clientId: { courseId: body.courseId, clientId: body.clientId } },
       create: {
@@ -63,6 +71,27 @@ export async function POST(request: Request) {
       },
       update: {},
     });
+
+    // Confirmation email on first enrollment only — best-effort.
+    if (!existing && client.email) {
+      try {
+        const branding = await loadTenantBrandingById(actor.tenantId);
+        await sendEmail({
+          to: client.email,
+          subject: `You're enrolled — ${course.title}`,
+          replyTo: branding.supportEmail,
+          fromName: branding.name,
+          html: enrollmentConfirmationEmail(branding, {
+            name: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || null,
+            itemName: course.title,
+            itemType: "course",
+            actionUrl: `${branding.appOrigin}/my-courses`,
+          }),
+        });
+      } catch (err) {
+        logger.error({ err, courseId: body.courseId }, "enrollment_email_failed");
+      }
+    }
     return ok({ enrollment }, undefined, 201);
   } catch (e) {
     return handleError(e);

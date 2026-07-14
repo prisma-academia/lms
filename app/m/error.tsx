@@ -2,7 +2,7 @@
 
 import { RouteError } from "@/components/route-error";
 
-export default function RootError(props: {
+export default function MarketingError(props: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {

@@ -12,6 +12,10 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { enterContext } from "@/lib/db/tenant-context";
 import { enforceRateLimit, RATE_PRESETS } from "@/lib/auth/rate-limit";
+import { sendEmail } from "@/lib/email/send";
+import { welcomeEmail } from "@/lib/email/templates";
+import { tenantBranding } from "@/lib/email/branding";
+import { logger } from "@/lib/logger";
 import type { Prisma } from "@/lib/generated/prisma/client";
 
 const Body = z.object({
@@ -99,6 +103,19 @@ export async function POST(request: Request) {
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
+
+    // Welcome email — best-effort, never fail registration on delivery error.
+    const branding = tenantBranding(tenant);
+    await sendEmail({
+      to: client.email,
+      subject: `Welcome to ${tenant.name}`,
+      replyTo: branding.supportEmail,
+      fromName: branding.name,
+      html: welcomeEmail(branding, {
+        name: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || null,
+        loginUrl: `${branding.appOrigin}/dashboard`,
+      }),
+    }).catch((err) => logger.error({ err, to: client.email }, "welcome_email_failed"));
 
     const profileIncomplete = clientProfileIncomplete(client.profileJson);
     return ok({ redirect: profileIncomplete ? "/profile" : "/dashboard" });

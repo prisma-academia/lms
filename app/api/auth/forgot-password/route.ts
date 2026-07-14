@@ -5,6 +5,7 @@ import { resolveHost } from "@/lib/auth/context";
 import { hashOpaqueToken, newOpaqueToken } from "@/lib/auth/tokens";
 import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
 import { tenantHttpOrigin } from "@/lib/url/tenant";
 import { platformHttpOrigin } from "@/lib/url/platform";
 import { displayName } from "@/lib/auth/display";
@@ -54,10 +55,13 @@ async function queuePasswordReset(input: {
   const origin =
     input.userType === "PLATFORM" ? platformOrigin() : tenantHttpOrigin(input.tenantSlug!);
   const resetUrl = `${origin}${input.resetPath}?token=${encodeURIComponent(raw)}`;
+  const branding = await loadTenantBrandingById(input.tenantId);
   await sendEmail({
     to: input.email,
     subject: "Reset your password",
-    html: passwordResetEmail({ name: input.name, resetUrl }),
+    replyTo: branding.isPlatform ? undefined : branding.supportEmail,
+    fromName: branding.name,
+    html: passwordResetEmail(branding, { name: input.name, resetUrl }),
   });
 }
 

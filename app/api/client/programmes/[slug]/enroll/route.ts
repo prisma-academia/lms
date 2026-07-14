@@ -4,6 +4,10 @@ import { requireClientActor } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { sendEmail } from "@/lib/email/send";
+import { enrollmentConfirmationEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
+import { logger } from "@/lib/logger";
 import { billingConfigured } from "@/lib/env";
 import { paystackProvider } from "@/lib/billing/paystack";
 import { flutterwaveProvider, flutterwaveReference } from "@/lib/billing/flutterwave";
@@ -49,6 +53,32 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
           update: {},
         });
         enrolled += 1;
+      }
+      // Enrollment confirmation — best-effort.
+      try {
+        const [branding, learner] = await Promise.all([
+          loadTenantBrandingById(actor.tenantId),
+          prisma.client.findUnique({
+            where: { id: actor.clientId },
+            select: { email: true, firstName: true, lastName: true },
+          }),
+        ]);
+        if (learner?.email) {
+          await sendEmail({
+            to: learner.email,
+            subject: `You're enrolled — ${programme.title}`,
+            replyTo: branding.supportEmail,
+            fromName: branding.name,
+            html: enrollmentConfirmationEmail(branding, {
+              name: `${learner.firstName ?? ""} ${learner.lastName ?? ""}`.trim() || null,
+              itemName: programme.title,
+              itemType: "programme",
+              actionUrl: `${branding.appOrigin}/my-courses`,
+            }),
+          });
+        }
+      } catch (err) {
+        logger.error({ err, programmeId: programme.id }, "enrollment_email_failed");
       }
       return ok({ enrolledCourses: enrolled, checkoutUrl: null }, undefined, 201);
     }

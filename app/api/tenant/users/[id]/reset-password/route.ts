@@ -4,6 +4,7 @@ import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/p
 import { revokeAllSessionsForUser } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/email/send";
 import { tempPasswordEmail } from "@/lib/email/templates";
+import { tenantBranding } from "@/lib/email/branding";
 import { env } from "@/lib/env";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
@@ -44,10 +45,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       userAgent: meta.userAgent,
     });
     const loginUrl = `http://${tenant.slug}.${env.APP_DOMAIN}/admin/auth/login`;
+    const branding = tenantBranding(tenant);
     await sendEmail({
       to: target.email,
       subject: "Your password has been reset",
-      html: tempPasswordEmail({ name: displayName(target), loginUrl, tempPassword }),
+      replyTo: branding.supportEmail,
+      fromName: branding.name,
+      html: tempPasswordEmail(branding, { name: displayName(target), loginUrl, tempPassword }),
     });
     return ok({ reset: true });
   } catch (e) {

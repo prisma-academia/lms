@@ -11,8 +11,8 @@ async function main() {
     return;
   }
   if (cmd === "trial-reminders") {
-    const n = await sendTrialReminders(async ({ to, subject, html }) => {
-      await sendEmail({ to, subject, html });
+    const n = await sendTrialReminders(async ({ to, subject, html, replyTo, fromName }) => {
+      await sendEmail({ to, subject, html, replyTo, fromName });
     });
     console.log(`Sent ${n} trial reminder email(s).`);
     return;

@@ -5,6 +5,10 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { audit, requestMeta } from "@/lib/auth/audit";
+import { sendEmail } from "@/lib/email/send";
+import { enrollmentConfirmationEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
+import { logger } from "@/lib/logger";
 
 const Body = z.object({ clientId: z.string().min(1) });
 
@@ -62,6 +66,27 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
+
+    // Confirmation email — best-effort.
+    if (client.email) {
+      try {
+        const branding = await loadTenantBrandingById(actor.tenantId);
+        await sendEmail({
+          to: client.email,
+          subject: `You're enrolled — ${programme.title}`,
+          replyTo: branding.supportEmail,
+          fromName: branding.name,
+          html: enrollmentConfirmationEmail(branding, {
+            name: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || null,
+            itemName: programme.title,
+            itemType: "programme",
+            actionUrl: `${branding.appOrigin}/my-courses`,
+          }),
+        });
+      } catch (err) {
+        logger.error({ err, programmeId: id }, "enrollment_email_failed");
+      }
+    }
     return ok({ enrolledCourses: enrolled }, undefined, 201);
   } catch (e) {
     return handleError(e);

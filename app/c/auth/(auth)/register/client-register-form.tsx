@@ -9,6 +9,7 @@ import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
 import { OtpInput } from "@/components/ui/otp-input";
+import { useApiError } from "@/components/use-api-error";
 
 const DetailsSchema = z
   .object({
@@ -36,8 +37,8 @@ type OtpValues = z.infer<typeof OtpSchema>;
 export function ClientRegisterForm() {
   const [step, setStep] = useState<"details" | "otp">("details");
   const [email, setEmail] = useState("");
-  const [otpError, setOtpError] = useState<string | null>(null);
   const [otpInfo, setOtpInfo] = useState<string | null>(null);
+  const report = useApiError();
 
   const detailsForm = useForm<DetailsValues>({
     resolver: zodResolver(DetailsSchema),
@@ -48,7 +49,6 @@ export function ClientRegisterForm() {
   });
 
   const onDetails = detailsForm.handleSubmit(async (values) => {
-    detailsForm.clearErrors("root");
     const res = await apiPost<{ step?: string }>("/api/auth/register/client/start", {
       email: values.email,
       password: values.password,
@@ -59,37 +59,26 @@ export function ClientRegisterForm() {
       otherName: values.otherName || undefined,
       phone: values.phone || undefined,
     });
-    if (res.error) {
-      detailsForm.setError("root", { message: res.error.message });
-      return;
-    }
+    if (!report(res, () => onDetails())) return;
     setEmail(values.email.toLowerCase());
     setStep("otp");
     setOtpInfo("We sent a 6-digit code to your email.");
   });
 
   const onOtp = otpForm.handleSubmit(async (values) => {
-    setOtpError(null);
     setOtpInfo(null);
     const res = await apiPost<{ redirect: string }>("/api/auth/register/client/complete", {
       email,
       code: values.code,
     });
-    if (res.error) {
-      setOtpError(res.error.message);
-      return;
-    }
+    if (!report(res, () => onOtp())) return;
     if (res.data?.redirect) window.location.assign(res.data.redirect);
   });
 
   async function resend() {
-    setOtpError(null);
     setOtpInfo(null);
     const res = await apiPost("/api/auth/register/client/resend-otp", { email });
-    if (res.error) {
-      setOtpError(res.error.message);
-      return;
-    }
+    if (!report(res, () => resend())) return;
     setOtpInfo("A new code was sent if your registration is still in progress.");
   }
 
@@ -114,7 +103,6 @@ export function ClientRegisterForm() {
             />
           </FormField>
           {otpInfo ? <p className="text-sm text-green-700">{otpInfo}</p> : null}
-          {otpError ? <p className="text-sm text-red-600">{otpError}</p> : null}
           <Button type="submit" disabled={otpForm.formState.isSubmitting}>
             {otpForm.formState.isSubmitting ? "Verifying…" : "Create account"}
           </Button>
@@ -167,9 +155,6 @@ export function ClientRegisterForm() {
       <FormField label="Confirm password" htmlFor="confirm" error={detailsForm.formState.errors.confirm?.message}>
         <TextInput id="confirm" type="password" autoComplete="new-password" {...detailsForm.register("confirm")} />
       </FormField>
-      {detailsForm.formState.errors.root?.message ? (
-        <p className="text-sm text-red-600 lg:col-span-2">{detailsForm.formState.errors.root.message}</p>
-      ) : null}
       <p className="text-xs text-stone-500 lg:col-span-2">
         12+ characters with upper, lower, digit, and symbol.
       </p>

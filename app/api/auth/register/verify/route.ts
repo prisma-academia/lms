@@ -5,7 +5,8 @@ import { verifyOtp } from "@/lib/auth/otp";
 import { isValidSlug, RESERVED_SLUGS } from "@/lib/auth/context";
 import { TENANT_BUILTIN_ROLES, ALL_TENANT_PERMISSION_KEYS } from "@/lib/auth/permissions";
 import { sendEmail } from "@/lib/email/send";
-import { inviteEmail } from "@/lib/email/templates";
+import { welcomeEmail } from "@/lib/email/templates";
+import { loadTenantBrandingById } from "@/lib/email/branding";
 import { env } from "@/lib/env";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
@@ -139,14 +140,15 @@ export async function POST(request: Request) {
     await recordPassword("TENANT", created.owner.id, passwordHash);
 
     const loginUrl = `http://${body.slug}.${env.APP_DOMAIN}/admin/auth/login`;
+    const branding = await loadTenantBrandingById(created.tenant.id);
     await sendEmail({
       to: body.email,
       subject: `Welcome to ${body.name}`,
-      html: inviteEmail({
+      replyTo: branding.isPlatform ? undefined : branding.supportEmail,
+      fromName: branding.name,
+      html: welcomeEmail(branding, {
         name: `${body.firstName} ${body.lastName}`,
         loginUrl,
-        tempPassword: "(the password you set during registration)",
-        subjectLabel: `${body.name} — sign in to your admin console`,
       }),
     });
 

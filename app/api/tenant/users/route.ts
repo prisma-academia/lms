@@ -4,6 +4,7 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/password";
 import { sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
+import { tenantBranding } from "@/lib/email/branding";
 import { env } from "@/lib/env";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
@@ -89,10 +90,13 @@ export async function POST(request: Request) {
     });
 
     const loginUrl = `http://${tenant.slug}.${env.APP_DOMAIN}/admin/auth/login`;
+    const branding = tenantBranding(tenant);
     await sendEmail({
       to: body.email,
       subject: `You're invited to ${tenant.name}`,
-      html: inviteEmail({
+      replyTo: branding.supportEmail,
+      fromName: branding.name,
+      html: inviteEmail(branding, {
         name: `${body.firstName} ${body.lastName}`,
         loginUrl,
         tempPassword,

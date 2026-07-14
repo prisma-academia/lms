@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { LogoutButton, type LogoutContext } from "./logout-button";
 import { NavLinks, type NavItem } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
+import { BrandColorSync } from "./brand-color-sync";
 import { cn } from "@/lib/utils";
 
 export type { NavItem };
@@ -71,6 +72,7 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-[100dvh] flex-col lg:flex-row">
+      <BrandColorSync color={accentColor} />
       <aside className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col border-r-2 border-ink bg-card px-4 py-6 lg:flex">
         <div className="shrink-0">
           <Brand title={title} logoUrl={logoUrl} accentColor={accentColor} />
