@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import { env } from "@/lib/env";
+import { platformHttpOrigin } from "@/lib/url/platform";
 import { RegisterDialog } from "./register/register-dialog";
 
 const NAV = [
@@ -12,6 +13,7 @@ const NAV = [
 
 export function MarketingShell({ children }: { children: ReactNode }) {
   const productName = env.PRODUCT_NAME;
+  const platformSignIn = `${platformHttpOrigin()}/auth/login`;
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
@@ -34,7 +36,13 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <a
+              href={platformSignIn}
+              className="text-sm font-bold text-ink/70 hover:text-ink"
+            >
+              Sign in
+            </a>
             <RegisterDialog size="sm">Start free</RegisterDialog>
           </div>
         </div>

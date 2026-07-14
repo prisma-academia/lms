@@ -53,6 +53,8 @@ export default async function FeeDetailPage({ params }: { params: Promise<{ id: 
       <PageHeader
         title={fee.name}
         subtitle={`${paidCount}/${assigned.length} paid · ${(fee.amountCents / 100).toLocaleString(undefined, { style: "currency", currency: fee.currency })}`}
+        backHref="/admin/fees"
+        backLabel="Fees"
       />
       <FeeEditor
         id={fee.id}

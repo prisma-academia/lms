@@ -9,10 +9,10 @@ export default function ClientForgotPasswordPage() {
       subtitle="We'll email you a link to reset your password."
       footer={
         <Link
-          href="/admin/auth/login"
+          href="/auth/register"
           className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
         >
-          Tenant admin sign in
+          Create an account
         </Link>
       }
     >
@@ -20,6 +20,7 @@ export default function ClientForgotPasswordPage() {
         surface="tenant_client"
         backHref="/auth/login"
         backLabel="Back to sign in"
+        dialogErrors
       />
     </AuthCard>
   );

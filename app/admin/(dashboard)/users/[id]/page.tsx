@@ -21,7 +21,7 @@ export default async function TenantUserDetailPage({
   });
   return (
     <div>
-      <PageHeader title={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email} />
+      <PageHeader title={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email} backHref="/admin/users" backLabel="Users" />
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <h2 className="text-sm font-semibold uppercase text-stone-500">Profile</h2>

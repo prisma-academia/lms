@@ -7,7 +7,7 @@ export default async function NewTenantRolePage() {
   await requireTenantPage(PERMISSIONS.TENANT_ROLES_WRITE.key);
   return (
     <div>
-      <PageHeader title="New role" />
+      <PageHeader title="New role" backHref="/admin/role-templates" backLabel="Roles" />
       <Card>
         <RoleEditor permissions={ALL_TENANT_PERMISSION_KEYS} scope="tenant" />
       </Card>

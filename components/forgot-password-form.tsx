@@ -8,6 +8,7 @@ import Link from "next/link";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useApiError } from "@/components/use-api-error";
 
 const Schema = z.object({ email: z.email() });
 type Values = z.infer<typeof Schema>;
@@ -16,22 +17,27 @@ export function ForgotPasswordForm({
   surface,
   backHref,
   backLabel,
+  dialogErrors = false,
 }: {
   surface: "platform" | "tenant_admin" | "tenant_client";
   backHref: string;
   backLabel: string;
+  /** Route API errors to the global error dialog instead of inline text. */
+  dialogErrors?: boolean;
 }) {
   const { register, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(Schema),
   });
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const report = useApiError();
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     const res = await apiPost("/api/auth/forgot-password", { email: values.email, surface });
     if (res.error) {
-      setError(res.error.message);
+      if (dialogErrors) report(res, () => onSubmit());
+      else setError(res.error.message);
       return;
     }
     setDone(true);
@@ -39,9 +45,16 @@ export function ForgotPasswordForm({
 
   if (done) {
     return (
-      <p className="text-sm text-stone-600">
-        If an account exists for that email, we sent a reset link. Check your inbox (and spam).
-      </p>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-stone-600">
+          If an account exists for that email, we sent a reset link. Check your inbox (and spam).
+        </p>
+        <p className="text-center text-xs text-stone-500">
+          <Link href={backHref} className="underline">
+            {backLabel}
+          </Link>
+        </p>
+      </div>
     );
   }
 

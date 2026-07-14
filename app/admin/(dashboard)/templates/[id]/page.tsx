@@ -13,7 +13,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <PageHeader title={template.name} subtitle={`Type: ${template.type}`} />
+      <PageHeader title={template.name} subtitle={`Type: ${template.type}`} backHref="/admin/templates" backLabel="Templates" />
       <Card>
         <TemplateForm
           mode="edit"

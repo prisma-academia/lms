@@ -7,6 +7,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { RouteProgress } from "@/components/route-progress";
 import { ErrorDialogProvider } from "@/components/error-dialog";
+import { ToastProvider } from "@/components/ui/toast";
 import {
   buildPlatformMetadata,
   buildPlatformViewport,
@@ -59,7 +60,9 @@ export default async function RootLayout({
           <RouteProgress />
         </Suspense>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ErrorDialogProvider>{children}</ErrorDialogProvider>
+          <ToastProvider>
+            <ErrorDialogProvider>{children}</ErrorDialogProvider>
+          </ToastProvider>
         </NextIntlClientProvider>
       </body>
     </html>

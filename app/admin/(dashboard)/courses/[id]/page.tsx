@@ -70,7 +70,7 @@ export default async function CourseDetailPage({
 
   return (
     <div>
-      <PageHeader title={course.title} />
+      <PageHeader title={course.title} backHref="/admin/courses" backLabel="Courses" />
       <CourseEditor
         initial={initial}
         canWrite={hasPermission(actor, PERMISSIONS.TENANT_COURSES_WRITE.key)}

@@ -42,7 +42,7 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <PageHeader title={quiz.title} subtitle="Assemble questions and settings." />
+      <PageHeader title={quiz.title} subtitle="Assemble questions and settings." backHref="/admin/quizzes" backLabel="Quizzes" />
       <QuizBuilder
         id={quiz.id}
         initial={{

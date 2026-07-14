@@ -7,7 +7,7 @@ export default async function NewQuizPage() {
   await requireTenantPage(PERMISSIONS.TENANT_QUIZZES_WRITE.key);
   return (
     <div>
-      <PageHeader title="New quiz" subtitle="Add questions after creating the quiz." />
+      <PageHeader title="New quiz" subtitle="Add questions after creating the quiz." backHref="/admin/quizzes" backLabel="Quizzes" />
       <Card>
         <CreateQuizForm />
       </Card>

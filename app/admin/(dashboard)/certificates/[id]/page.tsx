@@ -50,6 +50,8 @@ export default async function CertificateDetailPage({ params }: { params: Promis
         subtitle={
           cert.course ? `Course: ${cert.course.title}` : cert.programme ? `Programme: ${cert.programme.title}` : "Standalone"
         }
+        backHref="/admin/certificates"
+        backLabel="Certificates"
       />
       <CertificateEditor
         id={cert.id}

@@ -7,7 +7,7 @@ export default async function NewClientPage() {
   await requireTenantPage(PERMISSIONS.TENANT_CLIENTS_WRITE.key);
   return (
     <div>
-      <PageHeader title="New learner" />
+      <PageHeader title="New learner" backHref="/admin/clients" backLabel="Learners" />
       <Card>
         <CreateClientForm />
       </Card>

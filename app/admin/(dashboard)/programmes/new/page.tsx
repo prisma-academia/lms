@@ -7,7 +7,7 @@ export default async function NewProgrammePage() {
   await requireTenantPage(PERMISSIONS.TENANT_PROGRAMMES_WRITE.key);
   return (
     <div>
-      <PageHeader title="New programme" subtitle="You can add courses after creating the programme." />
+      <PageHeader title="New programme" subtitle="You can add courses after creating the programme." backHref="/admin/programmes" backLabel="Programmes" />
       <Card>
         <CreateProgrammeForm />
       </Card>

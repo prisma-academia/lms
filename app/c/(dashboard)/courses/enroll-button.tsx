@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
+import { useApiError } from "@/components/use-api-error";
 
 export function CourseEnrollButton({
   slug,
@@ -17,7 +18,7 @@ export function CourseEnrollButton({
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const report = useApiError();
 
   if (enrolled) {
     return (
@@ -32,16 +33,12 @@ export function CourseEnrollButton({
 
   async function handleEnroll() {
     setLoading(true);
-    setError(null);
     const res = await apiPost<{ checkoutUrl: string | null }>(
       `/api/client/courses/${slug}`,
       {}
     );
     setLoading(false);
-    if (res.error) {
-      setError(res.error.message);
-      return;
-    }
+    if (!report(res, () => handleEnroll())) return;
     if (res.data?.checkoutUrl) {
       window.location.href = res.data.checkoutUrl;
       return;
@@ -55,7 +52,6 @@ export function CourseEnrollButton({
       <Button size="sm" onClick={handleEnroll} disabled={loading}>
         {loading ? "Please wait…" : label}
       </Button>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }

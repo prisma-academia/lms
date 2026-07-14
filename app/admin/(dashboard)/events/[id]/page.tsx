@@ -28,7 +28,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
 
   return (
     <div>
-      <PageHeader title={event.title} />
+      <PageHeader title={event.title} backHref="/admin/events" backLabel="Events" />
       <Card>
         <EventForm
           mode="edit"

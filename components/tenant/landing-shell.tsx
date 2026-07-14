@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { apexHostname, isProd } from "@/lib/env";
 import { apexHttpOrigin } from "@/lib/url/apex";
+import { Button } from "@/components/ui/button";
 
 export function TenantLandingShell({
   orgName,
@@ -17,13 +18,23 @@ export function TenantLandingShell({
     <div className="flex min-h-[100dvh] flex-col">
       <header className="sticky top-0 z-30 border-b-2 border-ink bg-card/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <span className="truncate font-heading text-[15px]">{orgName}</span>
-          <Link
-            href="/admin/auth/login"
-            className="shrink-0 text-xs font-medium text-ink/40 hover:text-ink/60"
-          >
-            Admin portal
+          <Link href="/" className="truncate font-heading text-[15px] hover:text-ink/70">
+            {orgName}
           </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/auth/login">Sign in</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/auth/register">Enroll</Link>
+            </Button>
+            <Link
+              href="/admin/auth/login"
+              className="ml-1 hidden text-xs font-medium text-ink/60 hover:text-ink sm:inline"
+            >
+              Admin portal
+            </Link>
+          </div>
         </div>
       </header>
 

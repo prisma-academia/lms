@@ -29,7 +29,7 @@ export default async function EditClientGroupPage({ params }: { params: Promise<
 
   return (
     <div>
-      <PageHeader title={group.name} subtitle="Edit group details and manage members." />
+      <PageHeader title={group.name} subtitle="Edit group details and manage members." backHref="/admin/client-groups" backLabel="Client groups" />
       <Card>
         <EditClientGroupForm
           id={group.id}

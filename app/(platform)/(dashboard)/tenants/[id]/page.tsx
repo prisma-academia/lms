@@ -48,7 +48,7 @@ export default async function TenantDrilldownPage({
 
   return (
     <div>
-      <PageHeader title={tenant.name} />
+      <PageHeader title={tenant.name} backHref="/tenants" backLabel="Tenants" />
       <TenantDetailTabs
         tenant={{
           id: tenant.id,

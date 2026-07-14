@@ -8,6 +8,7 @@ import { z } from "zod";
 import { apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useApiError } from "@/components/use-api-error";
 
 const Schema = z.object({
   displayName: z.string().min(1, "Enter your name."),
@@ -39,11 +40,10 @@ export function ClientProfileForm({
       phone: initialPhone || undefined,
     },
   });
-  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const report = useApiError();
 
   const onSubmit = handleSubmit(async (values) => {
-    setError(null);
     setSaved(false);
     const res = await apiPatch<{ client: { id: string } }>("/api/client/profile", {
       displayName: values.displayName,
@@ -51,10 +51,7 @@ export function ClientProfileForm({
       lastName: values.lastName || null,
       phone: values.phone || null,
     });
-    if (res.error) {
-      setError(res.error.message);
-      return;
-    }
+    if (!report(res, () => onSubmit())) return;
     setSaved(true);
     router.refresh();
   });
@@ -73,7 +70,6 @@ export function ClientProfileForm({
       <FormField label="Phone (optional)" htmlFor="phone" error={formState.errors.phone?.message}>
         <TextInput id="phone" type="tel" autoComplete="tel" {...register("phone")} />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {saved ? <p className="text-sm text-green-700">Profile saved.</p> : null}
       <Button type="submit" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Saving…" : "Save profile"}

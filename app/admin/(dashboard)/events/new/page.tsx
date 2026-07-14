@@ -12,7 +12,7 @@ export default async function NewEventPage() {
   ]);
   return (
     <div>
-      <PageHeader title="New event" />
+      <PageHeader title="New event" backHref="/admin/events" backLabel="Events" />
       <Card>
         <EventForm
           mode="create"

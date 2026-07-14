@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/shell";
 import { Spinner } from "@/components/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useApiError } from "@/components/use-api-error";
 import { cn } from "@/lib/utils";
 
 type Notif = { id: string; category: string; title: string; body: string | null; readAt: string | null; createdAt: string };
@@ -17,23 +18,29 @@ export function NotificationsClient() {
   const [prefs, setPrefs] = useState<Pref[] | null>(null);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
+  const report = useApiError();
+  const loadRef = useRef<(() => Promise<void>) | null>(null);
 
   const load = useCallback(async () => {
     const [n, p] = await Promise.all([
       apiGet<{ notifications: Notif[] }>("/api/client/notifications"),
       apiGet<{ prefs: Pref[] }>("/api/client/notification-preferences"),
     ]);
+    if (!report(n, () => void loadRef.current?.())) return;
+    if (!report(p, () => void loadRef.current?.())) return;
     if (n.data) setNotifs(n.data.notifications);
     if (p.data) setPrefs(p.data.prefs);
-  }, []);
+  }, [report]);
 
   useEffect(() => {
+    loadRef.current = load;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader sets state after await
     void load();
   }, [load]);
 
   async function markAll() {
-    await apiPost("/api/client/notifications", {});
+    const res = await apiPost("/api/client/notifications", {});
+    if (!report(res, () => markAll())) return;
     setNotifs((prev) => (prev ? prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })) : prev));
   }
 
@@ -47,7 +54,8 @@ export function NotificationsClient() {
     setInfo(null);
     const res = await apiPost("/api/client/notification-preferences", { prefs });
     setSavingPrefs(false);
-    if (!res.error) setInfo("Preferences saved.");
+    if (!report(res, () => savePrefs())) return;
+    setInfo("Preferences saved.");
   }
 
   if (!notifs || !prefs) return <Spinner label="Loading…" />;

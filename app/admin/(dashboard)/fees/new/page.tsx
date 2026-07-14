@@ -24,7 +24,7 @@ export default async function NewFeePage() {
   const currencyOptions = getCurrencyOptions();
   return (
     <div>
-      <PageHeader title="New fee" />
+      <PageHeader title="New fee" backHref="/admin/fees" backLabel="Fees" />
       <Card>
         <CreateFeeForm
           clients={clients.map((c) => ({

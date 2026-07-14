@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiPost } from "@/lib/client/api";
 import { useToast } from "@/components/ui/toast";
+import { useApiError } from "@/components/use-api-error";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +26,7 @@ function formatPrice(cents: number | null, currency: string): string {
 
 export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme[] }) {
   const { toast, celebrate } = useToast();
+  const report = useApiError();
   const [pendingSlug, setPendingSlug] = useState<string | null>(null);
   const [state, setState] = useState(programmes);
 
@@ -36,7 +38,7 @@ export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme
     );
     if (res.error) {
       setPendingSlug(null);
-      toast(res.error.message);
+      report(res, () => enroll(p));
       return;
     }
     // Paid programme — redirect to the provider checkout.

@@ -10,6 +10,7 @@ import { Spinner } from "@/components/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
 import { useToast } from "@/components/ui/toast";
+import { useApiError } from "@/components/use-api-error";
 import { QuizPlayer } from "./quiz-player";
 import { cn } from "@/lib/utils";
 
@@ -150,6 +151,7 @@ function LessonList({
 export function LearnPlayer({ slug }: { slug: string }) {
   const router = useRouter();
   const { toast, celebrate } = useToast();
+  const report = useApiError();
   const [data, setData] = useState<LearnPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -186,11 +188,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
       enrollment: { progressPercent: number; completedAt: string | null };
     }>(`/api/client/courses/${slug}/learn`, { lessonId });
     setCompleting(false);
-    if (res.error) {
-      setError(res.error.message);
-      toast(res.error.message);
-      return;
-    }
+    if (!report(res, () => markComplete(lessonId))) return;
     if (res.data?.enrollment.progressPercent === 100) {
       celebrate();
       toast("Course complete. Victory lap! 🎓");
@@ -302,10 +300,6 @@ export function LearnPlayer({ slug }: { slug: string }) {
               </div>
 
               <LessonContent lesson={selected} />
-
-              {error ? (
-                <p className="text-sm font-bold text-red">{error}</p>
-              ) : null}
 
               <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-ink/15 pt-4">
                 {!selected.completed ? (

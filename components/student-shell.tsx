@@ -7,7 +7,6 @@ import { Icon, type IconName } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
 import { NavLinks, type NavItem } from "@/components/nav-links";
-import { ToastProvider } from "@/components/ui/toast";
 import { BrandColorSync } from "@/components/brand-color-sync";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +62,7 @@ export function StudentShell({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <ToastProvider>
+    <>
       <BrandColorSync color={accentColor} />
       <div className="flex min-h-[100dvh] flex-col lg:flex-row">
         {/* Desktop sidebar */}
@@ -97,9 +96,10 @@ export function StudentShell({
               >
                 {initials(userLabel)}
               </span>
-              <div className="min-w-0 truncate text-[13px] font-bold text-ink">
+              <div className="min-w-0 flex-1 truncate text-[13px] font-bold text-ink">
                 {userLabel}
               </div>
+              <NotificationBell />
             </div>
             <LogoutButton
               endpoint="/api/auth/logout"
@@ -202,6 +202,6 @@ export function StudentShell({
           })}
         </nav>
       </div>
-    </ToastProvider>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/spinner";
 import { useToast } from "@/components/ui/toast";
+import { useApiError } from "@/components/use-api-error";
 
 type QType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER";
 type Q = { id: string; type: QType; prompt: string; options: string[]; points: number };
@@ -21,6 +22,7 @@ type AnswerMap = Record<string, number[] | string>;
 
 export function QuizPlayer({ quizId }: { quizId: string }) {
   const { toast, celebrate } = useToast();
+  const report = useApiError();
   const [quiz, setQuiz] = useState<QuizPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -52,17 +54,12 @@ export function QuizPlayer({ quizId }: { quizId: string }) {
 
   async function submit() {
     setSubmitting(true);
-    setError(null);
     const res = await apiPost<{ attempt: { scorePercent: number; passed: boolean | null } }>(
       `/api/client/quizzes/${quizId}/attempt`,
       { answers }
     );
     setSubmitting(false);
-    if (res.error) {
-      setError(res.error.message);
-      toast(res.error.message);
-      return;
-    }
+    if (!report(res, () => submit())) return;
     const r = res.data!.attempt;
     setResult(r);
     if (r.passed === false) toast(`Scored ${r.scorePercent}%.`);
@@ -140,7 +137,6 @@ export function QuizPlayer({ quizId }: { quizId: string }) {
           )}
         </div>
       ))}
-      {error ? <p className="text-sm font-bold text-red">{error}</p> : null}
       <div>
         <Button type="button" onClick={submit} disabled={submitting}>
           {submitting ? "Submitting…" : "Submit quiz"}

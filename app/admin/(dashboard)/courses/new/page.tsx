@@ -9,7 +9,7 @@ export default async function NewCoursePage() {
   const currencyOptions = getCurrencyOptions();
   return (
     <div>
-      <PageHeader title="New course" />
+      <PageHeader title="New course" backHref="/admin/courses" backLabel="Courses" />
       <Card>
         <NewCourseForm currencyOptions={currencyOptions} />
       </Card>

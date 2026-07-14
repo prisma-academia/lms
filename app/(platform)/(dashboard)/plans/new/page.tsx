@@ -9,7 +9,7 @@ export default async function NewPlanPage() {
   const currencyOptions = getCurrencyOptions();
   return (
     <div>
-      <PageHeader title="New plan" />
+      <PageHeader title="New plan" backHref="/plans" backLabel="Plans" />
       <Card>
         <PlanForm
           mode="create"

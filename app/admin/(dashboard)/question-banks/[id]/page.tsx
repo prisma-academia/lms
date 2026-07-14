@@ -40,7 +40,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <PageHeader title={bank.name} subtitle="Manage questions, tags, and sharing." />
+      <PageHeader title={bank.name} subtitle="Manage questions, tags, and sharing." backHref="/admin/question-banks" backLabel="Question banks" />
       <BankEditor
         id={bank.id}
         initial={{ name: bank.name, description: bank.description ?? "" }}

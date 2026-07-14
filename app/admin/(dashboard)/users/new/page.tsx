@@ -13,7 +13,7 @@ export default async function NewTenantUserPage() {
   });
   return (
     <div>
-      <PageHeader title="Invite user" />
+      <PageHeader title="Invite user" backHref="/admin/users" backLabel="Users" />
       <Card>
         <InviteTenantUserForm roles={roles} />
       </Card>

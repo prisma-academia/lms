@@ -32,7 +32,7 @@ export default async function EditProgrammePage({ params }: { params: Promise<{ 
 
   return (
     <div>
-      <PageHeader title={programme.title} subtitle="Edit programme details and its courses." />
+      <PageHeader title={programme.title} subtitle="Edit programme details and its courses." backHref="/admin/programmes" backLabel="Programmes" />
       <ProgrammeEditor
         id={programme.id}
         initial={{

@@ -29,6 +29,7 @@ export default async function ClientResetPasswordPage({
         token={token}
         backHref="/auth/login"
         backLabel="Back to sign in"
+        dialogErrors
       />
     </AuthCard>
   );

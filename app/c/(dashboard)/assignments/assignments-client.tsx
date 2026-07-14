@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { uploadViaPresign } from "@/lib/client/upload";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { TextArea, TextInput } from "@/components/form-field";
 import { Spinner } from "@/components/spinner";
 import { Icon } from "@/components/icon";
 import { useToast } from "@/components/ui/toast";
+import { useApiError } from "@/components/use-api-error";
 import { courseAccent } from "@/lib/ui/course-color";
 import { cn } from "@/lib/utils";
 
@@ -78,6 +79,7 @@ function SubmitForm({
   onSubmitted: () => void;
 }) {
   const { toast, celebrate } = useToast();
+  const report = useApiError();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -98,16 +100,14 @@ function SubmitForm({
       setBusy(true);
       const up = await uploadViaPresign("/api/client/uploads/presign", file, {});
       if ("error" in up) {
-        setErr(up.error);
         setBusy(false);
+        // Upload failures are network PUTs (no HTTP status) — treat as retryable.
+        report({ error: { code: "upload", message: up.error }, status: 0 }, () => submit());
         return;
       }
       const res = await apiPost(`/api/client/assignments/${assignment.id}/submit`, { fileKey: up.key });
       setBusy(false);
-      if (res.error) {
-        setErr(res.error.message);
-        return;
-      }
+      if (!report(res, () => submit())) return;
       celebrate();
       toast(`Submitted: "${assignment.title}"`);
       setOpen(false);
@@ -124,10 +124,7 @@ function SubmitForm({
     const payload = isText ? { textBody: value } : { linkUrl: value };
     const res = await apiPost(`/api/client/assignments/${assignment.id}/submit`, payload);
     setBusy(false);
-    if (res.error) {
-      setErr(res.error.message);
-      return;
-    }
+    if (!report(res, () => submit())) return;
     celebrate();
     toast(`Submitted: "${assignment.title}"`);
     setOpen(false);
@@ -190,6 +187,8 @@ function SubmitForm({
 export function AssignmentsClient() {
   const [items, setItems] = useState<ClientAssignment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const report = useApiError();
+  const loadRef = useRef<(() => Promise<void>) | null>(null);
 
   const load = useCallback(async () => {
     const res = await apiGet<{ assignments: ClientAssignment[] }>(
@@ -197,12 +196,14 @@ export function AssignmentsClient() {
     );
     if (res.error) {
       setError(res.error.message);
+      report(res, () => void loadRef.current?.());
       return;
     }
     setItems(res.data?.assignments ?? []);
-  }, []);
+  }, [report]);
 
   useEffect(() => {
+    loadRef.current = load;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader sets state only after await, not synchronously
     void load();
   }, [load]);

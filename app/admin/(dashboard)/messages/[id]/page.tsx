@@ -22,6 +22,8 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
       <PageHeader
         title={message.subject}
         subtitle={`${message.category} · ${message.audience} · sent ${message.createdAt.toLocaleString()}`}
+        backHref="/admin/messages"
+        backLabel="Messages"
       />
       <Card className="mb-4">
         <div className="whitespace-pre-wrap text-sm text-ink/90">{message.body}</div>

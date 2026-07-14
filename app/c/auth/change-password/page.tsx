@@ -7,7 +7,7 @@ export default function ClientChangePasswordPage() {
       title="Set a new password"
       subtitle="12+ characters, with upper, lower, digit, and symbol."
     >
-      <ChangePasswordForm />
+      <ChangePasswordForm dialogErrors />
     </AuthCard>
   );
 }

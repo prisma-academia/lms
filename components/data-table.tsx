@@ -14,14 +14,16 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export type DataTableProps<TData> = {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
   rowHref?: (row: TData) => string | null;
-  empty?: string;
+  /** Shown when there are no rows. Defaults to a branded EmptyState. */
+  empty?: ReactNode;
   searchPlaceholder?: string;
   filterColumnId?: string;
 };
@@ -30,7 +32,11 @@ export function DataTable<TData>({
   columns,
   data,
   rowHref,
-  empty = "No results.",
+  empty = (
+    <EmptyState icon="search" title="Nothing here yet">
+      No results.
+    </EmptyState>
+  ),
   searchPlaceholder = "Search…",
   filterColumnId,
 }: DataTableProps<TData>) {

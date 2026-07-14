@@ -8,6 +8,7 @@ import Link from "next/link";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useApiError } from "@/components/use-api-error";
 
 const Schema = z
   .object({
@@ -21,11 +22,23 @@ const Schema = z
 
 type Values = z.infer<typeof Schema>;
 
-export function ResetPasswordForm({ token, backHref, backLabel }: { token: string; backHref: string; backLabel: string }) {
+export function ResetPasswordForm({
+  token,
+  backHref,
+  backLabel,
+  dialogErrors = false,
+}: {
+  token: string;
+  backHref: string;
+  backLabel: string;
+  /** Route API errors to the global error dialog instead of inline text. */
+  dialogErrors?: boolean;
+}) {
   const { register, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(Schema),
   });
   const [error, setError] = useState<string | null>(null);
+  const report = useApiError();
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
@@ -34,7 +47,8 @@ export function ResetPasswordForm({ token, backHref, backLabel }: { token: strin
       password: values.password,
     });
     if (res.error) {
-      setError(res.error.message);
+      if (dialogErrors) report(res, () => onSubmit());
+      else setError(res.error.message);
       return;
     }
     if (res.data?.redirect) window.location.assign(res.data.redirect);

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { Spinner } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useApiError } from "@/components/use-api-error";
 import { cn } from "@/lib/utils";
 
 type Receipt = {
@@ -16,25 +17,32 @@ type Receipt = {
 export function InboxClient() {
   const [receipts, setReceipts] = useState<Receipt[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const report = useApiError();
+  const loadRef = useRef<(() => Promise<void>) | null>(null);
 
   const load = useCallback(async () => {
     const res = await apiGet<{ receipts: Receipt[] }>("/api/client/inbox");
+    if (!report(res, () => void loadRef.current?.())) return;
     if (res.data) setReceipts(res.data.receipts);
-  }, []);
+  }, [report]);
 
   useEffect(() => {
+    loadRef.current = load;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async loader sets state after await
     void load();
   }, [load]);
 
-  async function open(r: Receipt) {
+  async function markRead(r: Receipt) {
+    const res = await apiPost("/api/client/inbox", { recipientId: r.id });
+    if (!report(res, () => markRead(r))) return;
+    setReceipts((prev) =>
+      prev ? prev.map((x) => (x.id === r.id ? { ...x, readAt: new Date().toISOString() } : x)) : prev
+    );
+  }
+
+  function open(r: Receipt) {
     setOpenId((prev) => (prev === r.id ? null : r.id));
-    if (!r.readAt) {
-      await apiPost("/api/client/inbox", { recipientId: r.id });
-      setReceipts((prev) =>
-        prev ? prev.map((x) => (x.id === r.id ? { ...x, readAt: new Date().toISOString() } : x)) : prev
-      );
-    }
+    if (!r.readAt) void markRead(r);
   }
 
   if (!receipts) return <Spinner label="Loading inbox…" />;

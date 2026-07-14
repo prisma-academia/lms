@@ -7,7 +7,7 @@ export default async function NewUserGroupPage() {
   await requireTenantPage(PERMISSIONS.TENANT_GROUPS_WRITE.key);
   return (
     <div>
-      <PageHeader title="New user group" subtitle="You can add members after creating the group." />
+      <PageHeader title="New user group" subtitle="You can add members after creating the group." backHref="/admin/user-groups" backLabel="User groups" />
       <Card>
         <CreateUserGroupForm />
       </Card>

@@ -68,13 +68,17 @@ export function ErrorDialogProvider({ children }: { children: ReactNode }) {
 
   const handleRetry = useCallback(async () => {
     if (!current) return;
+    const active = current;
     try {
       setBusy(true);
-      await current.onRetry?.();
+      await active.onRetry?.();
     } finally {
-      close();
+      setBusy(false);
+      // Close only if the retry didn't itself surface a new error dialog
+      // (in which case `current` now points at the newer options).
+      setCurrent((c) => (c === active ? null : c));
     }
-  }, [current, close]);
+  }, [current]);
 
   return (
     <ErrorDialogContext.Provider value={{ showError }}>

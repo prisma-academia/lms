@@ -12,7 +12,7 @@ export default async function NewCertificatePage() {
   ]);
   return (
     <div>
-      <PageHeader title="New certificate" subtitle="Design it after creating. Linking to a course auto-awards on completion." />
+      <PageHeader title="New certificate" subtitle="Design it after creating. Linking to a course auto-awards on completion." backHref="/admin/certificates" backLabel="Certificates" />
       <Card>
         <CreateCertificateForm
           courses={courses.map((c) => ({ value: c.id, label: c.title }))}

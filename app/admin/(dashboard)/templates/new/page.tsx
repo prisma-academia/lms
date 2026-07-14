@@ -7,7 +7,7 @@ export default async function NewTemplatePage() {
   await requireTenantPage(PERMISSIONS.TENANT_TEMPLATES_WRITE.key);
   return (
     <div>
-      <PageHeader title="New template" />
+      <PageHeader title="New template" backHref="/admin/templates" backLabel="Templates" />
       <Card>
         <TemplateForm mode="create" initial={{ type: "", name: "", contentJson: "{}" }} canWrite />
       </Card>

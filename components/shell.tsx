@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { LogoutButton, type LogoutContext } from "./logout-button";
 import { NavLinks, type NavItem } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
 import { BrandColorSync } from "./brand-color-sync";
+import { Icon } from "@/components/icon";
 import { cn } from "@/lib/utils";
 
 export type { NavItem };
@@ -120,20 +122,36 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  backHref,
+  backLabel = "Back",
 }: {
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  /** When set, renders a "← {backLabel}" link above the title. */
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="font-heading text-2xl leading-tight">{title}</h1>
-        {subtitle ? (
-          <p className="mt-1 text-sm font-medium text-ink/60">{subtitle}</p>
-        ) : null}
+    <div className="mb-6">
+      {backHref ? (
+        <Link
+          href={backHref}
+          className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink"
+        >
+          <Icon name="arrow-left" className="size-4" />
+          {backLabel}
+        </Link>
+      ) : null}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl leading-tight">{title}</h1>
+          {subtitle ? (
+            <p className="mt-1 text-sm font-medium text-ink/60">{subtitle}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   );
 }
