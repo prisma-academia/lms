@@ -15,7 +15,7 @@ export const RegisterBody = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   otherName: z.string().max(100).optional(),
-  phone: z.string().max(40).optional(),
+  phone: z.string().min(1).max(40),
   email: z.email(),
   password: z.string().min(12),
   // company

@@ -33,7 +33,7 @@ export function RegisterDialog({
           {children}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogTitle>Let&apos;s set up your workspace</DialogTitle>
         <DialogDescription>
           Two quick steps, then a one-time code to verify your email.

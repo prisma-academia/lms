@@ -12,6 +12,7 @@ import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import { OtpInput } from "@/components/ui/otp-input";
 import { getCountryOptions } from "@/lib/geo/countries";
 import { invalidEmail, minLength, required } from "@/lib/validation/messages";
+import { cn } from "@/lib/utils";
 
 const RESEND_COOLDOWN = 60;
 
@@ -20,7 +21,7 @@ const AccountSchema = z
     firstName: z.string().min(1, required("First name")).max(100),
     lastName: z.string().min(1, required("Last name")).max(100),
     otherName: z.string().max(100).optional().or(z.literal("")),
-    phone: z.string().max(40).optional().or(z.literal("")),
+    phone: z.string().min(1, required("Phone")).max(40),
     email: z.email(invalidEmail),
     password: z.string().min(12, minLength("Password", 12)),
     confirmPassword: z.string().min(12, minLength("Confirm password", 12)),
@@ -48,6 +49,24 @@ type AccountValues = z.infer<typeof AccountSchema>;
 type CompanyValues = z.infer<typeof CompanySchema>;
 
 const COUNTRY_OPTIONS = getCountryOptions();
+
+type SlugResult = { available: boolean; message: string };
+
+function slugAvailabilityMessage(available: boolean, reason?: string): string {
+  if (available) return "This workspace URL is available.";
+  switch (reason) {
+    case "reserved":
+      return "This workspace URL is reserved.";
+    case "invalid":
+      return "Use lowercase letters, digits, and hyphens only.";
+    case "quarantined":
+      return "This URL was recently used and is temporarily unavailable.";
+    case "taken":
+      return "This workspace URL is already taken.";
+    default:
+      return "This workspace URL is unavailable.";
+  }
+}
 
 type Step = "account" | "company" | "otp";
 
@@ -195,7 +214,7 @@ function Steps({ current }: { current: Step }) {
     { key: "otp", label: "3. Verify email" },
   ];
   return (
-    <div className="flex gap-2 text-xs">
+    <div className="flex flex-wrap gap-2 text-xs">
       {items.map((it) => (
         <div
           key={it.key}
@@ -221,7 +240,7 @@ function AccountForm({
   });
   const onSubmit = handleSubmit((v) => onNext(v));
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-2 gap-4">
+    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <FormField label="First name" htmlFor="first" error={formState.errors.firstName?.message}>
         <TextInput id="first" {...register("firstName")} />
       </FormField>
@@ -231,20 +250,19 @@ function AccountForm({
       <FormField label="Other name (optional)" htmlFor="other" error={formState.errors.otherName?.message}>
         <TextInput id="other" {...register("otherName")} />
       </FormField>
-      <FormField label="Phone (optional)" htmlFor="phone" error={formState.errors.phone?.message}>
-        <TextInput id="phone" type="tel" {...register("phone")} />
+      <FormField label="Phone" htmlFor="phone" error={formState.errors.phone?.message}>
+        <TextInput id="phone" type="tel" autoComplete="tel" {...register("phone")} />
       </FormField>
-      <FormField label="Email" htmlFor="email" error={formState.errors.email?.message}>
+      <FormField label="Email" htmlFor="email" className="sm:col-span-2" error={formState.errors.email?.message}>
         <TextInput id="email" type="email" {...register("email")} />
       </FormField>
-      <span />
       <FormField label="Password" htmlFor="pw" error={formState.errors.password?.message}>
         <TextInput id="pw" type="password" autoComplete="new-password" {...register("password")} />
       </FormField>
       <FormField label="Confirm password" htmlFor="cpw" error={formState.errors.confirmPassword?.message}>
         <TextInput id="cpw" type="password" autoComplete="new-password" {...register("confirmPassword")} />
       </FormField>
-      <div className="col-span-2 flex justify-end">
+      <div className="flex justify-end sm:col-span-2">
         <Button type="submit">Continue</Button>
       </div>
     </form>
@@ -264,38 +282,81 @@ function CompanyForm({
   pending: boolean;
   error: string | null;
 }) {
-  const { register, handleSubmit, formState, watch, setError } = useForm<CompanyValues>({
+  const { register, handleSubmit, formState, watch, setError, clearErrors } = useForm<CompanyValues>({
     resolver: zodResolver(CompanySchema),
     defaultValues: initial ?? undefined,
   });
   const slug = watch("slug");
-  const [slugStatus, setSlugStatus] = useState<string | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const [slugResult, setSlugResult] = useState<SlugResult | null>(null);
 
-  async function checkSlug() {
-    if (!slug || slug.length < 3) {
-      setSlugStatus(null);
+  async function checkSlug(value: string) {
+    if (!value || value.length < 3) {
+      setSlugChecking(false);
+      setSlugResult(null);
+      clearErrors("slug");
       return;
     }
+    setSlugChecking(true);
+    setSlugResult(null);
     const res = await apiGet<{ available: boolean; reason?: string }>(
-      `/api/platform/slugs/check?slug=${encodeURIComponent(slug)}`
+      `/api/platform/slugs/check?slug=${encodeURIComponent(value)}`
     );
+    setSlugChecking(false);
     if (!res.data) return;
-    if (res.data.available) setSlugStatus("Available.");
-    else {
-      setSlugStatus(`Unavailable (${res.data.reason ?? "taken"}).`);
-      setError("slug", { type: "manual", message: `Unavailable (${res.data.reason ?? "taken"}).` });
+    const message = slugAvailabilityMessage(res.data.available, res.data.reason);
+    setSlugResult({ available: res.data.available, message });
+    if (res.data.available) {
+      clearErrors("slug");
+    } else {
+      setError("slug", { type: "manual", message });
     }
   }
+
+  useEffect(() => {
+    if (!slug || slug.length < 3) {
+      setSlugChecking(false);
+      setSlugResult(null);
+      return;
+    }
+    setSlugChecking(true);
+    setSlugResult(null);
+    const timer = setTimeout(() => {
+      void checkSlug(slug);
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce slug lookup only
+  }, [slug]);
 
   const submit = handleSubmit((v) => onSubmit(v));
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-2 gap-4">
+    <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <FormField label="Company name" htmlFor="cname" error={formState.errors.name?.message}>
         <TextInput id="cname" {...register("name")} />
       </FormField>
-      <FormField label="Slug (subdomain)" htmlFor="slug" error={formState.errors.slug?.message ?? slugStatus ?? undefined}>
-        <TextInput id="slug" placeholder="acme" {...register("slug")} onBlur={checkSlug} />
+      <FormField
+        label="Slug (subdomain)"
+        htmlFor="slug"
+        error={!slugResult ? formState.errors.slug?.message : undefined}
+      >
+        <TextInput id="slug" placeholder="acme" {...register("slug")} />
+        {slugChecking ? (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-ink/60" role="status">
+            <span className="size-3 animate-spin rounded-full border-2 border-ink/20 border-t-ink" />
+            Checking availability…
+          </span>
+        ) : slugResult ? (
+          <span
+            className={cn(
+              "text-xs font-bold",
+              slugResult.available ? "text-green-700" : "text-red"
+            )}
+            role="status"
+          >
+            {slugResult.message}
+          </span>
+        ) : null}
       </FormField>
       <FormField label="Company email" htmlFor="cemail" error={formState.errors.companyEmail?.message}>
         <TextInput id="cemail" type="email" {...register("companyEmail")} />
@@ -303,10 +364,9 @@ function CompanyForm({
       <FormField label="Company phone" htmlFor="cphone" error={formState.errors.companyPhone?.message}>
         <TextInput id="cphone" type="tel" {...register("companyPhone")} />
       </FormField>
-      <FormField label="Website" htmlFor="web" error={formState.errors.website?.message}>
+      <FormField label="Website" htmlFor="web" className="sm:col-span-2" error={formState.errors.website?.message}>
         <TextInput id="web" {...register("website")} />
       </FormField>
-      <span />
       <FormField label="Address line 1" htmlFor="a1" error={formState.errors.addressLine1?.message}>
         <TextInput id="a1" {...register("addressLine1")} />
       </FormField>
@@ -325,12 +385,12 @@ function CompanyForm({
       <FormField label="Country" htmlFor="ctry" error={formState.errors.country?.message}>
         <SelectInput id="ctry" options={COUNTRY_OPTIONS} {...register("country")} />
       </FormField>
-      {error ? <p className="col-span-2 text-sm text-red-600">{error}</p> : null}
-      <div className="col-span-2 flex justify-between">
+      {error ? <p className="text-sm text-red-600 sm:col-span-2">{error}</p> : null}
+      <div className="flex justify-between sm:col-span-2">
         <Button type="button" variant="outline" onClick={onBack} disabled={pending}>
           Back
         </Button>
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || slugChecking || slugResult?.available === false}>
           {pending ? "Sending code…" : "Send verification code"}
         </Button>
       </div>
