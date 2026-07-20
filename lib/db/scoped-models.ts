@@ -55,6 +55,13 @@ export const STRICT_SCOPED: ReadonlySet<string> = new Set([
   "LibraryFolder",
   "LibraryTag",
   "LibraryItemTag",
+  "LibraryUpload",
+  "LibraryUploadPart",
+  "LibraryGrant",
+  "LibraryEntitlement",
+  "LibraryPayment",
+  "LibraryProgress",
+  "ProgrammeEnrollment",
 ]);
 
 export const NULLABLE_SCOPED: ReadonlySet<string> = new Set([

@@ -200,5 +200,19 @@ export async function completeProgrammePurchase(input: {
     enrolled += 1;
   }
 
+  // Programme-level membership, linked to the payment that bought it. Course
+  // enrollments alone cannot express this, and library items assigned to a
+  // programme resolve their audience through here.
+  await prisma.programmeEnrollment.upsert({
+    where: { programmeId_clientId: { programmeId: input.programmeId, clientId: input.clientId } },
+    create: {
+      tenantId: input.tenantId,
+      programmeId: input.programmeId,
+      clientId: input.clientId,
+      paymentId: payment.id,
+    },
+    update: { paymentId: payment.id },
+  });
+
   return { payment, enrolled };
 }

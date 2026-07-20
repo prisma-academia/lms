@@ -54,6 +54,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
         });
         enrolled += 1;
       }
+      // Programme-level membership. Course enrollments alone cannot express it,
+      // and library items assigned to a programme resolve through here.
+      await prisma.programmeEnrollment.upsert({
+        where: { programmeId_clientId: { programmeId: programme.id, clientId: actor.clientId } },
+        create: { tenantId: actor.tenantId, programmeId: programme.id, clientId: actor.clientId },
+        update: {},
+      });
       // Enrollment confirmation — best-effort.
       try {
         const [branding, learner] = await Promise.all([
