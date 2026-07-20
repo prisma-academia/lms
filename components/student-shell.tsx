@@ -24,6 +24,7 @@ const PRIMARY_TABS: Tab[] = [
 const SECONDARY_NAV: Tab[] = [
   { href: "/courses", label: "Catalog", icon: "search" },
   { href: "/programmes", label: "Programmes", icon: "book" },
+  { href: "/library", label: "Library", icon: "layers" },
   { href: "/certificates", label: "Certificates", icon: "award" },
   { href: "/calendar", label: "Calendar", icon: "calendar" },
   { href: "/inbox", label: "Inbox", icon: "mail" },
