@@ -53,7 +53,34 @@ export type IconName =
   | "external-link"
   | "phone"
   | "map-pin"
-  | "alert-triangle";
+  | "alert-triangle"
+  // Media library + player.
+  | "pause"
+  | "volume"
+  | "volume-x"
+  | "maximize"
+  | "minimize"
+  | "pip"
+  | "captions"
+  | "skip-back"
+  | "skip-forward"
+  | "rewind-15"
+  | "forward-15"
+  | "zoom-in"
+  | "zoom-out"
+  | "download"
+  | "folder"
+  | "folder-open"
+  | "tag"
+  | "trash"
+  | "more-horizontal"
+  | "eye"
+  | "eye-off"
+  | "video"
+  | "audio"
+  | "archive"
+  | "image"
+  | "list";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   grid: (
@@ -286,6 +313,179 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </>
+  ),
+  pause: (
+    <>
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </>
+  ),
+  volume: (
+    <>
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+    </>
+  ),
+  "volume-x": (
+    <>
+      <path d="M11 5 6 9H2v6h4l5 4V5z" />
+      <path d="m16 9 5 6" />
+      <path d="m21 9-5 6" />
+    </>
+  ),
+  maximize: (
+    <>
+      <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+      <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+      <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+      <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+    </>
+  ),
+  minimize: (
+    <>
+      <path d="M3 8h3a2 2 0 0 0 2-2V3" />
+      <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+      <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+      <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+    </>
+  ),
+  pip: (
+    <>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <rect x="12" y="12" width="8" height="6" rx="1" />
+    </>
+  ),
+  captions: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M9 10.5a2.5 2.5 0 1 0 0 3" />
+      <path d="M16.5 10.5a2.5 2.5 0 1 0 0 3" />
+    </>
+  ),
+  "skip-back": (
+    <>
+      <path d="M19 20 9 12l10-8v16z" />
+      <path d="M5 19V5" />
+    </>
+  ),
+  "skip-forward": (
+    <>
+      <path d="m5 4 10 8-10 8V4z" />
+      <path d="M19 5v14" />
+    </>
+  ),
+  "rewind-15": (
+    <>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+    </>
+  ),
+  "forward-15": (
+    <>
+      <path d="M21 12a9 9 0 1 1-3-6.7" />
+      <path d="M21 4v5h-5" />
+    </>
+  ),
+  "zoom-in": (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+      <path d="M11 8v6" />
+      <path d="M8 11h6" />
+    </>
+  ),
+  "zoom-out": (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+      <path d="M8 11h6" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M4 19h16" />
+    </>
+  ),
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />,
+  "folder-open": (
+    <>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1" />
+      <path d="M3 8h18l-2.2 9.2a2 2 0 0 1-2 1.8H5.2a2 2 0 0 1-2-1.8L3 8z" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M3 3h7.5L21 13.5 13.5 21 3 10.5V3z" />
+      <circle cx="7.5" cy="7.5" r="1.25" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4 7h16" />
+      <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+    </>
+  ),
+  "more-horizontal": (
+    <>
+      <circle cx="5" cy="12" r="1.4" />
+      <circle cx="12" cy="12" r="1.4" />
+      <circle cx="19" cy="12" r="1.4" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  "eye-off": (
+    <>
+      <path d="M10.7 5.1A9.9 9.9 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4" />
+      <path d="M6.2 6.2A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.1-1.4" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <path d="m3 3 18 18" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="2" y="5" width="14" height="14" rx="2" />
+      <path d="m16 10 6-3v10l-6-3v-4z" />
+    </>
+  ),
+  audio: (
+    <>
+      <path d="M9 18V6l10-2v12" />
+      <circle cx="6.5" cy="18" r="2.5" />
+      <circle cx="16.5" cy="16" r="2.5" />
+    </>
+  ),
+  archive: (
+    <>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+      <path d="M10 12h4" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path d="m21 15-5-5L5 21" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M8 6h13" />
+      <path d="M8 12h13" />
+      <path d="M8 18h13" />
+      <path d="M3.5 6h.01" />
+      <path d="M3.5 12h.01" />
+      <path d="M3.5 18h.01" />
     </>
   ),
 };

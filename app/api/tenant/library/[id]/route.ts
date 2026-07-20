@@ -5,6 +5,8 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { recordStorageDelta } from "@/lib/storage/quota";
+import { deleteObject } from "@/lib/storage/s3";
+import { logger } from "@/lib/logger";
 
 const PatchBody = z.object({
   name: z.string().min(1).max(300).optional(),
@@ -69,7 +71,17 @@ export async function DELETE(request: Request, ctx: { params: Promise<{ id: stri
     const item = await prisma.libraryItem.findFirst({ where: { id, tenantId: actor.tenantId } });
     if (!item) throw new DomainError(404, "not_found", "Library item not found.");
     await prisma.libraryItem.delete({ where: { id } });
-    // Free the quota accounting (the object itself is reclaimed by the reconcile job).
+
+    // Delete the object itself, not just the row. Previously only the counter
+    // was decremented, so the next reconcile pass — which sums what is actually
+    // in the bucket — silently re-inflated storageUsedBytes and the bytes were
+    // never reclaimed.
+    await deleteObject(item.key).catch((e) => {
+      logger.warn({ err: e, key: item.key }, "library: object delete failed; reconcile will retry");
+    });
+    if (item.posterKey) {
+      await deleteObject(item.posterKey).catch(() => {});
+    }
     await recordStorageDelta(actor.tenantId, -item.sizeBytes);
     return ok({ deleted: true });
   } catch (e) {

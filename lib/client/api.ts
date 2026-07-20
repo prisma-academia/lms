@@ -96,6 +96,29 @@ export async function apiPatch<T>(
   }
 }
 
+export async function apiPut<T>(
+  url: string,
+  body: unknown,
+  init?: { headers?: Record<string, string> }
+): Promise<ApiResponse<T>> {
+  try {
+    const token = await ensureCsrf();
+    const res = await fetch(url, {
+      method: "PUT",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        [CSRF_HEADER]: token,
+        ...init?.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    return parse<T>(res);
+  } catch {
+    return NETWORK_ERROR;
+  }
+}
+
 export async function apiDelete<T>(url: string): Promise<ApiResponse<T>> {
   try {
     const token = await ensureCsrf();
