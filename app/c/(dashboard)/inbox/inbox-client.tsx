@@ -48,7 +48,7 @@ export function InboxClient() {
   if (!receipts) return <Spinner label="Loading inbox…" />;
   if (receipts.length === 0) {
     return (
-      <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+      <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
         <EmptyState icon="mail" title="No messages">
           You have no messages yet.
         </EmptyState>
@@ -62,21 +62,21 @@ export function InboxClient() {
         const unread = !r.readAt;
         const isOpen = openId === r.id;
         return (
-          <li key={r.id} className="overflow-hidden rounded-[12px] border-2 border-ink bg-card shadow-brutal-sm">
+          <li key={r.id} className="overflow-hidden rounded-[12px] border-2 border-border bg-card shadow-sm">
             <button
               type="button"
               onClick={() => open(r)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left"
             >
-              <span className={cn("size-2.5 shrink-0 rounded-full border-2 border-ink", unread ? "bg-pink" : "bg-transparent")} />
+              <span className={cn("size-2.5 shrink-0 rounded-full border-2 border-border", unread ? "bg-primary" : "bg-transparent")} />
               <span className="min-w-0 flex-1">
                 <span className={cn("block truncate", unread ? "font-bold" : "font-medium")}>{r.message.subject}</span>
-                <span className="block text-xs text-ink/50">{new Date(r.message.createdAt).toLocaleString()}</span>
+                <span className="block text-xs text-muted-foreground">{new Date(r.message.createdAt).toLocaleString()}</span>
               </span>
               <Badge>{r.message.category}</Badge>
             </button>
             {isOpen ? (
-              <div className="border-t-2 border-dashed border-ink/15 px-4 py-3 text-sm whitespace-pre-wrap text-ink/90">
+              <div className="border-t-2 border-dashed border-border px-4 py-3 text-sm whitespace-pre-wrap text-foreground">
                 {r.message.body}
               </div>
             ) : null}

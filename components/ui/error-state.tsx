@@ -33,20 +33,24 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "mx-auto flex w-full max-w-md flex-col items-center gap-4 rounded-[14px] border-2 border-ink bg-card p-6 text-center shadow-brutal-lg",
+        "mx-auto flex w-full max-w-md flex-col items-center gap-4 rounded-[14px] border-2 border-border bg-card p-6 text-center shadow-lg",
         className
       )}
     >
-      <span className="flex size-12 items-center justify-center rounded-full border-2 border-ink bg-red text-ink shadow-brutal-sm">
+      <span className="flex size-12 items-center justify-center rounded-full border-2 border-border bg-destructive text-destructive-foreground shadow-sm">
         <Icon name="alert-triangle" className="size-6" />
       </span>
       <div className="flex flex-col gap-1">
-        <p className="font-heading text-lg leading-tight text-ink">{title}</p>
+        <p className="font-heading text-lg leading-tight text-card-foreground">
+          {title}
+        </p>
         {message ? (
-          <p className="text-sm font-medium text-ink/60">{message}</p>
+          <p className="text-sm font-medium text-muted-foreground">{message}</p>
         ) : null}
         {digest ? (
-          <p className="mt-1 font-mono text-xs text-ink/40">ref {digest}</p>
+          <p className="mt-1 font-mono text-xs text-muted-foreground">
+            ref {digest}
+          </p>
         ) : null}
       </div>
       {children}

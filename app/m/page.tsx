@@ -10,37 +10,37 @@ const FEATURES: { icon: IconName; color: string; title: string; body: string }[]
   [
     {
       icon: "book",
-      color: "var(--purple)",
+      color: "var(--chart-1)",
       title: "Learning content",
       body: "Courses, programmes, lessons, and a shared resource library.",
     },
     {
       icon: "clipboard",
-      color: "var(--blue)",
+      color: "var(--chart-2)",
       title: "Quizzes & assignments",
       body: "Question banks, in-lesson quizzes, graded work, and feedback.",
     },
     {
       icon: "cap",
-      color: "var(--green)",
+      color: "var(--chart-3)",
       title: "Learner portal",
       body: "Catalog, enrollments, progress tracking, and self-service access.",
     },
     {
       icon: "award",
-      color: "var(--yellow)",
+      color: "var(--chart-4)",
       title: "Certificates",
       body: "Award credentials when learners complete requirements.",
     },
     {
       icon: "calendar",
-      color: "var(--pink)",
+      color: "var(--chart-5)",
       title: "Stay connected",
       body: "Calendar, messages, and notifications keep everyone aligned.",
     },
     {
       icon: "users",
-      color: "var(--orange)",
+      color: "var(--chart-1)",
       title: "Run your organization",
       body: "People, groups, roles, enrollments, and built-in billing.",
     },
@@ -55,7 +55,7 @@ const PORTALS: {
 }[] = [
   {
     icon: "settings",
-    color: "var(--purple)",
+    color: "var(--chart-1)",
     title: "Admin console",
     body: "Your team manages everything from one place on your branded workspace.",
     bullets: [
@@ -67,7 +67,7 @@ const PORTALS: {
   },
   {
     icon: "cap",
-    color: "var(--green)",
+    color: "var(--chart-2)",
     title: "Learner portal",
     body: "Learners sign in on your workspace to learn, submit work, and track progress.",
     bullets: [
@@ -81,17 +81,17 @@ const PORTALS: {
 
 const STEPS: { color: string; title: string; body: string }[] = [
   {
-    color: "var(--yellow)",
+    color: "var(--chart-1)",
     title: "Create your workspace",
     body: "Register your organization and get a dedicated workspace with admin and learner portals.",
   },
   {
-    color: "var(--pink)",
+    color: "var(--chart-2)",
     title: "Build your learning catalog",
     body: "Add courses and programmes, upload resources, and publish offerings to your catalog.",
   },
   {
-    color: "var(--blue)",
+    color: "var(--chart-3)",
     title: "Onboard learners and grow",
     body: "Invite or enroll learners, track progress, and scale with plans that fit your needs.",
   },
@@ -99,7 +99,7 @@ const STEPS: { color: string; title: string; body: string }[] = [
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex -rotate-1 items-center rounded-md border-2 border-ink bg-card px-3 py-1 text-[12px] font-bold shadow-brutal-sm">
+    <span className="inline-flex -rotate-1 items-center rounded-md border-2 border-border bg-card px-3 py-1 text-[12px] font-bold text-card-foreground shadow-sm">
       {children}
     </span>
   );
@@ -116,14 +116,14 @@ export default async function MarketingHomePage() {
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-8">
             <div className="text-center lg:text-left">
-              <span className="inline-flex -rotate-1 items-center gap-1.5 rounded-md border-2 border-ink bg-yellow px-3 py-1 text-[12px] font-bold shadow-brutal-sm">
+              <span className="inline-flex -rotate-1 items-center gap-1.5 rounded-md border-2 border-foreground bg-primary px-3 py-1 text-[12px] font-bold text-primary-foreground shadow-sm">
                 <Icon name="flame" className="size-3.5" /> Learning management
                 platform
               </span>
               <h1 className="mt-6 font-heading text-4xl leading-[1.05] sm:text-6xl lg:mx-0">
                 Everything you need to run learning online
               </h1>
-              <p className="mx-auto mt-5 max-w-2xl text-lg font-medium text-ink/70 lg:mx-0">
+              <p className="mx-auto mt-5 max-w-2xl text-lg font-medium text-muted-foreground lg:mx-0">
                 Deliver content, manage people, assess learners, keep everyone
                 engaged, and handle payments — all on a branded workspace with
                 admin and learner portals built in.
@@ -136,7 +136,7 @@ export default async function MarketingHomePage() {
                   <a href="#pricing">View pricing</a>
                 </Button>
               </div>
-              <p className="num mt-4 text-sm font-bold text-ink/50">
+              <p className="num mt-4 text-sm font-bold text-muted-foreground">
                 {env.TENANT_TRIAL_DAYS}-day free trial · storage included · no
                 card required
               </p>
@@ -149,21 +149,21 @@ export default async function MarketingHomePage() {
 
           <div className="mx-auto mt-14 grid max-w-3xl grid-cols-3 gap-3">
             {[
-              { icon: "globe" as IconName, label: "Your own workspace", color: "var(--blue)" },
-              { icon: "layers" as IconName, label: "Admin + learner portals", color: "var(--purple)" },
-              { icon: "trending-up" as IconName, label: "Scales as you grow", color: "var(--green)" },
+              { icon: "globe" as IconName, label: "Your own workspace", color: "var(--chart-1)" },
+              { icon: "layers" as IconName, label: "Admin + learner portals", color: "var(--chart-2)" },
+              { icon: "trending-up" as IconName, label: "Scales as you grow", color: "var(--chart-3)" },
             ].map((s) => (
               <div
                 key={s.label}
-                className="flex flex-col items-center gap-2 rounded-[14px] border-2 border-ink bg-card p-4 text-center shadow-brutal-sm"
+                className="flex flex-col items-center gap-2 rounded-[14px] border-2 border-border bg-card p-4 text-center text-card-foreground shadow-sm"
               >
                 <span
-                  className="flex size-9 items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                  className="flex size-9 items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                   style={{ background: s.color }}
                 >
                   <Icon name={s.icon} className="size-[18px]" />
                 </span>
-                <span className="text-[12px] font-bold leading-tight text-ink/70">
+                <span className="text-[12px] font-bold leading-tight text-muted-foreground">
                   {s.label}
                 </span>
               </div>
@@ -173,7 +173,7 @@ export default async function MarketingHomePage() {
       </section>
 
       {/* Features */}
-      <section id="features" className="scroll-mt-24 border-t-2 border-ink bg-card">
+      <section id="features" className="scroll-mt-24 border-t-2 border-border bg-card text-card-foreground">
         <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
           <div className="text-center">
             <SectionLabel>Capabilities</SectionLabel>
@@ -185,11 +185,10 @@ export default async function MarketingHomePage() {
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="rounded-[14px] border-2 border-ink bg-paper p-5 transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
-                style={{ boxShadow: `5px 5px 0 ${f.color}` }}
+                className="rounded-[14px] border-2 border-border bg-background p-5 shadow-md transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
               >
                 <span
-                  className="flex size-11 items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                  className="flex size-11 items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                   style={{ background: f.color }}
                 >
                   <Icon name={f.icon} className="size-5" />
@@ -197,7 +196,7 @@ export default async function MarketingHomePage() {
                 <h3 className="mt-3 font-heading text-base leading-tight">
                   {f.title}
                 </h3>
-                <p className="mt-1.5 text-sm font-medium text-ink/60">{f.body}</p>
+                <p className="mt-1.5 text-sm font-medium text-muted-foreground">{f.body}</p>
               </div>
             ))}
           </div>
@@ -205,14 +204,14 @@ export default async function MarketingHomePage() {
       </section>
 
       {/* Two portals */}
-      <section id="portals" className="scroll-mt-24 border-t-2 border-ink">
+      <section id="portals" className="scroll-mt-24 border-t-2 border-border">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <div className="text-center">
             <SectionLabel>Two portals</SectionLabel>
             <h2 className="mt-4 font-heading text-3xl">
               One workspace, two experiences
             </h2>
-            <p className="mx-auto mt-2 max-w-2xl font-medium text-ink/70">
+            <p className="mx-auto mt-2 max-w-2xl font-medium text-muted-foreground">
               Your organization gets a branded workspace. Staff and learners each
               sign in to the portal built for their role.
             </p>
@@ -221,11 +220,10 @@ export default async function MarketingHomePage() {
             {PORTALS.map((portal) => (
               <div
                 key={portal.title}
-                className="rounded-[14px] border-2 border-ink bg-card p-6 shadow-brutal-sm"
-                style={{ boxShadow: `6px 6px 0 ${portal.color}` }}
+                className="rounded-[14px] border-2 border-border bg-card p-6 text-card-foreground shadow-md"
               >
                 <span
-                  className="flex size-11 items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                  className="flex size-11 items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                   style={{ background: portal.color }}
                 >
                   <Icon name={portal.icon} className="size-5" />
@@ -233,15 +231,15 @@ export default async function MarketingHomePage() {
                 <h3 className="mt-4 font-heading text-xl leading-tight">
                   {portal.title}
                 </h3>
-                <p className="mt-2 text-sm font-medium text-ink/60">
+                <p className="mt-2 text-sm font-medium text-muted-foreground">
                   {portal.body}
                 </p>
-                <ul className="mt-4 flex flex-col gap-2 text-[13px] font-medium text-ink/70">
+                <ul className="mt-4 flex flex-col gap-2 text-[13px] font-medium text-muted-foreground">
                   {portal.bullets.map((bullet) => (
                     <li key={bullet} className="flex items-start gap-2">
                       <Icon
                         name="check"
-                        className="mt-0.5 size-4 shrink-0 text-green"
+                        className="mt-0.5 size-4 shrink-0 text-success"
                       />
                       {bullet}
                     </li>
@@ -254,7 +252,7 @@ export default async function MarketingHomePage() {
       </section>
 
       {/* How it works */}
-      <section id="how-it-works" className="scroll-mt-24 border-t-2 border-ink bg-card">
+      <section id="how-it-works" className="scroll-mt-24 border-t-2 border-border bg-card text-card-foreground">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <div className="text-center">
             <SectionLabel>How it works</SectionLabel>
@@ -266,10 +264,10 @@ export default async function MarketingHomePage() {
             {STEPS.map((step, i) => (
               <div
                 key={step.title}
-                className="flex flex-col gap-4 rounded-[14px] border-2 border-ink bg-paper p-5 shadow-brutal-sm"
+                className="flex flex-col gap-4 rounded-[14px] border-2 border-border bg-background p-5 shadow-sm"
               >
                 <span
-                  className="num flex size-11 shrink-0 -rotate-3 items-center justify-center rounded-[12px] border-2 border-ink font-heading text-xl text-ink"
+                  className="num flex size-11 shrink-0 -rotate-3 items-center justify-center rounded-[12px] border-2 border-foreground font-heading text-xl text-foreground"
                   style={{ background: step.color }}
                 >
                   {i + 1}
@@ -278,7 +276,7 @@ export default async function MarketingHomePage() {
                   <h3 className="font-heading text-base leading-tight">
                     {step.title}
                   </h3>
-                  <p className="mt-1.5 text-sm font-medium text-ink/60">
+                  <p className="mt-1.5 text-sm font-medium text-muted-foreground">
                     {step.body}
                   </p>
                 </div>
@@ -289,14 +287,14 @@ export default async function MarketingHomePage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="scroll-mt-24 border-t-2 border-ink">
+      <section id="pricing" className="scroll-mt-24 border-t-2 border-border">
         <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="text-center">
             <SectionLabel>Pricing</SectionLabel>
             <h2 className="mt-4 font-heading text-3xl">
               Plans that scale with you
             </h2>
-            <p className="mx-auto mt-2 max-w-2xl font-medium text-ink/70">
+            <p className="mx-auto mt-2 max-w-2xl font-medium text-muted-foreground">
               Start with a {env.TENANT_TRIAL_DAYS}-day free trial. Upgrade when
               you need more learners, courses, or storage.
             </p>
@@ -308,32 +306,37 @@ export default async function MarketingHomePage() {
                 return (
                   <div
                     key={plan.id}
-                    className={`relative flex flex-col rounded-[14px] border-2 border-ink p-5 ${
-                      dark ? "bg-ink text-paper" : "bg-card text-ink"
+                    className={`relative flex flex-col rounded-[14px] border-2 p-5 ${
+                      dark
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-border bg-card text-card-foreground"
                     }`}
+                    /* Per-plan accent offset shadow. Still theme-driven — plan.accent
+                       is a --chart-N var, so each preset restyles it. Without this the
+                       pricing cards all render identically. */
                     style={{ boxShadow: `6px 6px 0 ${plan.accent}` }}
                   >
                     {dark ? (
-                      <span className="absolute -top-3 left-5 -rotate-2 rounded-md border-2 border-ink bg-yellow px-2 py-0.5 text-[11px] font-bold text-ink">
+                      <span className="absolute -top-3 left-5 -rotate-2 rounded-md border-2 border-foreground bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
                         Most popular
                       </span>
                     ) : null}
                     <h3 className="font-heading text-lg">{plan.name}</h3>
                     <p
-                      className={`mt-1 text-[13px] font-medium ${dark ? "text-paper/70" : "text-ink/60"}`}
+                      className={`mt-1 text-[13px] font-medium ${dark ? "text-background" : "text-muted-foreground"}`}
                     >
                       {plan.description}
                     </p>
                     <p className="mt-4 font-heading text-3xl leading-none">
                       {plan.price}
                       <span
-                        className={`text-base font-medium ${dark ? "text-paper/60" : "text-ink/50"}`}
+                        className={`text-base font-medium ${dark ? "text-background" : "text-muted-foreground"}`}
                       >
                         {plan.period}
                       </span>
                     </p>
                     <p
-                      className={`num mt-2 text-[13px] font-bold ${dark ? "text-paper/80" : "text-ink/70"}`}
+                      className={`num mt-2 text-[13px] font-bold ${dark ? "text-background" : "text-muted-foreground"}`}
                     >
                       {plan.storage} storage
                     </p>
@@ -342,7 +345,7 @@ export default async function MarketingHomePage() {
                         <li key={f} className="flex items-start gap-2">
                           <Icon
                             name="check"
-                            className={`mt-0.5 size-4 shrink-0 ${dark ? "text-yellow" : "text-green"}`}
+                            className={`mt-0.5 size-4 shrink-0 ${dark ? "text-background" : "text-success"}`}
                           />
                           {f}
                         </li>
@@ -359,7 +362,7 @@ export default async function MarketingHomePage() {
               })}
             </div>
           ) : (
-            <p className="mt-10 text-center font-medium text-ink/60">
+            <p className="mt-10 text-center font-medium text-muted-foreground">
               Plans are being updated. Start your free trial to get started.
             </p>
           )}
@@ -367,17 +370,14 @@ export default async function MarketingHomePage() {
       </section>
 
       {/* Final CTA */}
-      <section className="border-t-2 border-ink bg-card">
+      <section className="border-t-2 border-border bg-card text-card-foreground">
         <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6">
-          <div
-            className="relative mx-auto max-w-2xl overflow-hidden rounded-[18px] border-2 border-ink bg-yellow p-8 sm:p-10"
-            style={{ boxShadow: "8px 8px 0 var(--ink)" }}
-          >
+          <div className="relative mx-auto max-w-2xl overflow-hidden rounded-[18px] border-2 border-foreground bg-primary p-8 text-primary-foreground shadow-lg sm:p-10">
             <Decor preset="cta" />
             <h2 className="font-heading text-3xl leading-tight">
               Ready to launch your learning platform?
             </h2>
-            <p className="mx-auto mt-2 max-w-md font-medium text-ink/70">
+            <p className="mx-auto mt-2 max-w-md font-medium text-primary-foreground">
               Register your organization now — you&apos;ll be building your
               learning catalog in minutes.
             </p>

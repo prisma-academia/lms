@@ -10,7 +10,7 @@ export default function AdminForgotPasswordPage() {
       footer={
         <Link
           href="/auth/login"
-          className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
+          className="font-bold underline decoration-primary decoration-2 underline-offset-2 hover:text-foreground"
         >
           Learner sign in
         </Link>

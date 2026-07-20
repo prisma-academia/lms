@@ -7,7 +7,8 @@ import { Icon, type IconName } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
 import { NavLinks, type NavItem } from "@/components/nav-links";
-import { BrandColorSync } from "@/components/brand-color-sync";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { ThemeMode } from "@/lib/theme/cookie";
 import { cn } from "@/lib/utils";
 
 type Tab = NavItem & { icon: IconName };
@@ -49,28 +50,25 @@ function initials(label: string): string {
 export function StudentShell({
   title,
   userLabel,
-  accentColor,
+  themeMode,
   children,
 }: {
   title: string;
   userLabel: string;
-  accentColor?: string;
+  themeMode: ThemeMode;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const accent = accentColor || "var(--yellow)";
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
-      <BrandColorSync color={accentColor} />
       <div className="flex min-h-[100dvh] flex-col lg:flex-row">
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-ink bg-card px-4 py-6 lg:flex">
+        <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-border bg-card px-4 py-6 lg:flex">
           <div className="mb-6 flex shrink-0 items-center gap-3 px-1">
             <span
-              className="flex size-10 -rotate-3 items-center justify-center rounded-[12px] border-2 border-ink text-ink shadow-brutal-sm"
-              style={{ background: accent }}
+              className="flex size-10 -rotate-3 items-center justify-center rounded-[12px] border-2 border-foreground bg-primary text-primary-foreground shadow-sm"
             >
               <Icon name="cap" className="size-5" />
             </span>
@@ -78,7 +76,7 @@ export function StudentShell({
               <div className="truncate font-heading text-[15px] leading-tight">
                 {title}
               </div>
-              <div className="text-[11.5px] font-bold text-ink/60">
+              <div className="text-[11.5px] font-bold text-muted-foreground">
                 Student portal
               </div>
             </div>
@@ -89,18 +87,23 @@ export function StudentShell({
           </div>
 
           <div className="shrink-0 pt-6">
-            <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-ink/35 pt-4">
+            <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-border pt-4">
               <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-ink text-[12px] font-bold text-ink"
-                style={{ background: "var(--pink)" }}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[12px] font-bold text-primary-foreground"
               >
                 {initials(userLabel)}
               </span>
-              <div className="min-w-0 flex-1 truncate text-[13px] font-bold text-ink">
+              <div className="min-w-0 flex-1 truncate text-[13px] font-bold text-card-foreground">
                 {userLabel}
               </div>
               <NotificationBell />
             </div>
+            <div className="mb-3">
+
+              <ThemeToggle initialMode={themeMode} />
+
+            </div>
+
             <LogoutButton
               endpoint="/api/auth/logout"
               postLogoutPath="/auth/login"
@@ -110,19 +113,18 @@ export function StudentShell({
         </aside>
 
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex items-center gap-2 border-b-2 border-ink bg-card px-3 py-3 sm:gap-3 sm:px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b-2 border-border bg-card px-3 py-3 sm:gap-3 sm:px-4 lg:hidden">
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
-            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink bg-card shadow-brutal-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
           >
             <Icon name={menuOpen ? "x" : "menu"} className="size-[18px]" />
           </button>
           <span
-            className="flex size-9 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-ink text-ink shadow-brutal-sm"
-            style={{ background: accent }}
+            className="flex size-9 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-foreground bg-primary text-primary-foreground shadow-sm"
           >
             <Icon name="cap" className="size-[18px]" />
           </span>
@@ -133,8 +135,7 @@ export function StudentShell({
           <Link
             href="/profile"
             aria-label="Profile"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-ink text-[12px] font-bold text-ink [touch-action:manipulation]"
-            style={{ background: "var(--pink)" }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[12px] font-bold text-primary-foreground [touch-action:manipulation]"
           >
             {initials(userLabel)}
           </Link>
@@ -145,13 +146,13 @@ export function StudentShell({
             <button
               type="button"
               aria-label="Close menu"
-              className="absolute inset-0 bg-ink/40"
+              className="absolute inset-0 bg-black/50"
               onClick={() => setMenuOpen(false)}
             />
-            <div className="safe-b absolute inset-x-0 top-0 max-h-[100dvh] overflow-y-auto border-b-2 border-ink bg-card px-4 pb-6 pt-[68px] shadow-brutal">
+            <div className="safe-b absolute inset-x-0 top-0 max-h-[100dvh] overflow-y-auto border-b-2 border-border bg-card px-4 pb-6 pt-[68px] shadow-md">
               <NavLinks items={SECONDARY_NAV} onNavigate={() => setMenuOpen(false)} />
-              <div className="mt-4 border-t-2 border-dashed border-ink/35 pt-4">
-                <div className="mb-2 truncate text-sm font-bold text-ink/60">
+              <div className="mt-4 border-t-2 border-dashed border-border pt-4">
+                <div className="mb-2 truncate text-sm font-bold text-muted-foreground">
                   {userLabel}
                 </div>
                 <LogoutButton
@@ -172,7 +173,7 @@ export function StudentShell({
         {/* Mobile bottom tab bar */}
         <nav
           aria-label="Primary"
-          className="safe-b fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t-2 border-ink bg-card lg:hidden"
+          className="safe-b fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t-2 border-border bg-card lg:hidden"
         >
           {PRIMARY_TABS.map((t) => {
             const active = isActive(pathname, t.href);
@@ -183,14 +184,14 @@ export function StudentShell({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-bold [touch-action:manipulation] transition-colors",
-                  active ? "text-ink" : "text-ink/45"
+                  active ? "text-card-foreground" : "text-muted-foreground"
                 )}
               >
                 <span
                   className={cn(
                     "flex size-8 items-center justify-center rounded-[10px] border-2 transition-colors",
                     active
-                      ? "border-ink bg-yellow shadow-brutal-sm"
+                      ? "border-foreground bg-primary text-primary-foreground shadow-sm"
                       : "border-transparent"
                   )}
                 >

@@ -90,7 +90,6 @@ export default async function TenantLandingPage() {
         <LandingHero
           name={row.name}
           logoUrl={logoUrl}
-          accentColor={settings.primaryColor}
           location={location}
           hasCourses={landingCourses.length > 0}
         />
@@ -102,7 +101,7 @@ export default async function TenantLandingPage() {
         />
         <LandingBenefits />
         <LandingCourses courses={landingCourses} />
-        <LandingSteps accentColor={settings.primaryColor} />
+        <LandingSteps />
       </main>
     </TenantLandingShell>
   );

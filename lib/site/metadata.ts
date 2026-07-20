@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cache } from "react";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db/client";
 import { loadTenantPageContext } from "@/lib/db/page-context";
@@ -30,7 +31,12 @@ export type TenantBranding = {
   logoUrl: string | null;
 };
 
-export async function loadTenantBranding(): Promise<TenantBranding | null> {
+/**
+ * Request-deduped: each tenant layout already calls this from both
+ * `generateMetadata` and `generateViewport`, and the theme resolver in
+ * RootLayout adds another caller. `cache()` collapses them to one query.
+ */
+export const loadTenantBranding = cache(async function loadTenantBranding(): Promise<TenantBranding | null> {
   const page = await loadTenantPageContext();
   if (page.mode !== "tenant" || !page.tenant) return null;
 
@@ -47,7 +53,7 @@ export async function loadTenantBranding(): Promise<TenantBranding | null> {
       : null;
 
   return { name: row.name, settings, logoUrl };
-}
+});
 
 function openGraphImages(
   origin: URL,

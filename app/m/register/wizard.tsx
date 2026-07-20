@@ -152,15 +152,15 @@ export function RegisterWizard() {
                 aria-invalid={!!error}
               />
             </FormField>
-            {error ? <p className="text-sm font-bold text-red">{error}</p> : null}
-            <div className="flex items-center gap-2 text-sm text-ink/70">
+            {error ? <p className="text-sm font-bold text-destructive">{error}</p> : null}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span>Didn&apos;t get the code?</span>
               {resendIn > 0 ? (
-                <span className="font-medium text-ink/50">Resend in {resendIn}s</span>
+                <span className="font-medium text-muted-foreground">Resend in {resendIn}s</span>
               ) : (
                 <button
                   type="button"
-                  className="font-bold text-ink underline decoration-pink decoration-2 underline-offset-4 disabled:opacity-50"
+                  className="font-bold text-foreground underline decoration-primary decoration-2 underline-offset-4 disabled:opacity-50"
                   onClick={resendCode}
                   disabled={resending || pending}
                 >
@@ -342,15 +342,15 @@ function CompanyForm({
       >
         <TextInput id="slug" placeholder="acme" {...register("slug")} />
         {slugChecking ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-ink/60" role="status">
-            <span className="size-3 animate-spin rounded-full border-2 border-ink/20 border-t-ink" />
+          <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground" role="status">
+            <span className="size-3 animate-spin rounded-full border-2 border-border border-t-foreground" />
             Checking availability…
           </span>
         ) : slugResult ? (
           <span
             className={cn(
               "text-xs font-bold",
-              slugResult.available ? "text-green-700" : "text-red"
+              slugResult.available ? "text-success" : "text-destructive"
             )}
             role="status"
           >

@@ -53,7 +53,7 @@ export function GradeForm({
     <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
       <div className="flex items-end gap-3">
         <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-[13px] font-bold text-ink">Points</span>
+          <span className="text-[13px] font-bold text-foreground">Points</span>
           <div className="flex items-center gap-1.5">
             <TextInput
               type="number"
@@ -64,14 +64,14 @@ export function GradeForm({
               className="w-24"
               required
             />
-            <span className="num text-sm font-bold text-ink/60">/ {maxPoints}</span>
+            <span className="num text-sm font-bold text-muted-foreground">/ {maxPoints}</span>
           </div>
         </label>
         <Button type="submit" disabled={pending} size="sm">
           {pending ? "Saving…" : initialPoints != null ? "Update grade" : "Save grade"}
         </Button>
         {saved ? (
-          <span className="pb-2 text-sm font-bold text-green">Saved ✓</span>
+          <span className="pb-2 text-sm font-bold text-success">Saved ✓</span>
         ) : null}
       </div>
       <TextArea
@@ -80,7 +80,7 @@ export function GradeForm({
         placeholder="Feedback (optional)"
         rows={2}
       />
-      {error ? <p className="text-xs font-bold text-red">{error}</p> : null}
+      {error ? <p className="text-xs font-bold text-destructive">{error}</p> : null}
     </form>
   );
 }

@@ -19,22 +19,22 @@ type Shape = {
 
 const PRESETS: Record<string, Shape[]> = {
   hero: [
-    { kind: "blob", x: 6, y: 22, size: 120, color: "var(--yellow)", opacity: 0.25, delay: 0 },
-    { kind: "ring", x: 90, y: 68, size: 84, color: "var(--purple)", delay: -4 },
-    { kind: "star", x: 80, y: 12, size: 30, color: "var(--pink)", delay: -1 },
-    { kind: "star", x: 14, y: 82, size: 22, color: "var(--blue)", delay: -2.2 },
+    { kind: "blob", x: 6, y: 22, size: 120, color: "var(--chart-1)", opacity: 0.25, delay: 0 },
+    { kind: "ring", x: 90, y: 68, size: 84, color: "var(--chart-2)", delay: -4 },
+    { kind: "star", x: 80, y: 12, size: 30, color: "var(--chart-3)", delay: -1 },
+    { kind: "star", x: 14, y: 82, size: 22, color: "var(--chart-4)", delay: -2.2 },
   ],
   cta: [
-    { kind: "star", x: 8, y: 24, size: 28, color: "var(--ink)", delay: 0 },
-    { kind: "ring", x: 88, y: 30, size: 70, color: "var(--ink)", opacity: 0.4, delay: -3 },
-    { kind: "star", x: 86, y: 80, size: 22, color: "var(--ink)", delay: -1.5 },
-    { kind: "blob", x: 18, y: 76, size: 90, color: "var(--ink)", opacity: 0.1, delay: -5 },
+    { kind: "star", x: 8, y: 24, size: 28, color: "var(--foreground)", delay: 0 },
+    { kind: "ring", x: 88, y: 30, size: 70, color: "var(--foreground)", opacity: 0.4, delay: -3 },
+    { kind: "star", x: 86, y: 80, size: 22, color: "var(--foreground)", delay: -1.5 },
+    { kind: "blob", x: 18, y: 76, size: 90, color: "var(--foreground)", opacity: 0.1, delay: -5 },
   ],
   tenant: [
-    { kind: "star", x: 10, y: 16, size: 24, color: "var(--pink)", delay: 0 },
-    { kind: "ring", x: 86, y: 20, size: 64, color: "var(--blue)", opacity: 0.4, delay: -2.5 },
-    { kind: "blob", x: 88, y: 84, size: 96, color: "var(--purple)", opacity: 0.22, delay: -4 },
-    { kind: "star", x: 14, y: 84, size: 20, color: "var(--green)", delay: -1.2 },
+    { kind: "star", x: 10, y: 16, size: 24, color: "var(--chart-3)", delay: 0 },
+    { kind: "ring", x: 86, y: 20, size: 64, color: "var(--chart-4)", opacity: 0.4, delay: -2.5 },
+    { kind: "blob", x: 88, y: 84, size: 96, color: "var(--chart-2)", opacity: 0.22, delay: -4 },
+    { kind: "star", x: 14, y: 84, size: 20, color: "var(--chart-5)", delay: -1.2 },
   ],
 };
 

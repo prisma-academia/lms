@@ -52,8 +52,8 @@ export function NavLinks({
             className={cn(
               "flex items-center gap-3 rounded-[10px] border-2 px-3 py-2.5 text-sm font-bold [touch-action:manipulation] transition-[transform,box-shadow,background-color]",
               active
-                ? "border-ink bg-ink text-paper shadow-[3px_3px_0_var(--yellow)]"
-                : "border-transparent text-ink hover:-translate-x-px hover:-translate-y-px hover:border-ink hover:bg-card hover:shadow-brutal-sm"
+                ? "border-border bg-primary text-primary-foreground shadow-md"
+                : "border-transparent text-card-foreground hover:-translate-x-px hover:-translate-y-px hover:border-border hover:bg-accent hover:text-accent-foreground hover:shadow-sm"
             )}
           >
             {n.icon ? <Icon name={n.icon} className="size-[18px]" /> : null}

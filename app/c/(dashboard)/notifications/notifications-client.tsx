@@ -76,13 +76,13 @@ export function NotificationsClient() {
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
             {notifs.map((n) => (
-              <li key={n.id} className={cn("rounded-[10px] border-2 border-ink px-3 py-2", n.readAt ? "bg-card" : "bg-paper")}>
+              <li key={n.id} className={cn("rounded-[10px] border-2 border-border px-3 py-2", n.readAt ? "bg-card" : "bg-muted")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className={cn("text-sm", n.readAt ? "font-medium" : "font-bold")}>{n.title}</span>
                   <Badge>{n.category}</Badge>
                 </div>
-                {n.body ? <p className="mt-1 text-xs text-ink/70">{n.body}</p> : null}
-                <p className="mt-1 text-[11px] text-ink/45">{new Date(n.createdAt).toLocaleString()}</p>
+                {n.body ? <p className="mt-1 text-xs text-muted-foreground">{n.body}</p> : null}
+                <p className="mt-1 text-[11px] text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</p>
               </li>
             ))}
           </ul>
@@ -95,7 +95,7 @@ export function NotificationsClient() {
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-ink/50">
+              <tr className="text-left text-xs text-muted-foreground">
                 <th className="py-2">Category</th>
                 <th className="py-2 text-center">In-app</th>
                 <th className="py-2 text-center">Email</th>
@@ -103,7 +103,7 @@ export function NotificationsClient() {
             </thead>
             <tbody>
               {prefs.map((p) => (
-                <tr key={p.category} className="border-t border-ink/10">
+                <tr key={p.category} className="border-t border-border">
                   <td className="py-2 font-semibold">{p.category}</td>
                   <td className="py-2 text-center">
                     <input type="checkbox" checked={p.inApp} onChange={() => togglePref(p.category, "inApp")} className="size-4" />
@@ -116,7 +116,7 @@ export function NotificationsClient() {
             </tbody>
           </table>
         </div>
-        {info ? <p className="mt-2 text-sm text-ink/70">{info}</p> : null}
+        {info ? <p className="mt-2 text-sm text-muted-foreground">{info}</p> : null}
         <div className="mt-3">
           <Button type="button" onClick={savePrefs} disabled={savingPrefs}>
             {savingPrefs ? "Saving…" : "Save preferences"}

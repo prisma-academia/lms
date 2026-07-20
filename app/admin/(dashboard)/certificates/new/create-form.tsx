@@ -65,7 +65,7 @@ export function CreateCertificateForm({ courses, programmes }: { courses: Option
           </FormField>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-red">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div>
         <Button type="button" onClick={submit} disabled={pending}>
           {pending ? "Creating…" : "Create certificate"}

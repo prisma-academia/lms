@@ -56,7 +56,7 @@ export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme
 
   if (state.length === 0) {
     return (
-      <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+      <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
         <EmptyState icon="book" title="No programmes yet">
           No programmes are available yet. Check back soon.
         </EmptyState>
@@ -69,15 +69,15 @@ export function ProgrammesCatalog({ programmes }: { programmes: CatalogProgramme
       {state.map((p) => {
         const fullyEnrolled = p.totalCourses > 0 && p.enrolledCourses >= p.totalCourses;
         return (
-          <div key={p.id} className="flex flex-col rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+          <div key={p.id} className="flex flex-col rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
             <div className="flex items-start justify-between gap-2">
               <h3 className="font-heading text-lg leading-tight">{p.title}</h3>
               <Badge>{formatPrice(p.priceCents, p.currency)}</Badge>
             </div>
             {p.description ? (
-              <p className="mt-2 line-clamp-3 text-sm text-ink/70">{p.description}</p>
+              <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{p.description}</p>
             ) : null}
-            <p className="mt-2 text-xs font-bold text-ink/60">
+            <p className="mt-2 text-xs font-bold text-muted-foreground">
               {p.totalCourses} course{p.totalCourses === 1 ? "" : "s"}
               {p.enrolledCourses > 0 ? ` · enrolled in ${p.enrolledCourses}` : ""}
             </p>

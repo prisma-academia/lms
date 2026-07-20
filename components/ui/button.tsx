@@ -5,21 +5,21 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-[10px] border-2 border-ink text-sm font-bold whitespace-nowrap select-none outline-none transition-[transform,box-shadow,background-color] [touch-action:manipulation] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-blue disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-[10px] border-2 border-border text-sm font-bold whitespace-nowrap select-none outline-none transition-[transform,box-shadow,background-color] [touch-action:manipulation] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal active:translate-x-px active:translate-y-px active:shadow-none",
+          "bg-primary text-primary-foreground shadow-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-md active:translate-x-px active:translate-y-px active:shadow-none",
         outline:
-          "bg-card text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal active:translate-x-px active:translate-y-px active:shadow-none",
+          "bg-card text-card-foreground shadow-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-md active:translate-x-px active:translate-y-px active:shadow-none",
         secondary:
-          "bg-card text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal active:translate-x-px active:translate-y-px active:shadow-none",
+          "bg-secondary text-secondary-foreground shadow-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-md active:translate-x-px active:translate-y-px active:shadow-none",
         ghost:
-          "border-transparent text-ink hover:bg-ink/[0.06] active:bg-ink/10",
+          "border-transparent text-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent",
         destructive:
-          "bg-red text-ink shadow-brutal-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-brutal active:translate-x-px active:translate-y-px active:shadow-none",
-        link: "border-transparent text-ink underline decoration-pink decoration-2 underline-offset-4 hover:decoration-wavy",
+          "bg-destructive text-destructive-foreground shadow-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-md active:translate-x-px active:translate-y-px active:shadow-none",
+        link: "border-transparent text-foreground underline decoration-primary decoration-2 underline-offset-4 hover:decoration-wavy",
       },
       size: {
         default: "h-10 px-4",

@@ -116,24 +116,24 @@ export function GroupEditor({
 
       <div>
         <div className="mb-2 flex items-center justify-between gap-3">
-          <span className="text-[13px] font-bold text-ink">
+          <span className="text-[13px] font-bold text-foreground">
             Members ({selected.size})
           </span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${memberNoun}s…`}
-            className="rounded-[10px] border-2 border-ink bg-card px-3 py-1.5 text-sm outline-none"
+            className="rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-sm outline-none"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto rounded-[10px] border-2 border-ink">
+        <div className="max-h-80 overflow-y-auto rounded-[10px] border-2 border-border">
           {filtered.length === 0 ? (
-            <p className="p-3 text-sm text-ink/60">No {memberNoun}s found.</p>
+            <p className="p-3 text-sm text-muted-foreground">No {memberNoun}s found.</p>
           ) : (
             filtered.map((c) => (
               <label
                 key={c.id}
-                className="flex cursor-pointer items-center gap-3 border-b border-ink/10 px-3 py-2 last:border-b-0 hover:bg-paper"
+                className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 last:border-b-0 hover:bg-accent"
               >
                 <input
                   type="checkbox"
@@ -142,8 +142,8 @@ export function GroupEditor({
                   className="size-4"
                 />
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-ink">{c.label}</span>
-                  <span className="block truncate text-xs text-ink/55">{c.email}</span>
+                  <span className="block truncate text-sm font-semibold text-card-foreground">{c.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
                 </span>
               </label>
             ))
@@ -151,8 +151,8 @@ export function GroupEditor({
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red">{error}</p> : null}
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
 
       <div className="flex items-center gap-3">
         <Button type="button" onClick={onSave} disabled={saving}>

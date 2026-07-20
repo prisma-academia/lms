@@ -6,7 +6,6 @@ import { Decor } from "@/components/marketing/decor";
 type Props = {
   name: string;
   logoUrl: string | null;
-  accentColor: string;
   location: string | null;
   hasCourses: boolean;
 };
@@ -14,7 +13,6 @@ type Props = {
 export function LandingHero({
   name,
   logoUrl,
-  accentColor,
   location,
   hasCourses,
 }: Props) {
@@ -28,12 +26,11 @@ export function LandingHero({
             <img
               src={logoUrl}
               alt=""
-              className="mx-auto mb-6 size-20 rounded-[14px] border-2 border-ink object-contain shadow-brutal-sm"
+              className="mx-auto mb-6 size-20 rounded-[14px] border-2 border-border object-contain shadow-sm"
             />
           ) : (
             <div
-              className="mx-auto mb-6 flex size-20 -rotate-3 items-center justify-center rounded-[14px] border-2 border-ink font-heading text-3xl text-ink shadow-brutal-sm"
-              style={{ background: accentColor }}
+              className="mx-auto mb-6 flex size-20 -rotate-3 items-center justify-center rounded-[14px] border-2 border-foreground font-heading text-3xl text-foreground shadow-sm"
             >
               {name.charAt(0).toUpperCase()}
             </div>
@@ -44,13 +41,13 @@ export function LandingHero({
           </h1>
 
           {location ? (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-ink/60">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground">
               <Icon name="globe" className="size-4 shrink-0" />
               {location}
             </p>
           ) : null}
 
-          <p className="mt-5 text-lg font-medium text-ink/70">
+          <p className="mt-5 text-lg font-medium text-muted-foreground">
             Welcome to your learning home. Enroll in courses, track your
             progress, and grow with us.
           </p>
@@ -71,11 +68,11 @@ export function LandingHero({
             ) : null}
           </div>
 
-          <p className="mt-4 text-[13px] font-medium text-ink/50">
+          <p className="mt-4 text-[13px] font-medium text-muted-foreground">
             Already enrolled?{" "}
             <Link
               href="/auth/login"
-              className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
+              className="font-bold underline decoration-primary decoration-2 underline-offset-2 hover:text-foreground"
             >
               Sign in to your account
             </Link>

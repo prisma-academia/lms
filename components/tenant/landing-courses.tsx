@@ -20,12 +20,12 @@ export function LandingCourses({ courses }: { courses: LandingCourse[] }) {
   if (courses.length === 0) return null;
 
   return (
-    <section id="courses" className="scroll-mt-24 border-t-2 border-ink bg-card">
+    <section id="courses" className="scroll-mt-24 border-t-2 border-border bg-card text-card-foreground">
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <div className="text-center">
           <SectionLabel>Our courses</SectionLabel>
           <h2 className="mt-4 font-heading text-3xl">Start learning today</h2>
-          <p className="mx-auto mt-2 max-w-2xl font-medium text-ink/70">
+          <p className="mx-auto mt-2 max-w-2xl font-medium text-muted-foreground">
             Explore our published courses. Create a free account to enroll and
             begin your journey.
           </p>
@@ -38,19 +38,18 @@ export function LandingCourses({ courses }: { courses: LandingCourse[] }) {
             return (
               <div
                 key={course.id}
-                className="flex h-full flex-col rounded-[14px] border-2 border-ink bg-paper p-4 transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
-                style={{ boxShadow: `6px 6px 0 ${accent}` }}
+                className="flex h-full flex-col rounded-[14px] border-2 border-border bg-background p-4 shadow-md transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
               >
                 {course.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={course.thumbnailUrl}
                     alt=""
-                    className="mb-3 aspect-video w-full rounded-[10px] border-2 border-ink object-cover"
+                    className="mb-3 aspect-video w-full rounded-[10px] border-2 border-border object-cover"
                   />
                 ) : (
                   <div
-                    className="mb-3 flex aspect-video items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                    className="mb-3 flex aspect-video items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                     style={{ background: accent }}
                   >
                     <Icon name={courseIcon(course.id)} className="size-8" />
@@ -60,22 +59,22 @@ export function LandingCourses({ courses }: { courses: LandingCourse[] }) {
                   {course.title}
                 </h3>
                 {desc ? (
-                  <p className="mt-1 line-clamp-2 text-[13px] font-medium text-ink/60">
+                  <p className="mt-1 line-clamp-2 text-[13px] font-medium text-muted-foreground">
                     {desc}
                   </p>
                 ) : null}
-                <div className="mt-3 flex items-center justify-between gap-2 text-[12px] font-bold text-ink/60">
+                <div className="mt-3 flex items-center justify-between gap-2 text-[12px] font-bold text-muted-foreground">
                   <span>
                     {course.lessonCount} lesson
                     {course.lessonCount === 1 ? "" : "s"}
                   </span>
                   <Badge
-                    color={course.priceCents ? "var(--yellow)" : "var(--green)"}
+                    color={course.priceCents ? "var(--chart-3)" : "var(--chart-2)"}
                   >
                     {formatCoursePrice(course.priceCents, course.currency)}
                   </Badge>
                 </div>
-                <div className="mt-auto border-t-2 border-dashed border-ink/15 pt-4">
+                <div className="mt-auto border-t-2 border-dashed border-border pt-4">
                   <Button className="w-full" asChild>
                     <Link href="/auth/register">Enroll now</Link>
                   </Button>

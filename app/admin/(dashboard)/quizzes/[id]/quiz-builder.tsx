@@ -110,8 +110,8 @@ export function QuizBuilder({
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
             {selected.map((s, idx) => (
-              <li key={s.questionId} className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-ink bg-paper px-3 py-2">
-                <span className="min-w-0 truncate text-sm text-ink">
+              <li key={s.questionId} className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-background px-3 py-2">
+                <span className="min-w-0 truncate text-sm text-foreground">
                   {idx + 1}. {s.prompt} <Badge>{s.points} pt</Badge>
                 </span>
                 {canWrite ? (
@@ -129,24 +129,24 @@ export function QuizBuilder({
         )}
 
         {canWrite ? (
-          <div className="mt-6 border-t-2 border-dashed border-ink/25 pt-4">
+          <div className="mt-6 border-t-2 border-dashed border-border pt-4">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-ink">Add questions</h3>
+              <h3 className="text-sm font-bold text-foreground">Add questions</h3>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search questions…"
-                className="rounded-[10px] border-2 border-ink bg-card px-3 py-1.5 text-sm outline-none"
+                className="rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-sm outline-none"
               />
             </div>
-            <div className="max-h-64 overflow-y-auto rounded-[10px] border-2 border-ink">
+            <div className="max-h-64 overflow-y-auto rounded-[10px] border-2 border-border">
               {available.length === 0 ? (
-                <p className="p-3 text-sm text-ink/60">No more questions to add.</p>
+                <p className="p-3 text-sm text-muted-foreground">No more questions to add.</p>
               ) : (
                 available.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between gap-3 border-b border-ink/10 px-3 py-2 last:border-b-0">
-                    <span className="min-w-0 truncate text-sm text-ink">
-                      {c.prompt} <span className="text-xs text-ink/50">({c.bank})</span>
+                  <div key={c.id} className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 last:border-b-0">
+                    <span className="min-w-0 truncate text-sm text-foreground">
+                      {c.prompt} <span className="text-xs text-muted-foreground">({c.bank})</span>
                     </span>
                     <Button
                       type="button"
@@ -169,8 +169,8 @@ export function QuizBuilder({
         ) : null}
       </Card>
 
-      {error ? <p className="text-sm text-red">{error}</p> : null}
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
 
       {canWrite ? (
         <div className="flex gap-3">

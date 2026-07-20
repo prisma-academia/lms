@@ -61,7 +61,7 @@ export function DataTable<TData>({
       {filterColumnId ? (
         <input
           type="text"
-          className="h-11 w-full max-w-xs rounded-[10px] border-2 border-ink bg-card px-3 text-[16px] font-medium text-ink shadow-brutal-sm outline-none placeholder:text-ink/35 focus:-translate-x-px focus:-translate-y-px focus:shadow-brutal"
+          className="h-11 w-full max-w-xs rounded-[10px] border-2 border-border bg-card px-3 text-[16px] font-medium text-card-foreground shadow-sm outline-none placeholder:text-muted-foreground focus:-translate-x-px focus:-translate-y-px focus:shadow-md"
           placeholder={searchPlaceholder}
           value={(table.getColumn(filterColumnId)?.getFilterValue() as string) ?? ""}
           onChange={(e) => table.getColumn(filterColumnId)?.setFilterValue(e.target.value)}
@@ -69,7 +69,7 @@ export function DataTable<TData>({
       ) : null}
       <div className="flex flex-col gap-2 md:hidden">
         {table.getRowModel().rows.length === 0 ? (
-          <div className="rounded-[14px] border-2 border-ink bg-card px-4 py-6 text-center text-sm font-medium text-ink/60 shadow-brutal">
+          <div className="rounded-[14px] border-2 border-border bg-card px-4 py-6 text-center text-sm font-medium text-muted-foreground shadow-md">
             {empty}
           </div>
         ) : (
@@ -86,13 +86,13 @@ export function DataTable<TData>({
                 onClick={() => {
                   if (href) router.push(href);
                 }}
-                className={`rounded-[14px] border-2 border-ink bg-card p-4 text-left shadow-brutal ${href ? "cursor-pointer hover:bg-paper" : ""}`}
+                className={`rounded-[14px] border-2 border-border bg-card p-4 text-left shadow-md ${href ? "cursor-pointer hover:bg-accent" : ""}`}
               >
                 <div className="text-sm font-bold">
                   {primary ? flexRender(primary.column.columnDef.cell, primary.getContext()) : null}
                 </div>
                 {secondary.length > 0 ? (
-                  <div className="mt-2 flex flex-col gap-1 text-xs text-ink/60">
+                  <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
                     {secondary.map((c) => (
                       <div key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</div>
                     ))}
@@ -103,11 +103,11 @@ export function DataTable<TData>({
           })
         )}
       </div>
-      <div className="hidden overflow-x-auto rounded-[14px] border-2 border-ink bg-card shadow-brutal [scrollbar-gutter:stable] md:block">
+      <div className="hidden overflow-x-auto rounded-[14px] border-2 border-border bg-card shadow-md [scrollbar-gutter:stable] md:block">
         <table className="w-full text-left text-sm">
-          <thead className="border-b-2 border-ink bg-paper">
+          <thead className="border-b-2 border-border bg-muted">
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="text-[11px] font-bold uppercase tracking-wide text-ink/60">
+              <tr key={hg.id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 {hg.headers.map((h) => (
                   <th
                     key={h.id}
@@ -125,7 +125,7 @@ export function DataTable<TData>({
           <tbody>
             {table.getRowModel().rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center font-medium text-ink/60" colSpan={columns.length}>
+                <td className="px-4 py-6 text-center font-medium text-muted-foreground" colSpan={columns.length}>
                   {empty}
                 </td>
               </tr>
@@ -135,7 +135,7 @@ export function DataTable<TData>({
                 return (
                   <tr
                     key={row.id}
-                    className={`border-t-2 border-dashed border-ink/15 font-medium ${href ? "cursor-pointer hover:bg-paper" : ""}`}
+                    className={`border-t-2 border-dashed border-border font-medium ${href ? "cursor-pointer hover:bg-accent" : ""}`}
                     onClick={() => {
                       if (href) router.push(href);
                     }}
@@ -152,7 +152,7 @@ export function DataTable<TData>({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between text-xs font-bold text-ink/60">
+      <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
         <div>
           Page {table.getState().pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
         </div>

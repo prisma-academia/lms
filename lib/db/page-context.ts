@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db/client";
 import { resolveHost } from "@/lib/auth/context";
@@ -23,7 +24,7 @@ export type TenantPageContext = {
  * Resolve the current host to a tenant (Tenant is a global model, so this
  * lookup is safe without a bound context).
  */
-export async function loadTenantPageContext(): Promise<TenantPageContext> {
+export const loadTenantPageContext = cache(async function loadTenantPageContext(): Promise<TenantPageContext> {
   const h = await headers();
   const ctx = resolveHost(h.get("host"));
   if (ctx.mode !== "tenant") return { tenant: null, mode: ctx.mode };
@@ -32,7 +33,7 @@ export async function loadTenantPageContext(): Promise<TenantPageContext> {
     select: { id: true, slug: true, name: true, status: true },
   });
   return { tenant, mode: "tenant" };
-}
+});
 
 /**
  * Bind platform context for the rest of this server component's render.

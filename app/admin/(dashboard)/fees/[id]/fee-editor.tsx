@@ -131,8 +131,8 @@ export function FeeEditor({
               <TextInput id="fee-due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} disabled={!canWrite} />
             </FormField>
           </div>
-          {error ? <p className="text-sm text-red">{error}</p> : null}
-          {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
           {canWrite ? (
             <div className="flex gap-3">
               <Button type="button" onClick={saveDetails} disabled={saving}>
@@ -157,11 +157,11 @@ export function FeeEditor({
               return (
                 <li
                   key={a.id}
-                  className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-ink bg-paper px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-background px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-ink">{a.label}</div>
-                    <div className="truncate text-xs text-ink/55">{a.email}</div>
+                    <div className="truncate text-sm font-semibold text-foreground">{a.label}</div>
+                    <div className="truncate text-xs text-muted-foreground">{a.email}</div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge>{paid ? "Paid" : a.status === "UNPAID" ? "Unpaid" : a.status}</Badge>

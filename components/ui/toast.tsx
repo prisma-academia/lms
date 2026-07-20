@@ -87,7 +87,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         )}
       >
         {message ? (
-          <div className="pointer-events-auto max-w-[90vw] truncate rounded-[10px] border-2 border-ink bg-ink px-5 py-3 text-sm font-bold text-paper shadow-[4px_4px_0_var(--pink)]">
+          <div className="pointer-events-auto max-w-[90vw] truncate rounded-[10px] border-2 border-border bg-foreground px-5 py-3 text-sm font-bold text-background shadow-md">
             {message}
           </div>
         ) : null}

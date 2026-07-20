@@ -16,7 +16,7 @@ export function TrialBanner({
   if (days == null) return null;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2 rounded-[14px] border-2 border-ink bg-orange px-4 py-3 text-sm font-bold text-ink shadow-brutal-sm">
+    <div className="mb-6 flex flex-wrap items-center gap-2 rounded-[14px] border-2 border-border bg-warning px-4 py-3 text-sm font-bold text-warning-foreground shadow-sm">
       <Icon name="clock" className="size-4" />
       {days === 0 ? (
         <span>Your trial ends today.</span>

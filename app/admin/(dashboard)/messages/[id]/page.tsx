@@ -26,7 +26,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
         backLabel="Messages"
       />
       <Card className="mb-4">
-        <div className="whitespace-pre-wrap text-sm text-ink/90">{message.body}</div>
+        <div className="whitespace-pre-wrap text-sm text-foreground">{message.body}</div>
       </Card>
       <Card>
         <div className="grid grid-cols-2 gap-2 text-sm">

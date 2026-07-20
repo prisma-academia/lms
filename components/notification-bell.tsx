@@ -24,11 +24,11 @@ export function NotificationBell() {
     <Link
       href="/notifications"
       aria-label={`Notifications${count > 0 ? ` (${count} unread)` : ""}`}
-      className="relative flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink bg-card text-ink [touch-action:manipulation]"
+      className="relative flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card text-card-foreground [touch-action:manipulation]"
     >
       <Icon name="bell" className="size-[18px]" />
       {count > 0 ? (
-        <span className="absolute -right-1.5 -top-1.5 flex min-w-4 items-center justify-center rounded-full border-2 border-ink bg-pink px-1 text-[10px] font-bold text-ink">
+        <span className="absolute -right-1.5 -top-1.5 flex min-w-4 items-center justify-center rounded-full border-2 border-border bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
           {count > 9 ? "9+" : count}
         </span>
       ) : null}

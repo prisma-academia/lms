@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { resolveThemeForRequest } from "@/lib/theme/resolve";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
@@ -34,6 +35,7 @@ const NAV: Array<{ href: string; key: string; module: ModuleKey | null }> = [
 
 export default async function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
   const actor = await requireTenantPage();
+  const theme = await resolveThemeForRequest();
 
   const user = await prisma.tenantUser.findUnique({
     where: { id: actor.userId },
@@ -73,7 +75,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
     <AppShell
       title={tenant.name}
       logoUrl={logoUrl}
-      accentColor={settings.primaryColor}
+      themeMode={theme.mode}
       nav={nav}
       userLabel={label}
       logoutEndpoint="/api/auth/logout"

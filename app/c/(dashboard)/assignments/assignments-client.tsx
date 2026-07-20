@@ -50,19 +50,19 @@ function dueBadge(dueAt: string | null) {
   let color: string;
   if (days < 0) {
     text = "Past due";
-    color = "var(--ink-35)";
+    color = "var(--muted-foreground)";
   } else if (days === 0) {
     text = "Due today";
-    color = "var(--red)";
+    color = "var(--destructive)";
   } else if (days === 1) {
     text = "Due tomorrow";
-    color = "var(--red)";
+    color = "var(--destructive)";
   } else if (days <= 4) {
     text = `Due in ${days} days`;
-    color = "var(--orange)";
+    color = "var(--warning)";
   } else {
     text = `Due in ${days} days`;
-    color = "var(--ink-60)";
+    color = "var(--muted-foreground)";
   }
   return (
     <span className="num text-[12px] font-bold" style={{ color }}>
@@ -146,7 +146,7 @@ function SubmitForm({
         <input
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="w-full rounded-[10px] border-2 border-ink bg-card px-3 py-2 text-sm"
+          className="w-full rounded-[10px] border-2 border-border bg-card px-3 py-2 text-sm"
         />
       ) : isText ? (
         <TextArea
@@ -164,7 +164,7 @@ function SubmitForm({
           autoFocus
         />
       )}
-      {err ? <p className="mt-1 text-xs font-bold text-red">{err}</p> : null}
+      {err ? <p className="mt-1 text-xs font-bold text-destructive">{err}</p> : null}
       <div className="mt-2 flex gap-2">
         <Button size="sm" onClick={submit} disabled={busy}>
           {busy ? "Submitting…" : "Submit work"}
@@ -210,8 +210,8 @@ export function AssignmentsClient() {
 
   if (error) {
     return (
-      <div className="rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal">
-        <p className="text-sm font-bold text-red">{error}</p>
+      <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
+        <p className="text-sm font-bold text-destructive">{error}</p>
       </div>
     );
   }
@@ -225,20 +225,20 @@ export function AssignmentsClient() {
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="rounded-[14px] border-2 border-ink bg-card p-4"
-        style={{ boxShadow: "5px 5px 0 var(--green)" }}
+        className="rounded-[14px] border-2 border-border bg-card p-4"
+        style={{ boxShadow: "5px 5px 0 var(--success)" }}
       >
         <div className="mb-2 flex items-center justify-between text-[13px] font-bold">
           <span className="num">
             {done.length} of {total} submitted
           </span>
-          <span className="num text-ink/60">{Math.round(progress)}%</span>
+          <span className="num text-muted-foreground">{Math.round(progress)}%</span>
         </div>
-        <ProgressBar value={progress} color="var(--green)" />
+        <ProgressBar value={progress} color="var(--success)" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <h3 className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em]">
             To do
           </h3>
@@ -252,7 +252,7 @@ export function AssignmentsClient() {
                 <div key={a.id} className="flex flex-col gap-2 py-3">
                   <div className="flex items-start gap-3">
                     <span
-                      className="mt-0.5 size-4 shrink-0 rounded-[6px] border-2 border-ink"
+                      className="mt-0.5 size-4 shrink-0 rounded-[6px] border-2 border-border"
                       style={{ background: courseAccent(a.course.id) }}
                     />
                     <div className="min-w-0 flex-1">
@@ -266,7 +266,7 @@ export function AssignmentsClient() {
                     </div>
                   </div>
                   {a.description ? (
-                    <p className="pl-7 text-[12.5px] font-medium text-ink/60">
+                    <p className="pl-7 text-[12.5px] font-medium text-muted-foreground">
                       {a.description}
                     </p>
                   ) : null}
@@ -280,8 +280,8 @@ export function AssignmentsClient() {
         </div>
 
         <div
-          className="rounded-[14px] border-2 border-ink bg-card p-4"
-          style={{ boxShadow: "5px 5px 0 var(--green)" }}
+          className="rounded-[14px] border-2 border-border bg-card p-4"
+          style={{ boxShadow: "5px 5px 0 var(--success)" }}
         >
           <h3 className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em]">
             Done
@@ -298,8 +298,8 @@ export function AssignmentsClient() {
                   <div key={a.id} className="flex items-center gap-3 py-3">
                     <span
                       className={cn(
-                        "flex size-6 shrink-0 items-center justify-center rounded-[7px] border-2 border-ink",
-                        "bg-green text-ink"
+                        "flex size-6 shrink-0 items-center justify-center rounded-[7px] border-2 border-border",
+                        "bg-success text-success-foreground"
                       )}
                     >
                       <Icon name="check" className="size-3.5" />
@@ -308,16 +308,16 @@ export function AssignmentsClient() {
                       <div className="truncate text-[13.5px] font-bold">
                         {a.title}
                       </div>
-                      <div className="truncate text-[12px] font-medium text-ink/60">
+                      <div className="truncate text-[12px] font-medium text-muted-foreground">
                         {a.course.title}
                       </div>
                     </div>
                     {grade ? (
-                      <Badge color="var(--yellow)" rotate>
+                      <Badge color="var(--warning)" rotate>
                         {grade.points}/{grade.maxPoints}
                       </Badge>
                     ) : (
-                      <Badge color="var(--blue)">Submitted</Badge>
+                      <Badge color="var(--info)">Submitted</Badge>
                     )}
                   </div>
                 );

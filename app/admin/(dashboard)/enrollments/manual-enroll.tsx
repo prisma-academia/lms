@@ -61,8 +61,8 @@ export function ManualEnroll({ courses, clients }: { courses: Option[]; clients:
           />
         </FormField>
       </div>
-      {error ? <p className="mt-2 text-sm text-red">{error}</p> : null}
-      {info ? <p className="mt-2 text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="mt-2 text-sm text-muted-foreground">{info}</p> : null}
       <div className="mt-3">
         <Button type="button" onClick={enroll} disabled={pending}>
           {pending ? "Enrolling…" : "Enroll"}

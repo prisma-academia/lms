@@ -106,11 +106,11 @@ export function CertificateEditor({
                 value={design.accentColor}
                 onChange={(e) => set("accentColor", e.target.value)}
                 disabled={!canWrite}
-                className="h-10 w-20 cursor-pointer rounded border-2 border-ink"
+                className="h-10 w-20 cursor-pointer rounded border-2 border-border"
               />
             </FormField>
-            {error ? <p className="text-sm text-red">{error}</p> : null}
-            {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
             {canWrite ? (
               <div className="flex gap-3">
                 <Button type="button" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
@@ -151,9 +151,9 @@ export function CertificateEditor({
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
             {awards.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-ink bg-paper px-3 py-2 text-sm">
-                <span className="font-semibold text-ink">{a.client}</span>
-                <span className="text-xs text-ink/60">
+              <li key={a.id} className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-background px-3 py-2 text-sm">
+                <span className="font-semibold text-foreground">{a.client}</span>
+                <span className="text-xs text-muted-foreground">
                   {a.serial} · {new Date(a.issuedAt).toLocaleDateString()}
                 </span>
               </li>

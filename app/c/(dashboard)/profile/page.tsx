@@ -19,12 +19,12 @@ export default async function ClientProfilePage() {
       <PageHeader title={incomplete ? "Complete your profile" : "Profile"} />
       <Card>
         {incomplete ? (
-          <p className="mb-4 text-sm font-medium text-ink/60">
+          <p className="mb-4 text-sm font-medium text-muted-foreground">
             Add a display name so we know how to address you. You can update the rest of your profile
             anytime.
           </p>
         ) : (
-          <p className="mb-4 text-sm font-medium text-ink/60">
+          <p className="mb-4 text-sm font-medium text-muted-foreground">
             Update your display name and contact details.
           </p>
         )}

@@ -187,8 +187,8 @@ export function EventForm({
         </div>
       )}
 
-      {error ? <p className="text-sm text-red">{error}</p> : null}
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
       {canWrite ? (
         <div className="flex gap-3">
           <Button type="button" onClick={submit} disabled={pending}>

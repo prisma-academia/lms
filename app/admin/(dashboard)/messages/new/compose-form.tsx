@@ -86,7 +86,7 @@ export function ComposeForm({ clients, groups }: { clients: Option[]; groups: Op
           />
         </FormField>
       ) : null}
-      {error ? <p className="text-sm text-red">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div>
         <Button type="button" onClick={submit} disabled={pending}>
           {pending ? "Sending…" : "Send message"}

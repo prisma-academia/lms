@@ -16,7 +16,7 @@ export default async function ClientCertificatesPage() {
     <div>
       <PageHeader title="Certificates" subtitle={`${awards.length} earned`} />
       {awards.length === 0 ? (
-        <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <EmptyState icon="award" title="No certificates yet">
             Complete a course to earn a certificate.
           </EmptyState>
@@ -27,13 +27,13 @@ export default async function ClientCertificatesPage() {
             <li key={a.id}>
               <Link
                 href={`/certificates/${a.id}`}
-                className="flex flex-col gap-1 rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="flex flex-col gap-1 rounded-[14px] border-2 border-border bg-card p-4 shadow-md transition-transform hover:-translate-x-0.5 hover:-translate-y-0.5"
               >
                 <span className="font-heading text-lg">{a.certificate.name}</span>
-                <span className="text-sm text-ink/60">
+                <span className="text-sm text-muted-foreground">
                   {a.certificate.course?.title ?? a.certificate.programme?.title ?? "—"}
                 </span>
-                <span className="mt-1 text-xs font-bold text-ink/50">
+                <span className="mt-1 text-xs font-bold text-muted-foreground">
                   {a.serial} · {new Date(a.issuedAt).toLocaleDateString()}
                 </span>
               </Link>

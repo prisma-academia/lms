@@ -47,7 +47,7 @@ function renderLessonBody(text: string) {
       return (
         <code
           key={i}
-          className="rounded bg-paper px-1 py-0.5 font-mono text-[13px] text-ink"
+          className="rounded bg-muted px-1 py-0.5 font-mono text-[13px] text-foreground"
         >
           {part.slice(1, -1)}
         </code>
@@ -61,7 +61,7 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
   if (lesson.contentType === "QUIZ") {
     const quizId = typeof lesson.contentJson.quizId === "string" ? lesson.contentJson.quizId : null;
     if (quizId) return <QuizPlayer quizId={quizId} />;
-    return <p className="text-sm font-medium text-ink/50">This quiz is not configured yet.</p>;
+    return <p className="text-sm font-medium text-muted-foreground">This quiz is not configured yet.</p>;
   }
 
   if (lesson.contentType === "VIDEO_URL") {
@@ -72,7 +72,7 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
         <video
           src={url}
           controls
-          className="w-full rounded-[10px] border-2 border-ink bg-black"
+          className="w-full rounded-[10px] border-2 border-border bg-black"
         >
           <track kind="captions" />
         </video>
@@ -86,7 +86,7 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
         href={lesson.assetUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded-[10px] border-2 border-ink bg-card px-4 py-2.5 text-sm font-bold shadow-brutal-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+        className="inline-flex items-center gap-2 rounded-[10px] border-2 border-border bg-card px-4 py-2.5 text-sm font-bold shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
       >
         <Icon name="file" className="size-4" /> Open lesson file
       </a>
@@ -96,14 +96,14 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
   const body = lessonBody(lesson);
   if (body) {
     return (
-      <div className="whitespace-pre-wrap text-[15px] font-medium leading-relaxed text-ink/90">
+      <div className="whitespace-pre-wrap text-[15px] font-medium leading-relaxed text-foreground">
         {renderLessonBody(body)}
       </div>
     );
   }
 
   return (
-    <p className="text-sm font-medium text-ink/50">No content for this lesson.</p>
+    <p className="text-sm font-medium text-muted-foreground">No content for this lesson.</p>
   );
 }
 
@@ -127,14 +127,14 @@ function LessonList({
               onClick={() => onPick(lesson.id)}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium [touch-action:manipulation] transition-colors",
-                i > 0 && "border-t-2 border-dashed border-ink/15",
-                active ? "bg-yellow font-bold" : "hover:bg-paper"
+                i > 0 && "border-t-2 border-dashed border-border",
+                active ? "bg-primary text-primary-foreground font-bold" : "hover:bg-accent"
               )}
             >
               <span
                 className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-[7px] border-2 border-ink text-[11px] font-bold",
-                  lesson.completed ? "bg-green text-ink" : "bg-card text-ink/60"
+                  "flex size-6 shrink-0 items-center justify-center rounded-[7px] border-2 border-border text-[11px] font-bold",
+                  lesson.completed ? "bg-success text-success-foreground" : "bg-card text-muted-foreground"
                 )}
               >
                 {lesson.completed ? <Icon name="check" className="size-3" /> : i + 1}
@@ -201,8 +201,8 @@ export function LearnPlayer({ slug }: { slug: string }) {
 
   if (error && !data) {
     return (
-      <div className="rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal">
-        <p className="text-sm font-bold text-red">{error}</p>
+      <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
+        <p className="text-sm font-bold text-destructive">{error}</p>
         <Link
           href={`/courses/${slug}`}
           className="mt-3 inline-block text-sm font-bold underline"
@@ -234,7 +234,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
     <div>
       <Link
         href={`/courses/${slug}`}
-        className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink"
+        className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
       >
         <Icon name="arrow-left" className="size-4" /> Course overview
       </Link>
@@ -246,7 +246,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
       <div className="mt-3 flex items-center gap-3">
         <ProgressBar
           value={data.enrollment.progressPercent}
-          color="var(--green)"
+          color="var(--success)"
           className="max-w-xs flex-1"
         />
         <span className="num text-sm font-bold">
@@ -260,7 +260,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
           type="button"
           onClick={() => setListOpen((o) => !o)}
           aria-expanded={listOpen}
-          className="flex w-full items-center gap-2 rounded-[10px] border-2 border-ink bg-card px-4 py-3 text-sm font-bold shadow-brutal-sm [touch-action:manipulation]"
+          className="flex w-full items-center gap-2 rounded-[10px] border-2 border-border bg-card px-4 py-3 text-sm font-bold shadow-sm [touch-action:manipulation]"
         >
           <Icon name="layers" className="size-4" />
           Lesson {selectedIndex + 1} of {lessons.length}
@@ -273,7 +273,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
           />
         </button>
         {listOpen ? (
-          <div className="mt-2 overflow-hidden rounded-[12px] border-2 border-ink bg-card shadow-brutal">
+          <div className="mt-2 overflow-hidden rounded-[12px] border-2 border-border bg-card shadow-md">
             <LessonList lessons={lessons} selectedId={selected?.id ?? null} onPick={pick} />
           </div>
         ) : null}
@@ -281,11 +281,11 @@ export function LearnPlayer({ slug }: { slug: string }) {
 
       <div className="mt-4 grid gap-5 lg:grid-cols-[260px_1fr]">
         {/* Desktop sidebar list */}
-        <div className="hidden self-start overflow-hidden rounded-[12px] border-2 border-ink bg-card shadow-brutal lg:block">
+        <div className="hidden self-start overflow-hidden rounded-[12px] border-2 border-border bg-card shadow-md lg:block">
           <LessonList lessons={lessons} selectedId={selected?.id ?? null} onPick={pick} />
         </div>
 
-        <div className="rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
           {selected ? (
             <div className="flex flex-col gap-4">
               <div>
@@ -293,7 +293,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
                   {selected.title}
                 </h2>
                 {selected.durationMin != null ? (
-                  <p className="num mt-1 text-xs font-bold text-ink/50">
+                  <p className="num mt-1 text-xs font-bold text-muted-foreground">
                     {selected.durationMin} min
                   </p>
                 ) : null}
@@ -301,7 +301,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
 
               <LessonContent lesson={selected} />
 
-              <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-ink/15 pt-4">
+              <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-border pt-4">
                 {!selected.completed ? (
                   <Button
                     onClick={() => markComplete(selected.id)}
@@ -311,7 +311,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
                     <Icon name="check" />
                   </Button>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-sm font-bold text-green">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-bold text-success">
                     <Icon name="check-circle" className="size-4" /> Completed
                   </span>
                 )}

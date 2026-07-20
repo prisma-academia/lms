@@ -21,7 +21,7 @@ export function HeroArt({ className }: { className?: string }) {
           cx="60"
           cy="70"
           r="34"
-          fill="var(--purple)"
+          fill="var(--chart-1)"
           opacity="0.35"
         />
         <circle
@@ -30,14 +30,14 @@ export function HeroArt({ className }: { className?: string }) {
           cx="368"
           cy="300"
           r="42"
-          fill="var(--blue)"
+          fill="var(--chart-2)"
           opacity="0.3"
         />
       </g>
 
       {/* main course card (shadow + panel) */}
       <g className="anim-float">
-        <rect x="72" y="72" width="228" height="262" rx="16" fill="var(--ink)" />
+        <rect x="72" y="72" width="228" height="262" rx="16" fill="var(--foreground)" />
         <rect
           x="65"
           y="65"
@@ -45,12 +45,12 @@ export function HeroArt({ className }: { className?: string }) {
           height="262"
           rx="16"
           fill="var(--card)"
-          stroke="var(--ink)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
 
         {/* thumbnail with play button */}
-        <rect x="83" y="83" width="192" height="96" rx="10" fill="var(--blue)" />
+        <rect x="83" y="83" width="192" height="96" rx="10" fill="var(--chart-2)" />
         <rect
           x="83"
           y="83"
@@ -58,23 +58,23 @@ export function HeroArt({ className }: { className?: string }) {
           height="96"
           rx="10"
           fill="none"
-          stroke="var(--ink)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
         <circle
           cx="179"
           cy="131"
           r="22"
-          fill="var(--paper)"
-          stroke="var(--ink)"
+          fill="var(--card)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
-        <path d="M173 121 L191 131 L173 141 Z" fill="var(--ink)" />
+        <path d="M173 121 L191 131 L173 141 Z" fill="var(--foreground)" />
 
         {/* title + text lines */}
-        <rect x="83" y="196" width="150" height="12" rx="6" fill="var(--ink)" />
-        <rect x="83" y="216" width="192" height="8" rx="4" fill="var(--ink-15)" />
-        <rect x="83" y="230" width="168" height="8" rx="4" fill="var(--ink-15)" />
+        <rect x="83" y="196" width="150" height="12" rx="6" fill="var(--foreground)" />
+        <rect x="83" y="216" width="192" height="8" rx="4" fill="var(--border)" />
+        <rect x="83" y="230" width="168" height="8" rx="4" fill="var(--border)" />
 
         {/* progress bar */}
         <rect
@@ -83,22 +83,22 @@ export function HeroArt({ className }: { className?: string }) {
           width="192"
           height="16"
           rx="8"
-          fill="var(--paper)"
-          stroke="var(--ink)"
+          fill="var(--card)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
-        <rect x="86" y="259" width="118" height="10" rx="5" fill="var(--green)" />
+        <rect x="86" y="259" width="118" height="10" rx="5" fill="var(--chart-3)" />
 
         {/* animated progress underline */}
         <path
           className="anim-draw"
           style={{ ["--draw-len" as string]: "192" }}
           d="M83 292 H275"
-          stroke="var(--pink)"
+          stroke="var(--chart-4)"
           strokeWidth="4"
           strokeLinecap="round"
         />
-        <rect x="83" y="304" width="96" height="8" rx="4" fill="var(--ink-15)" />
+        <rect x="83" y="304" width="96" height="8" rx="4" fill="var(--border)" />
       </g>
 
       {/* floating graduation-cap badge */}
@@ -107,30 +107,30 @@ export function HeroArt({ className }: { className?: string }) {
         style={{ animationDelay: "-1.4s" }}
         transform="translate(300 60)"
       >
-        <rect x="6" y="6" width="64" height="64" rx="14" fill="var(--ink)" />
+        <rect x="6" y="6" width="64" height="64" rx="14" fill="var(--foreground)" />
         <rect
           x="0"
           y="0"
           width="64"
           height="64"
           rx="14"
-          fill="var(--yellow)"
-          stroke="var(--ink)"
+          fill="var(--chart-5)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
         <g className="anim-wiggle" transform="translate(32 32)">
           <path
             d="M-18 -4 L0 -13 L18 -4 L0 5 Z"
-            fill="var(--ink)"
+            fill="var(--foreground)"
           />
           <path
             d="M-11 0 L-11 9 Q0 16 11 9 L11 0"
             fill="none"
-            stroke="var(--ink)"
+            stroke="var(--foreground)"
             strokeWidth="3"
             strokeLinejoin="round"
           />
-          <path d="M18 -4 V7" stroke="var(--ink)" strokeWidth="3" strokeLinecap="round" />
+          <path d="M18 -4 V7" stroke="var(--foreground)" strokeWidth="3" strokeLinecap="round" />
         </g>
       </g>
 
@@ -140,19 +140,19 @@ export function HeroArt({ className }: { className?: string }) {
         style={{ animationDelay: "-2.6s" }}
         transform="translate(38 250)"
       >
-        <circle cx="30" cy="30" r="26" fill="var(--ink)" />
+        <circle cx="30" cy="30" r="26" fill="var(--foreground)" />
         <circle
           cx="26"
           cy="26"
           r="26"
-          fill="var(--green)"
-          stroke="var(--ink)"
+          fill="var(--chart-3)"
+          stroke="var(--foreground)"
           strokeWidth="3"
         />
         <path
           d="M16 26 L23 33 L37 19"
           fill="none"
-          stroke="var(--ink)"
+          stroke="var(--foreground)"
           strokeWidth="4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -160,7 +160,7 @@ export function HeroArt({ className }: { className?: string }) {
       </g>
 
       {/* twinkling sparkles */}
-      <g aria-hidden="true" fill="var(--ink)">
+      <g aria-hidden="true" fill="var(--foreground)">
         <path
           className="anim-twinkle"
           d="M330 200 l4 8 8 4 -8 4 -4 8 -4 -8 -8 -4 8 -4 z"

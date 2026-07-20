@@ -46,17 +46,17 @@ export default async function AdminAssignmentDetailPage({
     <div className="max-w-3xl">
       <Link
         href="/admin/assignments"
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink"
+        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
       >
         <Icon name="arrow-left" className="size-4" /> Assignments
       </Link>
 
-      <div className="rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal">
+      <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
         <h1 className="font-heading text-2xl leading-tight">{assignment.title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-ink/60">
-          <Badge color="var(--blue)">{assignment.course.title}</Badge>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-muted-foreground">
+          <Badge color="var(--chart-1)">{assignment.course.title}</Badge>
           {assignment.publishedAt ? (
-            <Badge color="var(--green)">Published</Badge>
+            <Badge color="var(--success)">Published</Badge>
           ) : (
             <Badge>Draft</Badge>
           )}
@@ -66,18 +66,18 @@ export default async function AdminAssignmentDetailPage({
           ) : null}
         </div>
         {assignment.description ? (
-          <p className="mt-3 text-sm font-medium leading-relaxed text-ink/80">
+          <p className="mt-3 text-sm font-medium leading-relaxed text-foreground">
             {assignment.description}
           </p>
         ) : null}
       </div>
 
-      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-ink/60">
+      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
         Submissions ({assignment.submissions.length})
       </h2>
 
       {assignment.submissions.length === 0 ? (
-        <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <EmptyState icon="clipboard">No submissions yet.</EmptyState>
         </div>
       ) : (
@@ -85,24 +85,24 @@ export default async function AdminAssignmentDetailPage({
           {assignment.submissions.map((s) => (
             <div
               key={s.id}
-              className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal-sm"
+              className="rounded-[14px] border-2 border-border bg-card p-4 shadow-sm"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-ink">{clientName(s.client)}</span>
+                <span className="font-bold text-foreground">{clientName(s.client)}</span>
                 {s.grade ? (
-                  <Badge color="var(--green)" rotate>
+                  <Badge color="var(--success)" rotate>
                     {s.grade.points}/{s.grade.maxPoints}
                   </Badge>
                 ) : (
-                  <Badge color="var(--orange)">Ungraded</Badge>
+                  <Badge color="var(--warning)">Ungraded</Badge>
                 )}
-                <span className="num ml-auto text-[12px] font-bold text-ink/50">
+                <span className="num ml-auto text-[12px] font-bold text-muted-foreground">
                   {s.submittedAt.toLocaleDateString()}
                 </span>
               </div>
 
               {s.textBody ? (
-                <p className="mt-3 whitespace-pre-wrap rounded-[10px] border-2 border-dashed border-ink/20 bg-paper/50 p-3 text-sm font-medium text-ink/90">
+                <p className="mt-3 whitespace-pre-wrap rounded-[10px] border-2 border-dashed border-border bg-muted p-3 text-sm font-medium text-foreground">
                   {s.textBody}
                 </p>
               ) : null}

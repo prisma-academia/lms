@@ -174,8 +174,8 @@ export function PlanForm({
           <TextInput id="p-sort" type="number" value={v.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-red">{error}</p> : null}
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
       <div className="flex gap-3">
         <Button type="button" onClick={submit} disabled={pending}>
           {pending ? "Saving…" : mode === "create" ? "Create plan" : "Save"}

@@ -3,8 +3,9 @@ import Link from "next/link";
 import { LogoutButton, type LogoutContext } from "./logout-button";
 import { NavLinks, type NavItem } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
-import { BrandColorSync } from "./brand-color-sync";
 import { Icon } from "@/components/icon";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { ThemeMode } from "@/lib/theme/cookie";
 import { cn } from "@/lib/utils";
 
 export type { NavItem };
@@ -19,11 +20,9 @@ function initials(label: string): string {
 function Brand({
   title,
   logoUrl,
-  accentColor,
 }: {
   title: string;
   logoUrl?: string | null;
-  accentColor?: string;
 }) {
   return (
     <div className="mb-6 flex items-center gap-3 px-1">
@@ -32,12 +31,11 @@ function Brand({
         <img
           src={logoUrl}
           alt=""
-          className="size-10 shrink-0 rounded-[10px] border-2 border-ink object-contain"
+          className="size-10 shrink-0 rounded-[10px] border-2 border-border object-contain"
         />
       ) : (
         <div
-          className="flex size-10 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-ink font-heading text-lg text-ink shadow-brutal-sm"
-          style={{ background: accentColor || "var(--yellow)" }}
+          className="flex size-10 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-foreground bg-primary font-heading text-lg text-primary-foreground shadow-sm"
         >
           {title.charAt(0).toUpperCase()}
         </div>
@@ -54,7 +52,7 @@ function Brand({
 export function AppShell({
   title,
   logoUrl,
-  accentColor,
+  themeMode,
   nav,
   userLabel,
   logoutEndpoint,
@@ -64,7 +62,7 @@ export function AppShell({
 }: {
   title: string;
   logoUrl?: string | null;
-  accentColor?: string;
+  themeMode: ThemeMode;
   nav: NavItem[];
   userLabel: string;
   logoutEndpoint: string;
@@ -74,25 +72,24 @@ export function AppShell({
 }) {
   return (
     <div className="flex min-h-[100dvh] flex-col lg:flex-row">
-      <BrandColorSync color={accentColor} />
-      <aside className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col border-r-2 border-ink bg-card px-4 py-6 lg:flex">
+      <aside className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col border-r-2 border-border bg-card px-4 py-6 lg:flex">
         <div className="shrink-0">
-          <Brand title={title} logoUrl={logoUrl} accentColor={accentColor} />
+          <Brand title={title} logoUrl={logoUrl} />
         </div>
         <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
           <NavLinks items={nav} />
         </div>
         <div className="shrink-0 pt-6">
-          <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-ink/35 pt-4">
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-ink text-[12px] font-bold text-ink"
-              style={{ background: accentColor || "var(--pink)" }}
-            >
+          <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-border pt-4">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[12px] font-bold text-primary-foreground">
               {initials(userLabel)}
             </span>
-            <div className="min-w-0 truncate text-[13px] font-bold text-ink">
+            <div className="min-w-0 truncate text-[13px] font-bold text-card-foreground">
               {userLabel}
             </div>
+          </div>
+          <div className="mb-3">
+            <ThemeToggle initialMode={themeMode} />
           </div>
           <LogoutButton
             endpoint={logoutEndpoint}
@@ -137,7 +134,7 @@ export function PageHeader({
       {backHref ? (
         <Link
           href={backHref}
-          className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink"
+          className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
         >
           <Icon name="arrow-left" className="size-4" />
           {backLabel}
@@ -147,7 +144,9 @@ export function PageHeader({
         <div className="min-w-0">
           <h1 className="font-heading text-2xl leading-tight">{title}</h1>
           {subtitle ? (
-            <p className="mt-1 text-sm font-medium text-ink/60">{subtitle}</p>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {subtitle}
+            </p>
           ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -168,7 +167,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal",
+        "rounded-[14px] border-2 border-border bg-card p-5 shadow-md",
         className
       )}
       style={accent ? { boxShadow: `5px 5px 0 ${accent}` } : undefined}

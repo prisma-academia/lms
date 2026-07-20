@@ -46,7 +46,7 @@ export function CreateQuizForm() {
           <TextInput id="q-time" type="number" min="1" value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-red">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div>
         <Button type="button" onClick={submit} disabled={pending}>
           {pending ? "Creating…" : "Create quiz"}

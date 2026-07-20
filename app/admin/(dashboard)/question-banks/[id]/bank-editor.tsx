@@ -242,7 +242,7 @@ export function BankEditor({
                         return next;
                       })
                     }
-                    className={`rounded-full border-2 border-ink px-3 py-1 text-sm font-bold ${on ? "bg-ink text-paper" : "bg-card text-ink"}`}
+                    className={`rounded-full border-2 border-border px-3 py-1 text-sm font-bold ${on ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground"}`}
                   >
                     {g.name}
                   </button>
@@ -265,7 +265,7 @@ export function BankEditor({
         </div>
 
         {editing !== null ? (
-          <div className="mt-4 rounded-[10px] border-2 border-ink bg-paper p-4">
+          <div className="mt-4 rounded-[10px] border-2 border-border bg-background p-4">
             <div className="grid gap-3">
               <FormField label="Type" htmlFor="q-type">
                 <SelectInput
@@ -299,7 +299,7 @@ export function BankEditor({
                 </FormField>
               ) : (
                 <div>
-                  <span className="text-[13px] font-bold text-ink">Options (mark the correct one{qType === "MULTIPLE_CHOICE" ? "s" : ""})</span>
+                  <span className="text-[13px] font-bold text-foreground">Options (mark the correct one{qType === "MULTIPLE_CHOICE" ? "s" : ""})</span>
                   <div className="mt-2 flex flex-col gap-2">
                     {qOptions.map((opt, idx) => (
                       <div key={idx} className="flex items-center gap-2">
@@ -330,7 +330,7 @@ export function BankEditor({
                           <button
                             type="button"
                             onClick={() => setQOptions((prev) => prev.filter((_, i) => i !== idx))}
-                            className="text-ink/50 hover:text-red"
+                            className="text-muted-foreground hover:text-destructive"
                             aria-label="Remove option"
                           >
                             ✕
@@ -350,7 +350,7 @@ export function BankEditor({
               </FormField>
 
               <div>
-                <span className="text-[13px] font-bold text-ink">Tags</span>
+                <span className="text-[13px] font-bold text-foreground">Tags</span>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {tags.map((t) => {
                     const on = qTagIds.has(t.id);
@@ -366,7 +366,7 @@ export function BankEditor({
                             return next;
                           })
                         }
-                        className={`rounded-full border-2 border-ink px-2.5 py-0.5 text-xs font-bold ${on ? "bg-ink text-paper" : "bg-card text-ink"}`}
+                        className={`rounded-full border-2 border-border px-2.5 py-0.5 text-xs font-bold ${on ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground"}`}
                       >
                         {t.name}
                       </button>
@@ -379,7 +379,7 @@ export function BankEditor({
                 </div>
               </div>
 
-              {error ? <p className="text-sm text-red">{error}</p> : null}
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
               <div className="flex gap-2">
                 <Button type="button" onClick={saveQuestion}>Save question</Button>
                 <Button type="button" variant="outline" onClick={() => { setEditing(null); setError(null); }}>Cancel</Button>
@@ -393,10 +393,10 @@ export function BankEditor({
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
             {questions.map((q) => (
-              <li key={q.id} className="flex items-start justify-between gap-3 rounded-[10px] border-2 border-ink bg-card px-3 py-2">
+              <li key={q.id} className="flex items-start justify-between gap-3 rounded-[10px] border-2 border-border bg-card px-3 py-2">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-ink">{q.prompt || "—"}</div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink/60">
+                  <div className="truncate text-sm font-semibold text-foreground">{q.prompt || "—"}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <Badge>{typeLabel(q.type)}</Badge>
                     <span>{q.points} pt</span>
                   </div>
@@ -413,7 +413,7 @@ export function BankEditor({
         )}
       </Card>
 
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
     </div>
   );
 }

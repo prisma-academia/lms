@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { resolveThemeForRequest } from "@/lib/theme/resolve";
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { parseTenantSettings } from "@/lib/tenant/settings";
@@ -9,6 +10,7 @@ export default async function ClientDashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const theme = await resolveThemeForRequest();
   const actor = await requireClientPage();
 
   const [client, tenant] = await Promise.all([
@@ -32,7 +34,7 @@ export default async function ClientDashboardLayout({
     <StudentShell
       title={tenant.name}
       userLabel={label}
-      accentColor={settings.primaryColor}
+      themeMode={theme.mode}
     >
       {children}
     </StudentShell>

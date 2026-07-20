@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import type { SelectOption } from "@/lib/geo/options";
 import { MODULE_KEYS, type ModuleKey, type TenantSettings } from "@/lib/tenant/settings";
+import { ThemePicker } from "./theme-picker";
+import type { ThemePresetId } from "@/lib/theme/presets";
 
 type Initial = {
   name: string;
@@ -28,6 +30,12 @@ export function SettingsForm({
 }) {
   const [name, setName] = useState(initial.name);
   const [primaryColor, setPrimaryColor] = useState(initial.settings.primaryColor);
+  const [themePreset, setThemePreset] = useState<ThemePresetId>(
+    initial.settings.themePreset
+  );
+  const [themePrimaryOverride, setThemePrimaryOverride] = useState(
+    initial.settings.themePrimaryOverride
+  );
   const [timezone, setTimezone] = useState(initial.settings.timezone);
   const [locale, setLocale] = useState(initial.settings.locale);
   const [currency, setCurrency] = useState(initial.settings.currency);
@@ -85,6 +93,8 @@ export function SettingsForm({
       name,
       settings: {
         primaryColor,
+        themePreset,
+        themePrimaryOverride,
         timezone,
         locale,
         currency,
@@ -106,14 +116,45 @@ export function SettingsForm({
         <TextInput id="name" value={name} onChange={(e) => setName(e.target.value)} />
       </FormField>
 
-      <FormField label="Primary color" htmlFor="primaryColor">
-        <input
-          id="primaryColor"
-          type="color"
-          value={primaryColor}
-          onChange={(e) => setPrimaryColor(e.target.value)}
-          className="h-9 w-16 rounded border border-stone-300 bg-white"
-        />
+      <FormField
+        label="Theme"
+        htmlFor="themePreset"
+        hint="Applies to your admin console, learner portal, and public page. Each theme ships a light and a dark version; people choose which they prefer."
+      >
+        <div id="themePreset">
+          <ThemePicker
+            value={themePreset}
+            onChange={setThemePreset}
+            previewDark={false}
+          />
+        </div>
+      </FormField>
+
+      <FormField
+        label="Brand color"
+        htmlFor="themePrimaryOverride"
+        hint="Off by default — the theme supplies its own accent. Turn this on only if you need to match an exact brand color; it replaces the theme's primary everywhere."
+      >
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input
+              id="themePrimaryOverride"
+              type="checkbox"
+              checked={themePrimaryOverride}
+              onChange={(e) => setThemePrimaryOverride(e.target.checked)}
+              className="size-4"
+            />
+            Override the theme accent
+          </label>
+          <input
+            aria-label="Brand color"
+            type="color"
+            value={primaryColor}
+            disabled={!themePrimaryOverride}
+            onChange={(e) => setPrimaryColor(e.target.value)}
+            className="h-9 w-16 rounded-[8px] border-2 border-border bg-card disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
       </FormField>
 
       <FormField label="Timezone" htmlFor="timezone">

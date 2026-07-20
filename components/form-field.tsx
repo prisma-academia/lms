@@ -23,20 +23,20 @@ export function FormField({
 }) {
   return (
     <label className={cn("flex flex-col gap-1.5 text-sm", className)} htmlFor={htmlFor}>
-      <span className="text-[13px] font-bold text-ink">{label}</span>
+      <span className="text-[13px] font-bold text-foreground">{label}</span>
       {children}
       {hint && !error ? (
-        <span className="text-xs font-medium text-ink/60">{hint}</span>
+        <span className="text-xs font-medium text-muted-foreground">{hint}</span>
       ) : null}
       {error ? (
-        <span className="text-xs font-bold text-red">{error}</span>
+        <span className="text-xs font-bold text-destructive">{error}</span>
       ) : null}
     </label>
   );
 }
 
 const controlClass =
-  "w-full rounded-[10px] border-2 border-ink bg-card px-3.5 py-2.5 text-[16px] font-medium text-ink outline-none transition-[box-shadow,transform] placeholder:font-normal placeholder:text-ink/35 focus:-translate-x-px focus:-translate-y-px focus:shadow-brutal-sm disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-[10px] border-2 border-border bg-card px-3.5 py-2.5 text-[16px] font-medium text-card-foreground outline-none transition-[box-shadow,transform] placeholder:font-normal placeholder:text-muted-foreground focus:-translate-x-px focus:-translate-y-px focus:shadow-sm disabled:cursor-not-allowed disabled:opacity-60";
 
 export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (

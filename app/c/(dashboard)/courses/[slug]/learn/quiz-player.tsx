@@ -69,14 +69,14 @@ export function QuizPlayer({ quizId }: { quizId: string }) {
     }
   }
 
-  if (error && !quiz) return <p className="text-sm font-bold text-red">{error}</p>;
+  if (error && !quiz) return <p className="text-sm font-bold text-destructive">{error}</p>;
   if (!quiz) return <Spinner label="Loading quiz…" />;
 
   if (result) {
     const passLabel =
       result.passed === null ? "Submitted" : result.passed ? "Passed" : "Not passed";
     return (
-      <div className="rounded-[10px] border-2 border-ink bg-paper p-5 text-center">
+      <div className="rounded-[10px] border-2 border-border bg-muted p-5 text-center">
         <div className="num font-heading text-4xl">{result.scorePercent}%</div>
         <div className="mt-2">
           <Badge>{passLabel}</Badge>
@@ -98,11 +98,11 @@ export function QuizPlayer({ quizId }: { quizId: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {quiz.description ? <p className="text-sm text-ink/70">{quiz.description}</p> : null}
+      {quiz.description ? <p className="text-sm text-muted-foreground">{quiz.description}</p> : null}
       {quiz.questions.map((q, idx) => (
-        <div key={q.id} className="rounded-[10px] border-2 border-ink bg-paper p-4">
+        <div key={q.id} className="rounded-[10px] border-2 border-border bg-muted p-4">
           <div className="mb-2 flex items-start justify-between gap-2">
-            <p className="text-sm font-bold text-ink">
+            <p className="text-sm font-bold text-foreground">
               {idx + 1}. {q.prompt}
             </p>
             <Badge>{q.points} pt</Badge>
@@ -113,7 +113,7 @@ export function QuizPlayer({ quizId }: { quizId: string }) {
               value={typeof answers[q.id] === "string" ? (answers[q.id] as string) : ""}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
               placeholder="Your answer"
-              className="w-full rounded-[10px] border-2 border-ink bg-card px-3 py-2 text-sm outline-none"
+              className="w-full rounded-[10px] border-2 border-border bg-card px-3 py-2 text-sm outline-none"
             />
           ) : (
             <div className="flex flex-col gap-2">

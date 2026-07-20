@@ -6,12 +6,11 @@ import type { IconName } from "@/components/icon";
  */
 
 const PALETTE = [
-  "var(--purple)",
-  "var(--green)",
-  "var(--orange)",
-  "var(--pink)",
-  "var(--blue)",
-  "var(--yellow)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 
 const ICONS: IconName[] = ["flask", "code", "globe", "chart", "palette", "mic"];

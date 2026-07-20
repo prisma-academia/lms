@@ -138,7 +138,7 @@ export function SettlementBankFields({
           placeholder={banksLoading ? "Loading banks…" : "Select a bank"}
         />
         {banksUnavailable && !banksLoading ? (
-          <span className="text-xs font-medium text-ink/60">
+          <span className="text-xs font-medium text-muted-foreground">
             Bank verification requires Paystack or Flutterwave keys to be configured.
           </span>
         ) : null}

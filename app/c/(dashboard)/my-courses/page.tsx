@@ -38,7 +38,7 @@ export default async function MyCoursesPage() {
       />
 
       {enrollments.length === 0 ? (
-        <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <EmptyState
             icon="book"
             title="No courses yet"
@@ -65,7 +65,7 @@ export default async function MyCoursesPage() {
             return (
               <div
                 key={e.id}
-                className="flex flex-col rounded-[14px] border-2 border-ink bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="flex flex-col rounded-[14px] border-2 border-border bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
                 style={{ boxShadow: `6px 6px 0 ${accent}` }}
               >
                 <div className="flex items-start gap-3">
@@ -74,11 +74,11 @@ export default async function MyCoursesPage() {
                     <img
                       src={thumb}
                       alt=""
-                      className="h-16 w-24 shrink-0 rounded-[10px] border-2 border-ink object-cover"
+                      className="h-16 w-24 shrink-0 rounded-[10px] border-2 border-border object-cover"
                     />
                   ) : (
                     <span
-                      className="flex size-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                      className="flex size-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-border text-foreground"
                       style={{ background: accent }}
                     >
                       <Icon name={courseIcon(course.id)} className="size-6" />
@@ -91,21 +91,21 @@ export default async function MyCoursesPage() {
                     >
                       {course.title}
                     </Link>
-                    <p className="mt-1 text-[12px] font-medium text-ink/60">
+                    <p className="mt-1 text-[12px] font-medium text-muted-foreground">
                       {course._count.lessons} lessons
                     </p>
                   </div>
                   {done ? (
-                    <Badge color="var(--green)" rotate>
+                    <Badge color="var(--success)" rotate>
                       Done
                     </Badge>
                   ) : null}
                 </div>
 
                 <div className="mt-4">
-                  <div className="mb-1.5 flex justify-between text-[12px] font-bold text-ink/60">
+                  <div className="mb-1.5 flex justify-between text-[12px] font-bold text-muted-foreground">
                     <span>{done ? "Completed" : "Progress"}</span>
-                    <span className="num text-ink">{e.progressPercent}%</span>
+                    <span className="num text-foreground">{e.progressPercent}%</span>
                   </div>
                   <ProgressBar value={e.progressPercent} color={accent} size="sm" />
                 </div>

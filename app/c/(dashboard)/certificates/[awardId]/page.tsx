@@ -33,7 +33,7 @@ export default async function CertificateViewPage({ params }: { params: Promise<
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <Link href="/certificates" className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink">
+        <Link href="/certificates" className="inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground">
           <Icon name="arrow-left" className="size-4" /> All certificates
         </Link>
         <PrintButton />

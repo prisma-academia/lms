@@ -3,11 +3,11 @@ import { prisma } from "@/lib/db/client";
 import { formatBytes } from "@/lib/tenant/plan";
 
 const ACCENTS = [
-  "var(--blue)",
-  "var(--purple)",
-  "var(--orange)",
-  "var(--green)",
-  "var(--pink)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 
 export type MarketingPlanCard = {

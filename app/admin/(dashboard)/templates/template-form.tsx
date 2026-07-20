@@ -72,8 +72,8 @@ export function TemplateForm({
       <FormField label="Content (JSON)" htmlFor="t-content">
         <TextArea id="t-content" value={content} onChange={(e) => setContent(e.target.value)} className="min-h-48 font-mono text-xs" disabled={!canWrite} />
       </FormField>
-      {error ? <p className="text-sm text-red">{error}</p> : null}
-      {info ? <p className="text-sm text-ink/70">{info}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
       {canWrite ? (
         <div className="flex gap-3">
           <Button type="button" onClick={submit} disabled={pending}>

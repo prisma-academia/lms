@@ -1,159 +1,211 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+/* Per-tenant theme presets. Generated — run `node scripts/gen-themes.mjs app/themes.css`.
+   Safe to import here despite CSS requiring @import first: the preset selectors are
+   (0,2,0) so they outrank the (0,1,0) :root/.dark blocks below regardless of order. */
+@import "./themes.css";
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-heading);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-
-  /* --- neo-brutalist palette (design.html) --- */
-  --color-paper: var(--paper);
-  --color-ink: var(--ink);
-  --color-yellow: var(--yellow);
-  --color-pink: var(--pink);
-  --color-orange: var(--orange);
-  --color-green: var(--green);
-  --color-blue: var(--blue);
-  --color-purple: var(--purple);
-  --color-red: var(--red);
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
 :root {
-  /* raw neo-brutalist tokens — also used for inline style={{}} */
-  --paper: #faf1e4;
-  --ink: #191420;
-  --ink-60: rgba(25, 20, 32, 0.62);
-  --ink-35: rgba(25, 20, 32, 0.35);
-  --ink-15: rgba(25, 20, 32, 0.15);
-  --yellow: #ffc53d;
-  --pink: #ff6ba9;
-  --orange: #ff8a3d;
-  --green: #00c16a;
-  --blue: #3e9bff;
-  --purple: #8c6bff;
-  --red: #ff5a5f;
-  --font-heading: var(--font-archivo), "Archivo Black", system-ui, sans-serif;
+  --background: oklch(0.9399 0.0203 345.6985);
+  --foreground: oklch(0.4712 0 0);
+  --card: oklch(0.9498 0.0500 86.8891);
+  --card-foreground: oklch(0.4712 0 0);
+  --popover: oklch(1.0000 0 0);
+  --popover-foreground: oklch(0.4712 0 0);
+  --primary: oklch(0.6209 0.1801 348.1385);
+  --primary-foreground: oklch(1.0000 0 0);
+  --secondary: oklch(0.8095 0.0694 198.1863);
+  --secondary-foreground: oklch(0.3211 0 0);
+  --muted: oklch(0.8800 0.0504 212.0952);
+  --muted-foreground: oklch(0.5795 0 0);
+  --accent: oklch(0.9195 0.0801 87.6670);
+  --accent-foreground: oklch(0.3211 0 0);
+  --destructive: oklch(0.7091 0.1697 21.9551);
+  --destructive-foreground: oklch(1.0000 0 0);
+  --border: oklch(0.6209 0.1801 348.1385);
+  --input: oklch(0.9189 0 0);
+  --ring: oklch(0.7002 0.1597 350.7532);
+  --chart-1: oklch(0.7002 0.1597 350.7532);
+  --chart-2: oklch(0.8189 0.0799 212.0892);
+  --chart-3: oklch(0.9195 0.0801 87.6670);
+  --chart-4: oklch(0.7998 0.1110 348.1791);
+  --chart-5: oklch(0.6197 0.1899 353.9091);
+  --sidebar: oklch(0.9140 0.0424 343.0913);
+  --sidebar-foreground: oklch(0.3211 0 0);
+  --sidebar-primary: oklch(0.6559 0.2118 354.3084);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent: oklch(0.8228 0.1095 346.0184);
+  --sidebar-accent-foreground: oklch(0.3211 0 0);
+  --sidebar-border: oklch(0.9464 0.0327 307.1745);
+  --sidebar-ring: oklch(0.6559 0.2118 354.3084);
 
-  /* shadcn semantic tokens remapped onto the palette */
-  --background: #faf1e4;
-  --foreground: #191420;
-  --card: #fffdf6;
-  --card-foreground: #191420;
-  --popover: #fffdf6;
-  --popover-foreground: #191420;
-  --primary: #ffc53d;
-  --primary-foreground: #191420;
-  --secondary: #fffdf6;
-  --secondary-foreground: #191420;
-  --muted: #f3e9d6;
-  --muted-foreground: rgba(25, 20, 32, 0.62);
-  --accent: #ffc53d;
-  --accent-foreground: #191420;
-  --destructive: #ff5a5f;
-  --border: rgba(25, 20, 32, 0.15);
-  --input: rgba(25, 20, 32, 0.15);
-  --ring: #3e9bff;
-  --chart-1: #8c6bff;
-  --chart-2: #00c16a;
-  --chart-3: #ff8a3d;
-  --chart-4: #3e9bff;
-  --chart-5: #ff6ba9;
-  --radius: 0.875rem;
-  --sidebar: #fffdf6;
-  --sidebar-foreground: #191420;
-  --sidebar-primary: #191420;
-  --sidebar-primary-foreground: #faf1e4;
-  --sidebar-accent: #ffc53d;
-  --sidebar-accent-foreground: #191420;
-  --sidebar-border: rgba(25, 20, 32, 0.15);
-  --sidebar-ring: #3e9bff;
+  /* Status tokens. Not part of the stock shadcn set — added because roughly half
+     the old accent-palette call sites carry status meaning (overdue, published,
+     due-soon, informational). Mapping those to --chart-N would let a preset whose
+     chart-3 is green render "overdue" in green. Every theme preset must define
+     these six. */
+  --success: oklch(0.7227 0.1550 150.0000);
+  --success-foreground: oklch(1.0000 0 0);
+  --warning: oklch(0.8000 0.1500 75.0000);
+  --warning-foreground: oklch(0.2500 0 0);
+  --info: oklch(0.6500 0.1500 245.0000);
+  --info-foreground: oklch(1.0000 0 0);
+
+  /* Typography is owned by the app (next/font in app/layout.tsx), not by themes.
+     next/font self-hosts, inlines @font-face and preloads; honouring a preset's
+     font names would mean bundling ~15 families or a FOUT-y external import.
+     Do NOT reintroduce --font-sans/--font-mono here: they would silently beat
+     the next/font variables on <html> (same specificity, this file loads later). */
+  --font-serif: Georgia, "Times New Roman", serif;
+
+  --radius: 0.4rem;
+  --shadow-x: 3px;
+  --shadow-y: 3px;
+  --shadow-blur: 0px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 1.0;
+  --shadow-color: hsl(325.78 58.18% 56.86% / 0.5);
+  --shadow-2xs: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 0.50);
+  --shadow-xs: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 0.50);
+  --shadow-sm: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 1.00), 3px 1px 2px -1px hsl(325.7800 58.1800% 56.8600% / 1.00);
+  --shadow: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 1.00), 3px 1px 2px -1px hsl(325.7800 58.1800% 56.8600% / 1.00);
+  --shadow-md: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 1.00), 3px 2px 4px -1px hsl(325.7800 58.1800% 56.8600% / 1.00);
+  --shadow-lg: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 1.00), 3px 4px 6px -1px hsl(325.7800 58.1800% 56.8600% / 1.00);
+  --shadow-xl: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 1.00), 3px 8px 10px -1px hsl(325.7800 58.1800% 56.8600% / 1.00);
+  --shadow-2xl: 3px 3px 0px 0px hsl(325.7800 58.1800% 56.8600% / 2.50);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 }
 
 .dark {
-  --background: #191420;
-  --foreground: #faf1e4;
-  --card: #221c2b;
-  --card-foreground: #faf1e4;
-  --popover: #221c2b;
-  --popover-foreground: #faf1e4;
-  --primary: #ffc53d;
-  --primary-foreground: #191420;
-  --secondary: #221c2b;
-  --secondary-foreground: #faf1e4;
-  --muted: #2a2333;
-  --muted-foreground: rgba(250, 241, 228, 0.62);
-  --accent: #ffc53d;
-  --accent-foreground: #191420;
-  --destructive: #ff5a5f;
-  --border: rgba(250, 241, 228, 0.15);
-  --input: rgba(250, 241, 228, 0.18);
-  --ring: #3e9bff;
-  --sidebar: #221c2b;
-  --sidebar-foreground: #faf1e4;
-  --sidebar-primary: #ffc53d;
-  --sidebar-primary-foreground: #191420;
-  --sidebar-accent: #2a2333;
-  --sidebar-accent-foreground: #faf1e4;
-  --sidebar-border: rgba(250, 241, 228, 0.15);
-  --sidebar-ring: #3e9bff;
-  --ink: #faf1e4;
-  --ink-60: rgba(250, 241, 228, 0.62);
-  --ink-35: rgba(250, 241, 228, 0.35);
-  --ink-15: rgba(250, 241, 228, 0.15);
-  --paper: #191420;
+  --background: oklch(0.2497 0.0305 234.1628);
+  --foreground: oklch(0.9306 0.0197 349.0785);
+  --card: oklch(0.2902 0.0299 233.5352);
+  --card-foreground: oklch(0.9306 0.0197 349.0785);
+  --popover: oklch(0.2902 0.0299 233.5352);
+  --popover-foreground: oklch(0.9306 0.0197 349.0785);
+  --primary: oklch(0.9195 0.0801 87.6670);
+  --primary-foreground: oklch(0.2497 0.0305 234.1628);
+  --secondary: oklch(0.7794 0.0803 4.1330);
+  --secondary-foreground: oklch(0.2497 0.0305 234.1628);
+  --muted: oklch(0.2713 0.0086 255.5780);
+  --muted-foreground: oklch(0.7794 0.0803 4.1330);
+  --accent: oklch(0.6699 0.0988 356.9762);
+  --accent-foreground: oklch(0.9306 0.0197 349.0785);
+  --destructive: oklch(0.6702 0.1806 350.3599);
+  --destructive-foreground: oklch(0.2497 0.0305 234.1628);
+  --border: oklch(0.3907 0.0399 242.2181);
+  --input: oklch(0.3093 0.0305 232.0027);
+  --ring: oklch(0.6998 0.0896 201.8672);
+  --chart-1: oklch(0.6998 0.0896 201.8672);
+  --chart-2: oklch(0.7794 0.0803 4.1330);
+  --chart-3: oklch(0.6699 0.0988 356.9762);
+  --chart-4: oklch(0.4408 0.0702 217.0848);
+  --chart-5: oklch(0.2713 0.0086 255.5780);
+  --sidebar: oklch(0.2303 0.0270 235.9743);
+  --sidebar-foreground: oklch(0.9670 0.0029 264.5419);
+  --sidebar-primary: oklch(0.6559 0.2118 354.3084);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent: oklch(0.8228 0.1095 346.0184);
+  --sidebar-accent-foreground: oklch(0.2781 0.0296 256.8480);
+  --sidebar-border: oklch(0.3729 0.0306 259.7328);
+  --sidebar-ring: oklch(0.6559 0.2118 354.3084);
+
+  --success: oklch(0.7500 0.1500 150.0000);
+  --success-foreground: oklch(0.2000 0 0);
+  --warning: oklch(0.8300 0.1400 75.0000);
+  --warning-foreground: oklch(0.2200 0 0);
+  --info: oklch(0.7200 0.1300 245.0000);
+  --info-foreground: oklch(0.2000 0 0);
+
+  --radius: 0.4rem;
+  --shadow-x: 3px;
+  --shadow-y: 3px;
+  --shadow-blur: 0px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 1.0;
+  --shadow-color: #324859;
+  --shadow-2xs: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 0.50);
+  --shadow-xs: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 0.50);
+  --shadow-sm: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 1.00), 3px 1px 2px -1px hsl(206.1538 28.0576% 27.2549% / 1.00);
+  --shadow: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 1.00), 3px 1px 2px -1px hsl(206.1538 28.0576% 27.2549% / 1.00);
+  --shadow-md: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 1.00), 3px 2px 4px -1px hsl(206.1538 28.0576% 27.2549% / 1.00);
+  --shadow-lg: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 1.00), 3px 4px 6px -1px hsl(206.1538 28.0576% 27.2549% / 1.00);
+  --shadow-xl: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 1.00), 3px 8px 10px -1px hsl(206.1538 28.0576% 27.2549% / 1.00);
+  --shadow-2xl: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 2.50);
+}
+
+/* `inline` is load-bearing, do not remove it. It makes Tailwind emit
+   `.bg-primary { background-color: var(--primary) }` — resolving the var at the
+   use site, in the cascade — so a `[data-theme="x"]` override of `--primary` on
+   <html> propagates to every utility. Without `inline`, Tailwind resolves these
+   at build time and every theme preset renders identically. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* These resolve against the next/font variables set on <html> by app/layout.tsx. */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-serif);
+  --font-heading: var(--font-archivo), "Archivo Black", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
-    overflow-x: hidden;
   }
   html {
     @apply font-sans;
@@ -161,14 +213,20 @@
     text-size-adjust: 100%;
     scroll-behavior: smooth;
   }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
+  }
   h1,
   h2 {
     font-family: var(--font-heading);
     font-weight: 400;
   }
   ::selection {
-    background: var(--yellow);
-    color: var(--ink);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
   /* Prevent iOS Safari auto-zoom on focus: form controls must be >= 16px */
   input,
@@ -176,6 +234,8 @@
   textarea {
     font-size: 16px;
   }
+  /* The only reduced-motion guard in the app — the anim-* classes and .confetti
+     below have no other. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -188,36 +248,13 @@
   }
 }
 
-/* --- neo-brutalist utilities --- */
-@utility shadow-brutal {
-  box-shadow: 5px 5px 0 var(--ink);
-}
-@utility shadow-brutal-sm {
-  box-shadow: 3px 3px 0 var(--ink);
-}
-@utility shadow-brutal-lg {
-  box-shadow: 6px 6px 0 var(--ink);
-}
-@utility tap {
-  touch-action: manipulation;
-}
-
 @layer components {
-  /* subtle press feedback used by brutalist controls */
-  .press {
-    transition:
-      transform 0.12s ease,
-      box-shadow 0.12s ease;
-  }
-  .press:active {
-    transform: translate(2px, 2px);
-  }
   .num {
     font-variant-numeric: tabular-nums;
   }
-  /* dashed hairline divider from the mock */
+  /* dashed hairline divider */
   .divide-dash > * + * {
-    border-top: 2px dashed var(--ink-15);
+    border-top: 2px dashed var(--border);
   }
   .safe-b {
     padding-bottom: env(safe-area-inset-bottom, 0px);

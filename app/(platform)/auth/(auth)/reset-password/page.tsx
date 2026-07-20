@@ -11,12 +11,12 @@ export default async function PlatformResetPasswordPage({
   if (!token) {
     return (
       <AuthCard title="Missing reset token">
-        <p className="text-sm font-medium text-ink/60">
+        <p className="text-sm font-medium text-muted-foreground">
           Request a new link from the forgot password page.
         </p>
         <Link
           href="/auth/forgot-password"
-          className="mt-4 inline-block font-bold underline decoration-pink decoration-2 underline-offset-2"
+          className="mt-4 inline-block font-bold underline decoration-primary decoration-2 underline-offset-2"
         >
           Forgot password
         </Link>

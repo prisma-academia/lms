@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 export type CalOccurrence = { id: string; dateISO: string; title: string; type: string };
 
 const TYPE_COLOR: Record<string, string> = {
-  LIVE_SESSION: "var(--blue)",
-  DEADLINE: "var(--pink)",
-  REMINDER: "var(--yellow)",
-  ANNOUNCEMENT: "var(--green)",
+  LIVE_SESSION: "var(--chart-1)",
+  DEADLINE: "var(--chart-2)",
+  REMINDER: "var(--chart-3)",
+  ANNOUNCEMENT: "var(--chart-4)",
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -67,17 +67,17 @@ export function MonthCalendar({
     today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
 
   return (
-    <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+    <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-heading text-lg">
           {MONTHS[month]} {year}
         </h2>
         <div className="flex gap-2">
-          <Link href={`${basePath}?month=${prevMonth}`} className="rounded-[8px] border-2 border-ink px-2.5 py-1 text-sm font-bold">←</Link>
-          <Link href={`${basePath}?month=${nextMonth}`} className="rounded-[8px] border-2 border-ink px-2.5 py-1 text-sm font-bold">→</Link>
+          <Link href={`${basePath}?month=${prevMonth}`} className="rounded-[8px] border-2 border-border px-2.5 py-1 text-sm font-bold">←</Link>
+          <Link href={`${basePath}?month=${nextMonth}`} className="rounded-[8px] border-2 border-border px-2.5 py-1 text-sm font-bold">→</Link>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-ink/50">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-muted-foreground">
         {WEEKDAYS.map((w) => (
           <div key={w} className="py-1">{w}</div>
         ))}
@@ -88,18 +88,18 @@ export function MonthCalendar({
             key={i}
             className={cn(
               "min-h-20 rounded-[8px] border-2 p-1 text-left align-top",
-              d === null ? "border-transparent" : "border-ink/15 bg-paper",
-              d !== null && isToday(d) && "border-ink bg-yellow/40"
+              d === null ? "border-transparent" : "border-border bg-background",
+              d !== null && isToday(d) && "border-foreground bg-primary/20"
             )}
           >
             {d !== null ? (
               <>
-                <div className="num text-[11px] font-bold text-ink/60">{d}</div>
+                <div className="num text-[11px] font-bold text-muted-foreground">{d}</div>
                 <div className="mt-0.5 flex flex-col gap-0.5">
                   {(byDay.get(d) ?? []).slice(0, 4).map((o, idx) => {
                     const chip = (
                       <span
-                        className="block truncate rounded px-1 py-0.5 text-[10px] font-bold text-ink"
+                        className="block truncate rounded px-1 py-0.5 text-[10px] font-bold text-foreground"
                         style={{ background: TYPE_COLOR[o.type] ?? "var(--card)" }}
                         title={o.title}
                       >

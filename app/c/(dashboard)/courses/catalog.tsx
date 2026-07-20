@@ -41,20 +41,20 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
 
   return (
     <div>
-      <div className="mb-5 flex h-11 max-w-sm items-center gap-2 rounded-[10px] border-2 border-ink bg-card px-3 shadow-brutal-sm focus-within:-translate-x-px focus-within:-translate-y-px focus-within:shadow-brutal">
-        <Icon name="search" className="size-4 text-ink/50" />
+      <div className="mb-5 flex h-11 max-w-sm items-center gap-2 rounded-[10px] border-2 border-border bg-card px-3 shadow-sm focus-within:-translate-x-px focus-within:-translate-y-px focus-within:shadow-md">
+        <Icon name="search" className="size-4 text-muted-foreground" />
         <input
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search courses"
           aria-label="Search courses"
-          className="w-full border-0 bg-transparent p-0 text-[16px] font-medium text-ink outline-none placeholder:text-ink/35"
+          className="w-full border-0 bg-transparent p-0 text-[16px] font-medium text-foreground outline-none placeholder:text-muted-foreground"
         />
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-[14px] border-2 border-ink bg-card p-4 shadow-brutal">
+        <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <EmptyState icon="search" title="No matches">
             {courses.length === 0
               ? "No courses are available yet. Check back soon."
@@ -69,7 +69,7 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
             return (
               <div
                 key={course.id}
-                className="flex h-full flex-col rounded-[14px] border-2 border-ink bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="flex h-full flex-col rounded-[14px] border-2 border-border bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
                 style={{ boxShadow: `6px 6px 0 ${accent}` }}
               >
                 {course.thumbnailUrl ? (
@@ -77,11 +77,11 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
                   <img
                     src={course.thumbnailUrl}
                     alt=""
-                    className="mb-3 aspect-video w-full rounded-[10px] border-2 border-ink object-cover"
+                    className="mb-3 aspect-video w-full rounded-[10px] border-2 border-border object-cover"
                   />
                 ) : (
                   <div
-                    className="mb-3 flex aspect-video items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                    className="mb-3 flex aspect-video items-center justify-center rounded-[10px] border-2 border-border text-foreground"
                     style={{ background: accent }}
                   >
                     <Icon name={courseIcon(course.id)} className="size-8" />
@@ -94,13 +94,13 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
                   {course.title}
                 </Link>
                 {course.description ? (
-                  <p className="mt-1 line-clamp-2 text-[13px] font-medium text-ink/60">
+                  <p className="mt-1 line-clamp-2 text-[13px] font-medium text-muted-foreground">
                     {course.description}
                   </p>
                 ) : null}
-                <div className="mt-3 flex items-center justify-between gap-2 text-[12px] font-bold text-ink/60">
+                <div className="mt-3 flex items-center justify-between gap-2 text-[12px] font-bold text-muted-foreground">
                   <span>{course.lessonCount} lessons</span>
-                  <Badge color={course.priceCents ? "var(--yellow)" : "var(--green)"}>
+                  <Badge color={course.priceCents ? "var(--warning)" : "var(--success)"}>
                     {formatPrice(course.priceCents, course.currency)}
                   </Badge>
                 </div>
@@ -113,7 +113,7 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
                     />
                   </div>
                 ) : null}
-                <div className="mt-auto border-t-2 border-dashed border-ink/15 pt-4">
+                <div className="mt-auto border-t-2 border-dashed border-border pt-4">
                   <CourseEnrollButton
                     slug={course.slug}
                     priceCents={course.priceCents}

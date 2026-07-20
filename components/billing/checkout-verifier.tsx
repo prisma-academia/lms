@@ -58,15 +58,15 @@ export function CheckoutVerifier({ successMessage }: { successMessage?: string }
 
   const tone =
     status === "success"
-      ? "border-green bg-green/15"
+      ? "border-success bg-success/15"
       : status === "error"
-        ? "border-red bg-red/10"
-        : "border-ink/30 bg-paper";
+        ? "border-destructive bg-destructive/10"
+        : "border-border bg-muted";
 
   return (
     <div
       role="status"
-      className={`mb-4 rounded-[10px] border-2 px-4 py-2.5 text-sm font-bold text-ink shadow-brutal-sm ${tone}`}
+      className={`mb-4 rounded-[10px] border-2 px-4 py-2.5 text-sm font-bold text-foreground shadow-sm ${tone}`}
     >
       {status === "verifying" ? "Confirming your payment…" : message}
     </div>

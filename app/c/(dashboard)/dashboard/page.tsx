@@ -22,11 +22,11 @@ function dueInfo(due: Date, now: Date): { text: string; color: string } {
       new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
       DAY_MS
   );
-  if (days < 0) return { text: "Past due", color: "var(--ink-35)" };
-  if (days === 0) return { text: "Due today", color: "var(--red)" };
-  if (days === 1) return { text: "Due tomorrow", color: "var(--red)" };
-  if (days <= 4) return { text: `Due in ${days} days`, color: "var(--orange)" };
-  return { text: `Due in ${days} days`, color: "var(--ink-60)" };
+  if (days < 0) return { text: "Past due", color: "var(--muted-foreground)" };
+  if (days === 0) return { text: "Due today", color: "var(--destructive)" };
+  if (days === 1) return { text: "Due tomorrow", color: "var(--destructive)" };
+  if (days <= 4) return { text: `Due in ${days} days`, color: "var(--warning)" };
+  return { text: `Due in ${days} days`, color: "var(--muted-foreground)" };
 }
 
 export default async function OverviewPage() {
@@ -143,7 +143,7 @@ export default async function OverviewPage() {
         <h1 className="font-heading text-2xl leading-tight">
           {greetWord}. Ready to learn?
         </h1>
-        <p className="mt-1 text-sm font-medium text-ink/60">
+        <p className="mt-1 text-sm font-medium text-muted-foreground">
           {dueThisWeek > 0
             ? `${dueThisWeek} task${dueThisWeek === 1 ? "" : "s"} due this week`
             : "Nothing due this week"}
@@ -154,29 +154,29 @@ export default async function OverviewPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon="book"
-          iconBg="var(--purple)"
-          accent="var(--purple)"
+          iconBg="var(--chart-1)"
+          accent="var(--chart-1)"
           value={inProgress}
           label="Courses in progress"
         />
         <StatCard
           icon="check-circle"
-          iconBg="var(--green)"
-          accent="var(--green)"
+          iconBg="var(--chart-2)"
+          accent="var(--chart-2)"
           value={lessonsCompleted}
           label="Lessons completed"
         />
         <StatCard
           icon="clock"
-          iconBg="var(--orange)"
-          accent="var(--orange)"
+          iconBg="var(--chart-3)"
+          accent="var(--chart-3)"
           value={dueThisWeek}
           label="Due this week"
         />
         <StatCard
           icon="award"
-          iconBg="var(--blue)"
-          accent="var(--blue)"
+          iconBg="var(--chart-4)"
+          accent="var(--chart-4)"
           value={gradeAvg == null ? "—" : `${gradeAvg}%`}
           label="Grade average"
         />
@@ -184,10 +184,10 @@ export default async function OverviewPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="flex flex-col gap-4">
-          <Card accent="var(--purple)">
+          <Card accent="var(--chart-1)">
             <h3 className="mb-4 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.1em]">
               This week
-              <span className="num ml-auto text-xs font-bold normal-case tracking-normal text-ink/60">
+              <span className="num ml-auto text-xs font-bold normal-case tracking-normal text-muted-foreground">
                 {lessonsCompleted > 0
                   ? `${completions.filter((c) => new Date(c) >= new Date(startOfToday.getTime() - 6 * DAY_MS)).length} lessons`
                   : "no activity yet"}
@@ -201,12 +201,12 @@ export default async function OverviewPage() {
                 >
                   <div className="flex w-full flex-1 items-end">
                     <div
-                      className={`w-full rounded-t-[8px] border-2 border-ink ${
+                      className={`w-full rounded-t-[8px] border-2 border-border ${
                         w.count === 0
-                          ? "border-dashed border-ink/35"
+                          ? "border-dashed border-border"
                           : w.today
-                            ? "bg-pink shadow-brutal-sm"
-                            : "bg-purple shadow-brutal-sm"
+                            ? "bg-primary shadow-sm"
+                            : "bg-chart-1 shadow-sm"
                       }`}
                       style={{
                         height: `${
@@ -219,7 +219,7 @@ export default async function OverviewPage() {
                     />
                   </div>
                   <span
-                    className={`text-[11px] font-bold ${w.today ? "text-ink" : "text-ink/50"}`}
+                    className={`text-[11px] font-bold ${w.today ? "text-foreground" : "text-muted-foreground"}`}
                   >
                     {w.label}
                   </span>
@@ -243,7 +243,7 @@ export default async function OverviewPage() {
                   return (
                     <div key={e.id} className="flex items-center gap-3 py-3">
                       <span
-                        className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink text-ink"
+                        className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                         style={{ background: accent }}
                       >
                         <Icon name={courseIcon(e.course.id)} className="size-5" />
@@ -252,7 +252,7 @@ export default async function OverviewPage() {
                         <div className="truncate text-sm font-bold">
                           {e.course.title}
                         </div>
-                        <div className="truncate text-[12.5px] font-medium text-ink/60">
+                        <div className="truncate text-[12.5px] font-medium text-muted-foreground">
                           {next ? `Next: ${next.title}` : "All lessons done"}
                         </div>
                         <ProgressBar
@@ -268,7 +268,7 @@ export default async function OverviewPage() {
                       <Link
                         href={`/courses/${e.course.slug}/learn`}
                         aria-label={`Resume ${e.course.title}`}
-                        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-ink bg-card shadow-brutal-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+                        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
                       >
                         <Icon name="arrow-right" className="size-4" />
                       </Link>
@@ -281,7 +281,7 @@ export default async function OverviewPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <Card accent="var(--blue)">
+          <Card accent="var(--chart-4)">
             <h3 className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em]">
               Due radar
             </h3>
@@ -297,7 +297,7 @@ export default async function OverviewPage() {
                   return (
                     <div key={a.id} className="flex items-center gap-3 py-2.5">
                       <div
-                        className="num flex size-11 shrink-0 -rotate-3 flex-col items-center justify-center rounded-[10px] border-2 border-ink leading-none"
+                        className="num flex size-11 shrink-0 -rotate-3 flex-col items-center justify-center rounded-[10px] border-2 border-foreground leading-none"
                         style={{ background: accent }}
                       >
                         <span className="text-[15px] font-bold">
@@ -311,7 +311,7 @@ export default async function OverviewPage() {
                         <div className="truncate text-[13.5px] font-bold">
                           {a.title}
                         </div>
-                        <div className="truncate text-[12px] font-medium text-ink/60">
+                        <div className="truncate text-[12px] font-medium text-muted-foreground">
                           {a.course.title}
                         </div>
                       </div>
@@ -328,14 +328,14 @@ export default async function OverviewPage() {
             )}
             <Link
               href="/assignments"
-              className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold underline decoration-pink decoration-2 underline-offset-2"
+              className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold underline decoration-primary decoration-2 underline-offset-2"
             >
               All tasks <Icon name="arrow-right" className="size-3.5" />
             </Link>
           </Card>
 
           {focus ? (
-            <Card accent="var(--ink)" className="bg-yellow">
+            <Card accent="var(--foreground)" className="bg-primary text-primary-foreground">
               <h3 className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.1em]">
                 <Icon name="target" className="size-4" /> Closest to done
               </h3>

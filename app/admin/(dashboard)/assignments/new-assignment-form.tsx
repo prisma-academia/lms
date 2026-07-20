@@ -66,7 +66,7 @@ export function NewAssignmentForm({
   return (
     <form
       onSubmit={submit}
-      className="flex flex-col gap-4 rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal"
+      className="flex flex-col gap-4 rounded-[14px] border-2 border-border bg-card p-5 shadow-md"
     >
       <FormField label="Course" htmlFor="a-course">
         <SelectInput
@@ -126,7 +126,7 @@ export function NewAssignmentForm({
           />
         </FormField>
       </div>
-      <label className="flex items-center gap-2 text-sm font-bold text-ink">
+      <label className="flex items-center gap-2 text-sm font-bold text-foreground">
         <input
           type="checkbox"
           checked={publish}
@@ -135,7 +135,7 @@ export function NewAssignmentForm({
         />
         Publish now (visible to learners)
       </label>
-      {error ? <p className="text-sm font-bold text-red">{error}</p> : null}
+      {error ? <p className="text-sm font-bold text-destructive">{error}</p> : null}
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Creating…" : "Create assignment"}

@@ -12,7 +12,7 @@ export default function PlatformForgotPasswordPage() {
       footer={
         <a
           href={registerUrl}
-          className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
+          className="font-bold underline decoration-primary decoration-2 underline-offset-2 hover:text-foreground"
         >
           Register a workspace
         </a>

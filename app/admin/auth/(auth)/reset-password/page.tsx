@@ -11,12 +11,12 @@ export default async function AdminResetPasswordPage({
   if (!token) {
     return (
       <AuthCard title="Missing reset token">
-        <p className="text-sm font-medium text-ink/60">
+        <p className="text-sm font-medium text-muted-foreground">
           This reset link is incomplete.
         </p>
         <Link
           href="/admin/auth/forgot-password"
-          className="mt-4 inline-block font-bold underline decoration-pink decoration-2 underline-offset-2"
+          className="mt-4 inline-block font-bold underline decoration-primary decoration-2 underline-offset-2"
         >
           Request a new link
         </Link>

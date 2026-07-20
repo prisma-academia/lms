@@ -6,26 +6,26 @@ import { SectionLabel } from "./section-label";
 
 const STEPS = [
   {
-    color: "var(--yellow)",
+    color: "var(--chart-1)",
     title: "Create your account",
     body: "Sign up with your email in minutes — it's free to get started.",
   },
   {
-    color: "var(--pink)",
+    color: "var(--chart-2)",
     title: "Browse the catalog",
     body: "Explore available courses and pick the ones that match your goals.",
   },
   {
-    color: "var(--blue)",
+    color: "var(--chart-3)",
     title: "Start learning",
     body: "Enroll, complete lessons, and track your progress all in one place.",
   },
 ] as const;
 
-export function LandingSteps({ accentColor }: { accentColor: string }) {
+export function LandingSteps() {
   return (
     <>
-      <section id="get-started" className="scroll-mt-24 border-t-2 border-ink">
+      <section id="get-started" className="scroll-mt-24 border-t-2 border-border">
         <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
           <div className="text-center">
             <SectionLabel>How it works</SectionLabel>
@@ -37,10 +37,10 @@ export function LandingSteps({ accentColor }: { accentColor: string }) {
             {STEPS.map((step, i) => (
               <div
                 key={step.title}
-                className="flex flex-col gap-4 rounded-[14px] border-2 border-ink bg-card p-5 shadow-brutal-sm"
+                className="flex flex-col gap-4 rounded-[14px] border-2 border-border bg-card p-5 text-card-foreground shadow-sm"
               >
                 <span
-                  className="num flex size-11 shrink-0 -rotate-3 items-center justify-center rounded-[12px] border-2 border-ink font-heading text-xl text-ink"
+                  className="num flex size-11 shrink-0 -rotate-3 items-center justify-center rounded-[12px] border-2 border-foreground font-heading text-xl text-foreground"
                   style={{ background: step.color }}
                 >
                   {i + 1}
@@ -49,7 +49,7 @@ export function LandingSteps({ accentColor }: { accentColor: string }) {
                   <h3 className="font-heading text-base leading-tight">
                     {step.title}
                   </h3>
-                  <p className="mt-1.5 text-sm font-medium text-ink/60">
+                  <p className="mt-1.5 text-sm font-medium text-muted-foreground">
                     {step.body}
                   </p>
                 </div>
@@ -59,20 +59,16 @@ export function LandingSteps({ accentColor }: { accentColor: string }) {
         </div>
       </section>
 
-      <section className="border-t-2 border-ink bg-card">
+      <section className="border-t-2 border-border bg-card text-card-foreground">
         <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:px-6">
           <div
-            className="relative mx-auto max-w-2xl overflow-hidden rounded-[18px] border-2 border-ink p-8 sm:p-10"
-            style={{
-              background: accentColor,
-              boxShadow: "8px 8px 0 var(--ink)",
-            }}
+            className="relative mx-auto max-w-2xl overflow-hidden rounded-[18px] border-2 border-foreground p-8 shadow-lg sm:p-10"
           >
             <Decor preset="cta" />
             <h2 className="font-heading text-3xl leading-tight">
               Ready to begin?
             </h2>
-            <p className="mx-auto mt-2 max-w-md font-medium text-ink/70">
+            <p className="mx-auto mt-2 max-w-md font-medium text-muted-foreground">
               Join our learning community today. Create your account and enroll
               in your first course.
             </p>

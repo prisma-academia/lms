@@ -8,7 +8,7 @@ import { usePathname, useSearchParams } from "next/navigation";
  * internal link is clicked and completes when the pathname / query settles,
  * giving immediate feedback before the destination's loading.tsx renders.
  *
- * Colour is the tenant brand (`--brand`, set by BrandColorSync in the shells)
+ * Colour is the tenant brand (`--primary`, from the active theme preset)
  * with a neutral fallback. The global reduced-motion rule in globals.css
  * disables the width/opacity transitions automatically.
  */
@@ -118,8 +118,8 @@ export function RouteProgress() {
         className="h-full origin-left"
         style={{
           width: `${progress}%`,
-          background: "var(--brand, var(--yellow))",
-          boxShadow: "0 0 8px var(--brand, var(--yellow))",
+          background: "var(--primary)",
+          boxShadow: "0 0 8px var(--primary)",
           transition: "width 200ms ease",
         }}
       />

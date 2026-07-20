@@ -434,7 +434,7 @@ export function CourseEditor({
           </FormField>
           {canWrite ? (
             <div>
-              <span className="text-[13px] font-bold text-ink">Thumbnail</span>
+              <span className="text-[13px] font-bold text-foreground">Thumbnail</span>
               <div className="mt-1 flex items-center gap-3">
                 <input ref={thumbRef} type="file" accept="image/*" onChange={uploadThumbnail} className="hidden" />
                 <Button type="button" variant="outline" size="sm" onClick={() => thumbRef.current?.click()} disabled={thumbBusy}>
@@ -483,9 +483,9 @@ export function CourseEditor({
             {groups.map((g) => (
               <li
                 key={g.id}
-                className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-ink bg-paper px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-background px-3 py-2 text-sm"
               >
-                <span className="font-semibold text-ink">{g.title}</span>
+                <span className="font-semibold text-foreground">{g.title}</span>
                 {canWrite ? (
                   <Button type="button" variant="destructive" size="sm" onClick={() => removeGroup(g.id)}>
                     Delete
@@ -553,7 +553,7 @@ export function CourseEditor({
                             onChange={(e) => setEditQuizId(e.target.value)}
                           />
                         ) : (
-                          <p className="text-xs text-ink/60">No quizzes yet — create one under Quizzes first.</p>
+                          <p className="text-xs text-muted-foreground">No quizzes yet — create one under Quizzes first.</p>
                         )}
                       </FormField>
                     ) : (
@@ -677,7 +677,7 @@ export function CourseEditor({
                       onChange={(e) => setLessonQuizId(e.target.value)}
                     />
                   ) : (
-                    <p className="text-xs text-ink/60">No quizzes yet — create one under Quizzes first.</p>
+                    <p className="text-xs text-muted-foreground">No quizzes yet — create one under Quizzes first.</p>
                   )}
                 </FormField>
               ) : (

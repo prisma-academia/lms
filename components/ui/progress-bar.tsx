@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 export function ProgressBar({
   value,
-  color = "var(--ink)",
+  color = "var(--primary)",
   className,
   size = "md",
 }: {
@@ -16,7 +16,7 @@ export function ProgressBar({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-full border-2 border-ink bg-card",
+        "overflow-hidden rounded-full border-2 border-border bg-muted",
         h,
         className
       )}

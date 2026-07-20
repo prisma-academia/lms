@@ -57,7 +57,7 @@ export default async function PlatformAnalyticsPage() {
             </thead>
             <tbody>
               {topTenants.map((t) => (
-                <tr key={t.id} className="border-t border-ink/10">
+                <tr key={t.id} className="border-t border-border">
                   <td className="py-2 font-semibold">{t.name}</td>
                   <td className="text-xs">{t.status}</td>
                   <td>{t._count.clients}</td>

@@ -55,26 +55,26 @@ export default async function CourseDetailPage({
     <div className="max-w-3xl">
       <Link
         href="/courses"
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-ink/60 hover:text-ink"
+        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
       >
         <Icon name="arrow-left" className="size-4" /> Catalog
       </Link>
 
       <div
-        className="rounded-[14px] border-2 border-ink bg-card p-5"
+        className="rounded-[14px] border-2 border-border bg-card p-5"
         style={{ boxShadow: `6px 6px 0 ${accent}` }}
       >
         <div className="flex items-start gap-4">
           <span
-            className="flex size-14 shrink-0 items-center justify-center rounded-[12px] border-2 border-ink text-ink"
+            className="flex size-14 shrink-0 items-center justify-center rounded-[12px] border-2 border-border text-foreground"
             style={{ background: accent }}
           >
             <Icon name={courseIcon(course.id)} className="size-7" />
           </span>
           <div className="min-w-0 flex-1">
             <h1 className="font-heading text-2xl leading-tight">{course.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-ink/60">
-              <Badge color={course.priceCents ? "var(--yellow)" : "var(--green)"}>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-muted-foreground">
+              <Badge color={course.priceCents ? "var(--warning)" : "var(--success)"}>
                 {formatPrice(course.priceCents, course.currency)}
               </Badge>
               <span>{course.lessons.length} lessons</span>
@@ -84,22 +84,22 @@ export default async function CourseDetailPage({
         </div>
 
         {course.description ? (
-          <p className="mt-4 text-sm font-medium leading-relaxed text-ink/80">
+          <p className="mt-4 text-sm font-medium leading-relaxed text-foreground">
             {course.description}
           </p>
         ) : null}
 
         {enrolled ? (
           <div className="mt-4">
-            <div className="mb-1.5 flex justify-between text-[12px] font-bold text-ink/60">
+            <div className="mb-1.5 flex justify-between text-[12px] font-bold text-muted-foreground">
               <span>{enrollment.completedAt ? "Completed" : "Your progress"}</span>
-              <span className="num text-ink">{enrollment.progressPercent}%</span>
+              <span className="num text-foreground">{enrollment.progressPercent}%</span>
             </div>
             <ProgressBar value={enrollment.progressPercent} color={accent} size="sm" />
           </div>
         ) : null}
 
-        <div className="mt-5 border-t-2 border-dashed border-ink/15 pt-5">
+        <div className="mt-5 border-t-2 border-dashed border-border pt-5">
           <CourseEnrollButton
             slug={course.slug}
             priceCents={course.priceCents}
@@ -108,12 +108,12 @@ export default async function CourseDetailPage({
         </div>
       </div>
 
-      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-ink/60">
+      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
         Lessons
       </h2>
-      <div className="rounded-[14px] border-2 border-ink bg-card p-2 shadow-brutal">
+      <div className="rounded-[14px] border-2 border-border bg-card p-2 shadow-md">
         {course.lessons.length === 0 ? (
-          <p className="p-4 text-sm font-medium text-ink/60">
+          <p className="p-4 text-sm font-medium text-muted-foreground">
             No lessons published yet.
           </p>
         ) : (
@@ -126,15 +126,15 @@ export default async function CourseDetailPage({
                   className="flex items-center gap-3 px-2 py-3 text-sm"
                 >
                   <span
-                    className={`flex size-7 shrink-0 items-center justify-center rounded-[8px] border-2 border-ink text-[12px] font-bold ${
-                      done ? "bg-green text-ink" : "bg-card text-ink/60"
+                    className={`flex size-7 shrink-0 items-center justify-center rounded-[8px] border-2 border-border text-[12px] font-bold ${
+                      done ? "bg-success text-success-foreground" : "bg-card text-muted-foreground"
                     }`}
                   >
                     {done ? <Icon name="check" className="size-3.5" /> : i + 1}
                   </span>
                   <span className="min-w-0 flex-1 font-medium">{lesson.title}</span>
                   {lesson.durationMin != null ? (
-                    <span className="num shrink-0 text-[12px] font-bold text-ink/50">
+                    <span className="num shrink-0 text-[12px] font-bold text-muted-foreground">
                       {lesson.durationMin} min
                     </span>
                   ) : null}

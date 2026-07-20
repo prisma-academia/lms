@@ -92,7 +92,7 @@ export function ErrorDialogProvider({ children }: { children: ReactNode }) {
         {current ? (
           <DialogContent showClose={false} className="max-w-md">
             <div className="flex flex-col items-center gap-4 text-center">
-              <span className="flex size-12 items-center justify-center rounded-full border-2 border-ink bg-red text-ink shadow-brutal-sm">
+              <span className="flex size-12 items-center justify-center rounded-full border-2 border-border bg-destructive text-destructive-foreground shadow-sm">
                 <Icon name="alert-triangle" className="size-6" />
               </span>
               <div className="flex flex-col gap-1">

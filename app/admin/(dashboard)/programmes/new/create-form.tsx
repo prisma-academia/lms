@@ -61,7 +61,7 @@ export function CreateProgrammeForm() {
       <FormField label="Description (optional)" htmlFor="description" error={formState.errors.description?.message}>
         <TextArea id="description" {...register("description")} />
       </FormField>
-      {error ? <p className="text-sm text-red">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div>
         <Button type="submit" disabled={formState.isSubmitting}>
           {formState.isSubmitting ? "Creating…" : "Create programme"}

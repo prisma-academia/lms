@@ -16,9 +16,9 @@ export function TenantLandingShell({
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
-      <header className="sticky top-0 z-30 border-b-2 border-ink bg-card/95 backdrop-blur-sm">
+      <header className="sticky top-0 z-30 border-b-2 border-border bg-card text-card-foreground/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="truncate font-heading text-[15px] hover:text-ink/70">
+          <Link href="/" className="truncate font-heading text-[15px] hover:text-muted-foreground">
             {orgName}
           </Link>
           <div className="flex shrink-0 items-center gap-2">
@@ -30,7 +30,7 @@ export function TenantLandingShell({
             </Button>
             <Link
               href="/admin/auth/login"
-              className="ml-1 hidden text-xs font-medium text-ink/60 hover:text-ink sm:inline"
+              className="ml-1 hidden text-xs font-medium text-muted-foreground hover:text-foreground sm:inline"
             >
               Admin portal
             </Link>
@@ -40,13 +40,13 @@ export function TenantLandingShell({
 
       <div className="flex-1">{children}</div>
 
-      <footer className="border-t-2 border-ink bg-card">
+      <footer className="border-t-2 border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-1 px-4 py-6 sm:px-6">
-          <p className="text-[11px] font-medium text-ink/30">
+          <p className="text-[11px] font-medium text-muted-foreground">
             Powered by{" "}
             <a
               href={apexUrl}
-              className="underline decoration-ink/20 underline-offset-2 hover:text-ink/50"
+              className="underline decoration-border underline-offset-2 hover:text-muted-foreground"
               target={isProd ? "_blank" : undefined}
               rel={isProd ? "noopener noreferrer" : undefined}
             >

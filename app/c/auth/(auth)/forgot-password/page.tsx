@@ -10,7 +10,7 @@ export default function ClientForgotPasswordPage() {
       footer={
         <Link
           href="/auth/register"
-          className="font-bold underline decoration-pink decoration-2 underline-offset-2 hover:text-ink"
+          className="font-bold underline decoration-primary decoration-2 underline-offset-2 hover:text-foreground"
         >
           Create an account
         </Link>
