@@ -40,8 +40,9 @@ export const PERMISSIONS = {
   TENANT_EVENTS_WRITE: { key: "tenant.events:write", module: "tenant.events", description: "Create / modify calendar events" },
   TENANT_MESSAGES_READ: { key: "tenant.messages:read", module: "tenant.messages", description: "View sent messages" },
   TENANT_MESSAGES_WRITE: { key: "tenant.messages:write", module: "tenant.messages", description: "Compose and send messages" },
-  TENANT_RESOURCES_READ: { key: "tenant.resources:read", module: "tenant.resources", description: "View the resource library" },
-  TENANT_RESOURCES_WRITE: { key: "tenant.resources:write", module: "tenant.resources", description: "Upload and manage resources" },
+  TENANT_LIBRARY_READ: { key: "tenant.library:read", module: "tenant.library", description: "View the media library" },
+  TENANT_LIBRARY_WRITE: { key: "tenant.library:write", module: "tenant.library", description: "Upload and manage library media" },
+  TENANT_LIBRARY_ASSIGN: { key: "tenant.library:assign", module: "tenant.library", description: "Assign library media to learners, groups, courses and programmes" },
   TENANT_GRADES_READ: { key: "tenant.grades:read", module: "tenant.grades", description: "View grades" },
   TENANT_GRADES_WRITE: { key: "tenant.grades:write", module: "tenant.grades", description: "Grade submissions" },
   TENANT_BILLING_READ: { key: "tenant.billing:read", module: "tenant.billing", description: "View billing and payouts" },
@@ -52,6 +53,8 @@ export const PERMISSIONS = {
   CLIENT_PROGRESS_WRITE: { key: "client.progress:write", module: "client.progress", description: "Track lesson progress" },
   CLIENT_ASSIGNMENTS_READ: { key: "client.assignments:read", module: "client.assignments", description: "View assignments and grades" },
   CLIENT_SUBMISSIONS_WRITE: { key: "client.submissions:write", module: "client.submissions", description: "Submit assignment work" },
+  CLIENT_LIBRARY_READ: { key: "client.library:read", module: "client.library", description: "View the media library" },
+  CLIENT_LIBRARY_WRITE: { key: "client.library:write", module: "client.library", description: "Track library playback progress" },
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]["key"];
@@ -91,6 +94,10 @@ export const TENANT_BUILTIN_ROLES = [
       PERMISSIONS.TENANT_GRADES_WRITE.key,
       PERMISSIONS.TENANT_CLIENTS_READ.key,
       PERMISSIONS.TENANT_ACTIVITY_READ.key,
+      // Instructors hand media to their own cohorts, so they get assign too.
+      PERMISSIONS.TENANT_LIBRARY_READ.key,
+      PERMISSIONS.TENANT_LIBRARY_WRITE.key,
+      PERMISSIONS.TENANT_LIBRARY_ASSIGN.key,
     ] as PermissionKey[],
     isSystem: true,
   },
@@ -104,6 +111,7 @@ export const TENANT_BUILTIN_ROLES = [
       PERMISSIONS.TENANT_COURSES_READ.key,
       PERMISSIONS.TENANT_ENROLLMENTS_READ.key,
       PERMISSIONS.TENANT_TEMPLATES_READ.key,
+      PERMISSIONS.TENANT_LIBRARY_READ.key,
     ] as PermissionKey[],
     isSystem: true,
   },

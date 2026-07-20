@@ -1,7 +1,8 @@
 export type PaymentMetadata =
   | { type: "platform_subscription"; tenantId: string; planId: string }
   | { type: "course_purchase"; tenantId: string; courseId: string; clientId: string }
-  | { type: "programme_purchase"; tenantId: string; programmeId: string; clientId: string };
+  | { type: "programme_purchase"; tenantId: string; programmeId: string; clientId: string }
+  | { type: "library_purchase"; tenantId: string; itemId: string; clientId: string };
 
 export type CheckoutResult = {
   authorizationUrl: string;

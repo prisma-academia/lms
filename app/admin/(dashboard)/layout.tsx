@@ -6,6 +6,7 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { parseTenantSettings, type ModuleKey } from "@/lib/tenant/settings";
 import { AppShell, type NavItem } from "@/components/shell";
 import { TrialBanner } from "@/components/trial-banner";
+import { UploadProvider } from "@/components/uploads/upload-provider";
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 
 const NAV: Array<{ href: string; key: string; module: ModuleKey | null }> = [
@@ -22,7 +23,7 @@ const NAV: Array<{ href: string; key: string; module: ModuleKey | null }> = [
   { href: "/admin/certificates", key: "certificates", module: "certificates" },
   { href: "/admin/events", key: "events", module: "events" },
   { href: "/admin/messages", key: "messages", module: "messages" },
-  { href: "/admin/resources", key: "resources", module: "resources" },
+  { href: "/admin/library", key: "library", module: "library" },
   { href: "/admin/enrollments", key: "enrollments", module: "enrollments" },
   { href: "/admin/fees", key: "fees", module: "fees" },
   { href: "/admin/billing", key: "billing", module: "billing" },
@@ -87,7 +88,9 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
         trialEndsAt={tenant.trialEndsAt}
         subscriptionStatus={tenant.subscriptionStatus}
       />
-      {children}
+      {/* Owns the upload queue for the whole admin area. Mounted here rather
+          than on the library page so uploads survive navigation. */}
+      <UploadProvider>{children}</UploadProvider>
     </AppShell>
   );
 }

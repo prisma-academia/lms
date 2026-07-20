@@ -151,6 +151,39 @@ enum NotificationCategory {
   REMINDER
 }
 
+/// Broad rendering class for a library item, derived from its content type at
+/// upload time. Drives which player the learner gets.
+enum MediaKind {
+  VIDEO
+  AUDIO
+  PDF
+  IMAGE
+  DOC
+  ARCHIVE
+  OTHER
+}
+
+enum UploadSessionStatus {
+  PENDING
+  COMPLETED
+  ABORTED
+  EXPIRED
+}
+
+/// Who a library grant is issued to.
+enum GrantSubjectType {
+  ALL_CLIENTS
+  CLIENT
+  CLIENT_GROUP
+  COURSE
+  PROGRAMME
+}
+
+enum EntitlementSource {
+  PURCHASE
+  MANUAL
+}
+
 model Tenant {
   id                   String             @id @default(cuid())
   slug                 String             @unique
@@ -160,6 +193,10 @@ model Tenant {
   trialEndsAt          DateTime?
   storageUsedBytes     BigInt             @default(0)
   storageQuotaBytes    BigInt             @default(10737418240)
+  /// Bytes committed to in-flight multipart uploads. Counted against the quota
+  /// alongside storageUsedBytes so concurrent uploads cannot overshoot it.
+  /// The reconcile job is the source of truth for this value, not the deltas.
+  storageReservedBytes BigInt             @default(0)
   subscriptionStatus   SubscriptionStatus @default(NONE)
   subscriptionPlanId   String?
   subscriptionPlan     SubscriptionPlan?  @relation(fields: [subscriptionPlanId], references: [id], onDelete: SetNull)
@@ -180,33 +217,38 @@ model Tenant {
   createdAt            DateTime           @default(now())
   archivedAt           DateTime?
 
-  users                        TenantUser[]
-  clients                      Client[]
-  userGroups                   UserGroup[]
-  clientGroups                 ClientGroup[]
-  pendingClientRegistrations   PendingClientRegistration[]
-  roleTemplates                RoleTemplate[]
-  templates                    Template[]
-  activityLogs                 ActivityLog[]
-  subaccount                   TenantSubaccount?
-  courses                      Course[]
-  programmes                   Programme[]
-  platformPayments             PlatformPayment[]
-  coursePayments               CoursePayment[]
-  programmePayments            ProgrammePayment[]
-  assignments                  Assignment[]
-  submissions                  Submission[]
-  grades                       Grade[]
-  fees                         Fee[]
-  questionBanks                QuestionBank[]
-  questionTags                 QuestionTag[]
-  quizzes                      Quiz[]
-  certificates                 Certificate[]
-  events                       Event[]
-  messages                     Message[]
-  resources                    Resource[]
-  resourceGroups               ResourceGroup[]
-  resourceTags                 ResourceTag[]
+  users                      TenantUser[]
+  clients                    Client[]
+  userGroups                 UserGroup[]
+  clientGroups               ClientGroup[]
+  pendingClientRegistrations PendingClientRegistration[]
+  roleTemplates              RoleTemplate[]
+  templates                  Template[]
+  activityLogs               ActivityLog[]
+  subaccount                 TenantSubaccount?
+  courses                    Course[]
+  programmes                 Programme[]
+  platformPayments           PlatformPayment[]
+  coursePayments             CoursePayment[]
+  programmePayments          ProgrammePayment[]
+  assignments                Assignment[]
+  submissions                Submission[]
+  grades                     Grade[]
+  fees                       Fee[]
+  questionBanks              QuestionBank[]
+  questionTags               QuestionTag[]
+  quizzes                    Quiz[]
+  certificates               Certificate[]
+  events                     Event[]
+  messages                   Message[]
+  libraryItems               LibraryItem[]
+  libraryFolders             LibraryFolder[]
+  libraryTags                LibraryTag[]
+  libraryUploads             LibraryUpload[]
+  libraryGrants              LibraryGrant[]
+  libraryEntitlements        LibraryEntitlement[]
+  libraryPayments            LibraryPayment[]
+  programmeEnrollments       ProgrammeEnrollment[]
 
   @@index([status])
   @@index([plan, trialEndsAt])
@@ -229,25 +271,25 @@ model SubscriptionPlan {
 }
 
 model TenantSubaccount {
-  tenantId                String           @id
-  tenant                  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  businessName            String
-  businessEmail           String?
-  businessPhone           String?
-  settlementBankCode      String
-  settlementAccountNumber String
-  settlementAccountName   String?
-  paystackSubaccountCode  String?
-  paystackStatus          SubaccountStatus @default(PENDING)
-  paystackProvisionedAt   DateTime?
-  flutterwaveSubaccountId String?
-  flutterwaveStatus       SubaccountStatus @default(PENDING)
+  tenantId                 String           @id
+  tenant                   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessName             String
+  businessEmail            String?
+  businessPhone            String?
+  settlementBankCode       String
+  settlementAccountNumber  String
+  settlementAccountName    String?
+  paystackSubaccountCode   String?
+  paystackStatus           SubaccountStatus @default(PENDING)
+  paystackProvisionedAt    DateTime?
+  flutterwaveSubaccountId  String?
+  flutterwaveStatus        SubaccountStatus @default(PENDING)
   flutterwaveProvisionedAt DateTime?
-  courseSalesEnabled      Boolean          @default(false)
-  platformCommissionPct   Int              @default(10)
-  defaultProvider         PaymentProvider?
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
+  courseSalesEnabled       Boolean          @default(false)
+  platformCommissionPct    Int              @default(10)
+  defaultProvider          PaymentProvider?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 }
 
 model PlatformPayment {
@@ -288,34 +330,37 @@ model ProgrammePayment {
   createdAt         DateTime        @default(now())
   completedAt       DateTime?
 
+  enrollment ProgrammeEnrollment?
+
   @@index([tenantId, createdAt])
   @@index([programmeId])
   @@index([clientId])
 }
 
 model Course {
-  id           String       @id @default(cuid())
-  tenantId     String
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  title        String
-  slug         String
-  description  String?
-  status       CourseStatus @default(DRAFT)
-  visibility   ContentVisibility @default(PUBLIC)
-  priceCents   Int?
-  currency     String       @default("NGN")
-  thumbnailKey String?
-  instructorId String?
-  publishedAt  DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  lessons      Lesson[]
-  lessonGroups LessonGroup[]
-  enrollments  Enrollment[]
-  payments     CoursePayment[]
-  assignments  Assignment[]
-  programmes   ProgrammeCourse[]
-  certificates Certificate[]
+  id            String            @id @default(cuid())
+  tenantId      String
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  slug          String
+  description   String?
+  status        CourseStatus      @default(DRAFT)
+  visibility    ContentVisibility @default(PUBLIC)
+  priceCents    Int?
+  currency      String            @default("NGN")
+  thumbnailKey  String?
+  instructorId  String?
+  publishedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  lessons       Lesson[]
+  lessonGroups  LessonGroup[]
+  enrollments   Enrollment[]
+  payments      CoursePayment[]
+  libraryGrants LibraryGrant[]
+  assignments   Assignment[]
+  programmes    ProgrammeCourse[]
+  certificates  Certificate[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, status])
@@ -365,23 +410,25 @@ model LessonGroup {
 /// A programme groups multiple courses into a curriculum. Courses can be
 /// standalone or belong to one or more programmes (via ProgrammeCourse).
 model Programme {
-  id           String            @id @default(cuid())
-  tenantId     String
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  title        String
-  slug         String
-  description  String?
-  status       CourseStatus      @default(DRAFT)
-  visibility   ContentVisibility @default(PUBLIC)
-  priceCents   Int?
-  currency     String            @default("NGN")
-  thumbnailKey String?
-  publishedAt  DateTime?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  courses      ProgrammeCourse[]
-  certificates Certificate[]
-  payments     ProgrammePayment[]
+  id            String                @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title         String
+  slug          String
+  description   String?
+  status        CourseStatus          @default(DRAFT)
+  visibility    ContentVisibility     @default(PUBLIC)
+  priceCents    Int?
+  currency      String                @default("NGN")
+  thumbnailKey  String?
+  publishedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  courses       ProgrammeCourse[]
+  certificates  Certificate[]
+  payments      ProgrammePayment[]
+  enrollments   ProgrammeEnrollment[]
+  libraryGrants LibraryGrant[]
 
   @@unique([tenantId, slug])
   @@index([tenantId, status])
@@ -425,6 +472,30 @@ model Enrollment {
   @@index([clientId])
 }
 
+/// Programme-level membership.
+///
+/// Enrollment is per-course (`@@unique([courseId, clientId])`), so before this
+/// model a learner's programme membership was unrepresentable — the programme
+/// enroll endpoints fanned out to courses and forgot the programme. Library
+/// items assigned to a Programme resolve their audience through this table.
+model ProgrammeEnrollment {
+  id          String            @id @default(cuid())
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programmeId String
+  programme   Programme         @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  paymentId   String?           @unique
+  payment     ProgrammePayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  enrolledAt  DateTime          @default(now())
+  completedAt DateTime?
+
+  @@unique([programmeId, clientId])
+  @@index([tenantId])
+  @@index([clientId])
+}
+
 model LessonProgress {
   id           String     @id @default(cuid())
   tenantId     String
@@ -439,24 +510,24 @@ model LessonProgress {
 }
 
 model CoursePayment {
-  id               String          @id @default(cuid())
-  tenantId         String
-  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  courseId         String
-  course           Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  clientId         String
-  client           Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  provider         PaymentProvider
-  amountCents      Int
-  currency         String
-  status           PaymentStatus   @default(PENDING)
-  externalRef      String          @unique
-  platformFeeCents Int?
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courseId          String
+  course            Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider          PaymentProvider
+  amountCents       Int
+  currency          String
+  status            PaymentStatus   @default(PENDING)
+  externalRef       String          @unique
+  platformFeeCents  Int?
   tenantPayoutCents Int?
-  providerData     Json?
-  createdAt        DateTime        @default(now())
-  completedAt      DateTime?
-  enrollment       Enrollment?
+  providerData      Json?
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+  enrollment        Enrollment?
 
   @@index([tenantId, createdAt])
 }
@@ -817,63 +888,263 @@ model NotificationPreference {
   @@index([tenantId])
 }
 
-/// A folder/collection for organizing resources (self-referencing subgroups).
-model ResourceGroup {
+/// A folder for organizing library items (self-referencing subtree).
+model LibraryFolder {
   id        String          @id @default(cuid())
   tenantId  String
   tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   parentId  String?
-  parent    ResourceGroup?  @relation("ResourceGroupTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children  ResourceGroup[] @relation("ResourceGroupTree")
+  parent    LibraryFolder?  @relation("LibraryFolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  LibraryFolder[] @relation("LibraryFolderTree")
   sortOrder Int             @default(0)
   createdAt DateTime        @default(now())
-  resources Resource[]
+  items     LibraryItem[]
+  grants    LibraryGrant[]
+  uploads   LibraryUpload[]
 
   @@index([tenantId])
   @@index([parentId])
 }
 
-/// A managed file in the tenant resource library.
-model Resource {
-  id          String             @id @default(cuid())
+/// A managed media file in the tenant library.
+model LibraryItem {
+  id          String         @id @default(cuid())
   tenantId    String
-  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Filename-ish label, always present. `title` is the display title.
   name        String
-  key         String             @unique
+  key         String
   contentType String
-  sizeBytes   BigInt             @default(0)
-  groupId     String?
-  group       ResourceGroup?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  sizeBytes   BigInt         @default(0)
+  folderId    String?
+  folder      LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdById String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  tags        ResourceTagLink[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
+  // --- media metadata ---
+  title            String?
+  description      String?
+  mediaKind        MediaKind @default(OTHER)
+  originalFilename String?
+  checksumSha256   String?
+  durationSeconds  Int?
+  width            Int?
+  height           Int?
+  posterKey        String?
+  /// Pre-computed waveform buckets for audio, so the player never has to fetch
+  /// and decode the whole file just to draw a waveform.
+  peaksJson        Json?
+
+  // --- visibility / commerce ---
+  /// Access is `isPublic OR entitlement OR grant`. `isFree`/`priceCents` do NOT
+  /// gate a grant — they only decide whether an inaccessible item shows a
+  /// purchase CTA, so assigning a paid item to a cohort still works.
+  isPublic   Boolean @default(false)
+  isFree     Boolean @default(true)
+  priceCents Int?
+  currency   String?
+
+  tags         LibraryItemTag[]
+  grants       LibraryGrant[]
+  entitlements LibraryEntitlement[]
+  payments     LibraryPayment[]
+  progress     LibraryProgress[]
+  upload       LibraryUpload?
+
+  // `key` is unique per tenant, not globally: a global unique lets one tenant's
+  // insert fail on another tenant's key and leaks key existence across tenants.
+  @@unique([tenantId, key])
   @@index([tenantId])
-  @@index([groupId])
+  @@index([folderId])
+  @@index([tenantId, mediaKind, createdAt])
+  @@index([tenantId, isPublic])
 }
 
-model ResourceTag {
-  id       String            @id @default(cuid())
+/// A live S3 multipart upload. Persisted so a refresh or a dropped connection
+/// can resume rather than restart. Reserves quota on create; the reservation is
+/// settled on complete and released on abort/expiry.
+model LibraryUpload {
+  id               String              @id @default(cuid())
+  tenantId         String
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadId         String
+  key              String
+  contentType      String
+  mediaKind        MediaKind           @default(OTHER)
+  originalFilename String
+  /// Client-declared total, used for the quota reservation. The authoritative
+  /// size comes from HeadObject at completion — a client can under-declare.
+  declaredBytes    BigInt
+  uploadedBytes    BigInt              @default(0)
+  partSizeBytes    Int
+  totalParts       Int
+  status           UploadSessionStatus @default(PENDING)
+
+  // Metadata staged while the bytes are still uploading.
+  title       String?
+  description String?
+  folderId    String?
+  folder      LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdById String?
+
+  itemId    String?      @unique
+  item      LibraryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  parts LibraryUploadPart[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status])
+  @@index([status, expiresAt])
+}
+
+model LibraryUploadPart {
+  id         String        @id @default(cuid())
+  tenantId   String
+  uploadId   String
+  upload     LibraryUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  partNumber Int
+  etag       String
+  sizeBytes  Int
+  createdAt  DateTime      @default(now())
+
+  @@unique([uploadId, partNumber])
+  @@index([tenantId])
+}
+
+/// One grant: a target (a single item XOR a whole folder subtree) issued to one
+/// subject (everyone / a learner / a client group / a course / a programme).
+///
+/// `targetKey` and `subjectKey` are denormalized dedupe keys ("I:<id>"/"F:<id>",
+/// "ALL"/"CLIENT:<id>"/...) because Postgres treats NULLs as distinct, so a
+/// composite unique over the nullable FKs would not actually dedupe.
+model LibraryGrant {
+  id       String @id @default(cuid())
   tenantId String
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  itemId    String?
+  item      LibraryItem?   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  targetKey String
+
+  subjectType   GrantSubjectType
+  clientId      String?
+  client        Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientGroupId String?
+  clientGroup   ClientGroup?     @relation(fields: [clientGroupId], references: [id], onDelete: Cascade)
+  courseId      String?
+  course        Course?          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  programmeId   String?
+  programme     Programme?       @relation(fields: [programmeId], references: [id], onDelete: Cascade)
+  subjectKey    String
+
+  canDownload Boolean   @default(true)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  grantedById String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([tenantId, targetKey, subjectKey])
+  @@index([tenantId, itemId])
+  @@index([tenantId, folderId])
+  @@index([tenantId, subjectType, clientId])
+  @@index([tenantId, subjectType, clientGroupId])
+  @@index([tenantId, subjectType, courseId])
+  @@index([tenantId, subjectType, programmeId])
+}
+
+/// Permanent access for one learner to one item, from a purchase or a manual
+/// staff grant.
+model LibraryEntitlement {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      LibraryItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  source    EntitlementSource @default(PURCHASE)
+  paymentId String?           @unique
+  payment   LibraryPayment?   @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  expiresAt DateTime?
+  createdAt DateTime          @default(now())
+
+  @@unique([itemId, clientId])
+  @@index([tenantId])
+  @@index([clientId])
+}
+
+/// Mirrors CoursePayment / ProgrammePayment.
+model LibraryPayment {
+  id                String          @id @default(cuid())
+  tenantId          String
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              LibraryItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  provider          PaymentProvider
+  amountCents       Int
+  currency          String
+  status            PaymentStatus   @default(PENDING)
+  externalRef       String          @unique
+  platformFeeCents  Int?
+  tenantPayoutCents Int?
+  providerData      Json?
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+
+  entitlement LibraryEntitlement?
+
+  @@index([tenantId, createdAt])
+  @@index([itemId])
+  @@index([clientId])
+}
+
+/// Resume position per learner per item. The LessonProgress analogue, but not
+/// tied to an Enrollment — library items exist outside courses.
+model LibraryProgress {
+  id              String      @id @default(cuid())
+  tenantId        String
+  itemId          String
+  item            LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  clientId        String
+  client          Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  positionSeconds Int         @default(0)
+  completed       Boolean     @default(false)
+  lastViewedAt    DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([itemId, clientId])
+  @@index([tenantId, clientId, lastViewedAt])
+}
+
+model LibraryTag {
+  id       String           @id @default(cuid())
+  tenantId String
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name     String
-  links    ResourceTagLink[]
+  links    LibraryItemTag[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
 }
 
-model ResourceTagLink {
-  id         String      @id @default(cuid())
-  tenantId   String
-  resourceId String
-  resource   Resource    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  tagId      String
-  tag        ResourceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+model LibraryItemTag {
+  id       String      @id @default(cuid())
+  tenantId String
+  itemId   String
+  item     LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      LibraryTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@unique([resourceId, tagId])
+  @@unique([itemId, tagId])
   @@index([tenantId])
 }
 
@@ -884,67 +1155,72 @@ model PlatformConfig {
 }
 
 model PlatformUser {
-  id                   String      @id @default(cuid())
-  email                String      @unique
-  passwordHash         String
-  mustChangePassword   Boolean     @default(true)
-  status               UserStatus  @default(ACTIVE)
-  firstName            String?
-  lastName             String?
-  otherName            String?
-  phone                String?
-  isSuperAdmin         Boolean     @default(false)
-  permissions          String[]    @default([])
-  createdAt            DateTime    @default(now())
-  lastLoginAt          DateTime?
-  failedLoginAttempts  Int         @default(0)
-  lockedUntil          DateTime?
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  passwordHash        String
+  mustChangePassword  Boolean    @default(true)
+  status              UserStatus @default(ACTIVE)
+  firstName           String?
+  lastName            String?
+  otherName           String?
+  phone               String?
+  isSuperAdmin        Boolean    @default(false)
+  permissions         String[]   @default([])
+  createdAt           DateTime   @default(now())
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
 }
 
 model TenantUser {
-  id                   String      @id @default(cuid())
-  tenantId             String
-  tenant               Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email                String
-  passwordHash         String
-  mustChangePassword   Boolean     @default(true)
-  status               UserStatus  @default(ACTIVE)
-  firstName            String?
-  lastName             String?
-  otherName            String?
-  phone                String?
-  isOwner              Boolean     @default(false)
-  permissions          String[]    @default([])
-  createdAt            DateTime    @default(now())
-  lastLoginAt          DateTime?
-  failedLoginAttempts  Int         @default(0)
-  lockedUntil          DateTime?
-  groupMemberships     TenantUserGroupMembership[]
+  id                  String                      @id @default(cuid())
+  tenantId            String
+  tenant              Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email               String
+  passwordHash        String
+  mustChangePassword  Boolean                     @default(true)
+  status              UserStatus                  @default(ACTIVE)
+  firstName           String?
+  lastName            String?
+  otherName           String?
+  phone               String?
+  isOwner             Boolean                     @default(false)
+  permissions         String[]                    @default([])
+  createdAt           DateTime                    @default(now())
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int                         @default(0)
+  lockedUntil         DateTime?
+  groupMemberships    TenantUserGroupMembership[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
 }
 
 model Client {
-  id                   String       @id @default(cuid())
+  id                   String                   @id @default(cuid())
   tenantId             String
-  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant               Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   email                String
   passwordHash         String?
-  mustChangePassword   Boolean      @default(false)
-  status               ClientStatus @default(ACTIVE)
+  mustChangePassword   Boolean                  @default(false)
+  status               ClientStatus             @default(ACTIVE)
   firstName            String?
   lastName             String?
   otherName            String?
   phone                String?
-  profileJson          Json         @default("{}")
-  createdAt            DateTime     @default(now())
+  profileJson          Json                     @default("{}")
+  createdAt            DateTime                 @default(now())
   lastLoginAt          DateTime?
-  failedLoginAttempts  Int          @default(0)
+  failedLoginAttempts  Int                      @default(0)
   lockedUntil          DateTime?
   enrollments          Enrollment[]
+  programmeEnrollments ProgrammeEnrollment[]
   coursePayments       CoursePayment[]
   programmePayments    ProgrammePayment[]
+  libraryGrants        LibraryGrant[]
+  libraryEntitlements  LibraryEntitlement[]
+  libraryPayments      LibraryPayment[]
+  libraryProgress      LibraryProgress[]
   submissions          Submission[]
   grades               Grade[]
   groupMemberships     ClientGroupMembership[]
@@ -963,13 +1239,13 @@ model Client {
 
 /// A cohort/group of tenant staff users (many-to-many via TenantUserGroupMembership).
 model UserGroup {
-  id          String                       @id @default(cuid())
+  id          String                      @id @default(cuid())
   tenantId    String
-  tenant      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   description String?
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
   memberships TenantUserGroupMembership[]
   bankAccess  QuestionBankAccess[]
 
@@ -994,16 +1270,17 @@ model TenantUserGroupMembership {
 
 /// A cohort/group of clients (learners), many-to-many via ClientGroupMembership.
 model ClientGroup {
-  id          String                   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  memberships ClientGroupMembership[]
-  fees        Fee[]
-  events      Event[]
+  id            String                  @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  memberships   ClientGroupMembership[]
+  fees          Fee[]
+  events        Event[]
+  libraryGrants LibraryGrant[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -1025,14 +1302,14 @@ model ClientGroupMembership {
 }
 
 model PasswordResetToken {
-  id         String           @id @default(cuid())
-  tokenHash  String           @unique
+  id         String          @id @default(cuid())
+  tokenHash  String          @unique
   userType   SessionUserType
   userId     String
   tenantId   String?
   expiresAt  DateTime
   consumedAt DateTime?
-  createdAt  DateTime         @default(now())
+  createdAt  DateTime        @default(now())
 
   @@index([expiresAt])
 }
@@ -1057,30 +1334,30 @@ model PendingClientRegistration {
 }
 
 model RoleTemplate {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   scope       RoleScope
   tenantId    String?
-  tenant      Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   description String?
   permissions String[]
-  isSystem    Boolean    @default(false)
-  createdAt   DateTime   @default(now())
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
 
   @@unique([scope, tenantId, name])
   @@index([scope, tenantId])
 }
 
 model Permission {
-  key         String  @id
+  key         String @id
   module      String
   description String
 }
 
 model ActivityLog {
-  id         String     @id @default(cuid())
+  id         String    @id @default(cuid())
   tenantId   String?
-  tenant     Tenant?    @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   actorType  ActorType
   actorId    String?
   action     String
@@ -1090,7 +1367,7 @@ model ActivityLog {
   afterJson  Json?
   ip         String?
   userAgent  String?
-  createdAt  DateTime   @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([tenantId, createdAt])
   @@index([actorId])
@@ -1113,16 +1390,16 @@ model OtpRequest {
 }
 
 model Session {
-  id          String           @id
-  userId      String
-  userType    SessionUserType
-  tenantId    String?
-  scope       SessionScope     @default(FULL)
-  issuedAt    DateTime         @default(now())
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  ip          String?
-  userAgent   String?
+  id        String          @id
+  userId    String
+  userType  SessionUserType
+  tenantId  String?
+  scope     SessionScope    @default(FULL)
+  issuedAt  DateTime        @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  ip        String?
+  userAgent String?
 
   @@index([userId])
   @@index([expiresAt])
@@ -1141,11 +1418,11 @@ model Template {
 }
 
 model PasswordHistory {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   userType  SessionUserType
   userId    String
   hash      String
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
 
   @@index([userType, userId, createdAt])
 }

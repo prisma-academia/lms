@@ -55,6 +55,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       enrolled += 1;
     }
 
+    // Record programme-level membership too. Course enrollments alone cannot
+    // express it, and library items assigned to a programme resolve through here.
+    await prisma.programmeEnrollment.upsert({
+      where: { programmeId_clientId: { programmeId: id, clientId } },
+      create: { tenantId: actor.tenantId, programmeId: id, clientId },
+      update: {},
+    });
+
     await audit({
       actorType: "TENANT_USER",
       actorId: actor.userId,

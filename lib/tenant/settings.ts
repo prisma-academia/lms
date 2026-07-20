@@ -19,7 +19,7 @@ export const MODULE_KEYS = [
   "certificates",
   "events",
   "messages",
-  "resources",
+  "library",
   "roles",
   "templates",
   "activity",

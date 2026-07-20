@@ -30,7 +30,7 @@ export default async function CourseDetailPage({
     select: { id: true, title: true },
   });
 
-  const resources = await prisma.resource.findMany({
+  const libraryItems = await prisma.libraryItem.findMany({
     where: { tenantId: actor.tenantId },
     orderBy: { createdAt: "desc" },
     take: 500,
@@ -75,7 +75,7 @@ export default async function CourseDetailPage({
         initial={initial}
         canWrite={hasPermission(actor, PERMISSIONS.TENANT_COURSES_WRITE.key)}
         quizzes={quizzes}
-        resources={resources}
+        libraryItems={libraryItems}
         currencyOptions={currencyOptions}
       />
     </div>

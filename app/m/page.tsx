@@ -12,7 +12,7 @@ const FEATURES: { icon: IconName; color: string; title: string; body: string }[]
       icon: "book",
       color: "var(--chart-1)",
       title: "Learning content",
-      body: "Courses, programmes, lessons, and a shared resource library.",
+      body: "Courses, programmes, lessons, and a shared media library.",
     },
     {
       icon: "clipboard",
@@ -59,7 +59,7 @@ const PORTALS: {
     title: "Admin console",
     body: "Your team manages everything from one place on your branded workspace.",
     bullets: [
-      "Content, programmes, and resources",
+      "Content, programmes, and media",
       "Learners, staff, and groups",
       "Assessments, grades, and certificates",
       "Roles, billing, and settings",
@@ -88,7 +88,7 @@ const STEPS: { color: string; title: string; body: string }[] = [
   {
     color: "var(--chart-2)",
     title: "Build your learning catalog",
-    body: "Add courses and programmes, upload resources, and publish offerings to your catalog.",
+    body: "Add courses and programmes, upload media, and publish offerings to your catalog.",
   },
   {
     color: "var(--chart-3)",

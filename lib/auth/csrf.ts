@@ -30,12 +30,24 @@ export async function ensureCsrfToken(): Promise<string> {
 }
 
 export async function verifyCsrf(request: Request): Promise<boolean> {
-  const cookieToken = await readCsrfCookie();
-  if (!cookieToken) return false;
   const headerToken = request.headers.get(HEADER_NAME);
   if (!headerToken) return false;
+  return verifyCsrfValue(headerToken);
+}
+
+/**
+ * Compare an explicitly supplied token against the cookie.
+ *
+ * Exists for `navigator.sendBeacon`, which cannot set request headers — the
+ * only way to deliver a token on page unload is in the body. The double-submit
+ * property is unchanged: a cross-origin attacker still cannot read the cookie,
+ * so it can no more forge the body token than the header one.
+ */
+export async function verifyCsrfValue(token: string): Promise<boolean> {
+  const cookieToken = await readCsrfCookie();
+  if (!cookieToken) return false;
   const a = Buffer.from(cookieToken);
-  const b = Buffer.from(headerToken);
+  const b = Buffer.from(token);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
