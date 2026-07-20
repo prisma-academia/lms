@@ -13,12 +13,13 @@ import { useToast } from "@/components/ui/toast";
 import { useApiError } from "@/components/use-api-error";
 import { QuizPlayer } from "./quiz-player";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml } from "@/lib/content/sanitize-html";
 
 type LearnLesson = {
   id: string;
   title: string;
   sortOrder: number;
-  contentType: "TEXT" | "VIDEO_URL" | "FILE" | "QUIZ";
+  contentType: "TEXT" | "HTML" | "VIDEO_URL" | "FILE" | "QUIZ";
   contentJson: Record<string, unknown>;
   assetUrl: string | null;
   durationMin: number | null;
@@ -62,6 +63,21 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
     const quizId = typeof lesson.contentJson.quizId === "string" ? lesson.contentJson.quizId : null;
     if (quizId) return <QuizPlayer quizId={quizId} />;
     return <p className="text-sm font-medium text-muted-foreground">This quiz is not configured yet.</p>;
+  }
+
+  if (lesson.contentType === "HTML") {
+    const html =
+      typeof lesson.contentJson.html === "string" && lesson.contentJson.html.trim()
+        ? lesson.contentJson.html
+        : null;
+    if (html) {
+      return (
+        <div
+          className="lesson-html text-[15px] font-medium leading-relaxed text-foreground [&_a]:font-bold [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] [&_h2]:mt-4 [&_h2]:font-heading [&_h2]:text-lg [&_h3]:mt-3 [&_h3]:font-heading [&_h3]:text-base [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-2 [&_pre]:mt-2 [&_pre]:overflow-x-auto [&_pre]:rounded-[10px] [&_pre]:border-2 [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:mt-2 [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc"
+          dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
+        />
+      );
+    }
   }
 
   if (lesson.contentType === "VIDEO_URL") {

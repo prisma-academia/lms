@@ -8,7 +8,7 @@ import { requireCsrf } from "@/lib/api/csrf-guard";
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
   sortOrder: z.number().int().min(0).optional(),
-  contentType: z.enum(["TEXT", "VIDEO_URL", "FILE", "QUIZ"]).optional(),
+  contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ"]).optional(),
   contentJson: z.record(z.string(), z.unknown()).optional(),
   assetKey: z.string().max(300).nullable().optional(),
   durationMin: z.number().int().min(0).nullable().optional(),

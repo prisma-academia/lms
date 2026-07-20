@@ -101,6 +101,7 @@ enum ContentVisibility {
 
 enum LessonContentType {
   TEXT
+  HTML
   VIDEO_URL
   FILE
   QUIZ

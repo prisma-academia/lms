@@ -45,3 +45,11 @@ next-env.d.ts
 /lib/generated/prisma
 /prisma/migrations
 
+# mastra
+.mastra
+*.db*
+*.duckdb
+*.duckdb.wal
+*.duckdb*
+*.sqlite*
+
