@@ -143,6 +143,66 @@ export async function completeCoursePurchase(input: {
   return { payment, enrollment };
 }
 
+/**
+ * Fulfill a library item purchase: mark the payment successful and mint the
+ * entitlement. Idempotent — a replayed webhook upserts the same row.
+ */
+export async function completeLibraryPurchase(input: {
+  tenantId: string;
+  itemId: string;
+  clientId: string;
+  reference: string;
+  amountCents: number;
+  currency: string;
+  provider: "PAYSTACK" | "FLUTTERWAVE";
+  platformFeeCents?: number;
+  tenantPayoutCents?: number;
+  providerData?: object;
+}) {
+  const existing = await prisma.libraryPayment.findUnique({ where: { externalRef: input.reference } });
+
+  const payment =
+    existing?.status === "SUCCESS"
+      ? existing
+      : await prisma.libraryPayment.upsert({
+          where: { externalRef: input.reference },
+          create: {
+            tenantId: input.tenantId,
+            itemId: input.itemId,
+            clientId: input.clientId,
+            provider: input.provider,
+            amountCents: input.amountCents,
+            currency: input.currency,
+            status: "SUCCESS",
+            externalRef: input.reference,
+            platformFeeCents: input.platformFeeCents ?? null,
+            tenantPayoutCents: input.tenantPayoutCents ?? null,
+            providerData: input.providerData as object,
+            completedAt: new Date(),
+          },
+          update: {
+            status: "SUCCESS",
+            completedAt: new Date(),
+            platformFeeCents: input.platformFeeCents ?? null,
+            tenantPayoutCents: input.tenantPayoutCents ?? null,
+          },
+        });
+
+  const entitlement = await prisma.libraryEntitlement.upsert({
+    where: { itemId_clientId: { itemId: input.itemId, clientId: input.clientId } },
+    create: {
+      tenantId: input.tenantId,
+      itemId: input.itemId,
+      clientId: input.clientId,
+      source: "PURCHASE",
+      paymentId: payment.id,
+    },
+    update: { paymentId: payment.id },
+  });
+
+  return { payment, entitlement };
+}
+
 export async function completeProgrammePurchase(input: {
   tenantId: string;
   programmeId: string;

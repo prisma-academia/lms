@@ -16,6 +16,7 @@ import {
   activateSubscription,
   completeCoursePurchase,
   completeProgrammePurchase,
+  completeLibraryPurchase,
 } from "./subaccount";
 import type { WebhookEvent } from "./types";
 
@@ -27,7 +28,7 @@ export type FulfillProvider = "PAYSTACK" | "FLUTTERWAVE";
  * email error. Uses the raw client because webhooks run without tenant context.
  */
 async function sendPurchaseEmails(input: {
-  kind: "course" | "programme";
+  kind: "course" | "programme" | "library";
   tenantId: string;
   clientId: string;
   itemId: string;
@@ -44,12 +45,18 @@ async function sendPurchaseEmails(input: {
       }),
       input.kind === "course"
         ? rawPrisma.course.findUnique({ where: { id: input.itemId }, select: { title: true } })
-        : rawPrisma.programme.findUnique({ where: { id: input.itemId }, select: { title: true } }),
+        : input.kind === "programme"
+          ? rawPrisma.programme.findUnique({ where: { id: input.itemId }, select: { title: true } })
+          : // A library item's display title is optional; fall back to its name.
+            rawPrisma.libraryItem
+              .findUnique({ where: { id: input.itemId }, select: { title: true, name: true } })
+              .then((r) => (r ? { title: r.title ?? r.name } : null)),
     ]);
     if (!client?.email || !item) return;
 
     const name = `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || null;
-    const actionUrl = `${branding.appOrigin}/my-courses`;
+    const actionUrl =
+      input.kind === "library" ? `${branding.appOrigin}/library/${input.itemId}` : `${branding.appOrigin}/my-courses`;
     const dateLabel = new Date().toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -71,18 +78,24 @@ async function sendPurchaseEmails(input: {
           actionUrl,
         }),
       }),
-      sendEmail({
-        to: client.email,
-        subject: `You're enrolled — ${item.title}`,
-        replyTo: branding.supportEmail,
-        fromName: branding.name,
-        html: enrollmentConfirmationEmail(branding, {
-          name,
-          itemName: item.title,
-          itemType: input.kind,
-          actionUrl,
-        }),
-      }),
+      // A library purchase unlocks a file; nobody is "enrolled" in it, so it
+      // gets the receipt only.
+      ...(input.kind === "library"
+        ? []
+        : [
+            sendEmail({
+              to: client.email,
+              subject: `You're enrolled — ${item.title}`,
+              replyTo: branding.supportEmail,
+              fromName: branding.name,
+              html: enrollmentConfirmationEmail(branding, {
+                name,
+                itemName: item.title,
+                itemType: input.kind,
+                actionUrl,
+              }),
+            }),
+          ]),
     ]);
   } catch (err) {
     logger.error({ err, reference: input.reference }, "purchase_email_failed");
@@ -172,6 +185,49 @@ export async function fulfillPayment(
         tenantId: event.metadata.tenantId,
         clientId: event.metadata.clientId,
         itemId: event.metadata.courseId,
+        amountCents: event.amountCents,
+        currency: event.currency,
+        reference: event.reference,
+      });
+    }
+    return;
+  }
+
+  if (event.metadata.type === "library_purchase") {
+    const prior = await prisma.libraryPayment.findUnique({
+      where: { externalRef: event.reference },
+      select: { status: true },
+    });
+    const alreadyFulfilled = prior?.status === "SUCCESS";
+    const pct = await commissionPctFor(event.metadata.tenantId);
+    const platformFeeCents = Math.round((event.amountCents * pct) / 100);
+    await completeLibraryPurchase({
+      tenantId: event.metadata.tenantId,
+      itemId: event.metadata.itemId,
+      clientId: event.metadata.clientId,
+      reference: event.reference,
+      amountCents: event.amountCents,
+      currency: event.currency,
+      provider,
+      platformFeeCents,
+      tenantPayoutCents: event.amountCents - platformFeeCents,
+      providerData: event.raw as object,
+    });
+    await audit({
+      actorType: "SYSTEM",
+      actorId: null,
+      action: "library.purchased",
+      tenantId: event.metadata.tenantId,
+      targetType: "LibraryItem",
+      targetId: event.metadata.itemId,
+      after: { clientId: event.metadata.clientId, reference: event.reference } as object,
+    });
+    if (!alreadyFulfilled) {
+      await sendPurchaseEmails({
+        kind: "library",
+        tenantId: event.metadata.tenantId,
+        clientId: event.metadata.clientId,
+        itemId: event.metadata.itemId,
         amountCents: event.amountCents,
         currency: event.currency,
         reference: event.reference,
