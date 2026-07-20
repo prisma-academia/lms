@@ -8,46 +8,46 @@ import { recordStorageDelta } from "@/lib/storage/quota";
 
 const PatchBody = z.object({
   name: z.string().min(1).max(300).optional(),
-  groupId: z.string().min(1).nullable().optional(),
+  folderId: z.string().min(1).nullable().optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional(),
 });
 
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     await requireCsrf(request);
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_WRITE.key);
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_WRITE.key);
     const { id } = await ctx.params;
     const body = PatchBody.parse(await request.json());
 
-    const resource = await prisma.resource.findFirst({ where: { id, tenantId: actor.tenantId } });
-    if (!resource) throw new DomainError(404, "not_found", "Resource not found.");
+    const item = await prisma.libraryItem.findFirst({ where: { id, tenantId: actor.tenantId } });
+    if (!item) throw new DomainError(404, "not_found", "Library item not found.");
 
-    if (body.groupId) {
-      const group = await prisma.resourceGroup.findFirst({ where: { id: body.groupId, tenantId: actor.tenantId } });
-      if (!group) throw new DomainError(400, "invalid_group", "Resource group not found.");
+    if (body.folderId) {
+      const folder = await prisma.libraryFolder.findFirst({ where: { id: body.folderId, tenantId: actor.tenantId } });
+      if (!folder) throw new DomainError(400, "invalid_folder", "Library folder not found.");
     }
     if (body.tagIds && body.tagIds.length > 0) {
-      const found = await prisma.resourceTag.findMany({ where: { id: { in: body.tagIds } }, select: { id: true } });
+      const found = await prisma.libraryTag.findMany({ where: { id: { in: body.tagIds } }, select: { id: true } });
       if (found.length !== new Set(body.tagIds).size) {
         throw new DomainError(400, "invalid_tags", "One or more tags do not belong to this tenant.");
       }
     }
 
     await prisma.$transaction([
-      prisma.resource.update({
+      prisma.libraryItem.update({
         where: { id },
         data: {
           ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.groupId !== undefined ? { groupId: body.groupId } : {}),
+          ...(body.folderId !== undefined ? { folderId: body.folderId } : {}),
         },
       }),
       ...(body.tagIds !== undefined
         ? [
-            prisma.resourceTagLink.deleteMany({ where: { resourceId: id } }),
+            prisma.libraryItemTag.deleteMany({ where: { itemId: id } }),
             ...(body.tagIds.length > 0
               ? [
-                  prisma.resourceTagLink.createMany({
-                    data: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, resourceId: id, tagId })),
+                  prisma.libraryItemTag.createMany({
+                    data: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, itemId: id, tagId })),
                   }),
                 ]
               : []),
@@ -64,13 +64,13 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 export async function DELETE(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     await requireCsrf(request);
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_WRITE.key);
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_WRITE.key);
     const { id } = await ctx.params;
-    const resource = await prisma.resource.findFirst({ where: { id, tenantId: actor.tenantId } });
-    if (!resource) throw new DomainError(404, "not_found", "Resource not found.");
-    await prisma.resource.delete({ where: { id } });
+    const item = await prisma.libraryItem.findFirst({ where: { id, tenantId: actor.tenantId } });
+    if (!item) throw new DomainError(404, "not_found", "Library item not found.");
+    await prisma.libraryItem.delete({ where: { id } });
     // Free the quota accounting (the object itself is reclaimed by the reconcile job).
-    await recordStorageDelta(actor.tenantId, -resource.sizeBytes);
+    await recordStorageDelta(actor.tenantId, -item.sizeBytes);
     return ok({ deleted: true });
   } catch (e) {
     return handleError(e);

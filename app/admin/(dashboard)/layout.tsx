@@ -22,7 +22,7 @@ const NAV: Array<{ href: string; key: string; module: ModuleKey | null }> = [
   { href: "/admin/certificates", key: "certificates", module: "certificates" },
   { href: "/admin/events", key: "events", module: "events" },
   { href: "/admin/messages", key: "messages", module: "messages" },
-  { href: "/admin/resources", key: "resources", module: "resources" },
+  { href: "/admin/library", key: "library", module: "library" },
   { href: "/admin/enrollments", key: "enrollments", module: "enrollments" },
   { href: "/admin/fees", key: "fees", module: "fees" },
   { href: "/admin/billing", key: "billing", module: "billing" },

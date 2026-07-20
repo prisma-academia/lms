@@ -204,9 +204,9 @@ model Tenant {
   certificates                 Certificate[]
   events                       Event[]
   messages                     Message[]
-  resources                    Resource[]
-  resourceGroups               ResourceGroup[]
-  resourceTags                 ResourceTag[]
+  libraryItems                 LibraryItem[]
+  libraryFolders               LibraryFolder[]
+  libraryTags                  LibraryTag[]
 
   @@index([status])
   @@index([plan, trialEndsAt])
@@ -817,63 +817,66 @@ model NotificationPreference {
   @@index([tenantId])
 }
 
-/// A folder/collection for organizing resources (self-referencing subgroups).
-model ResourceGroup {
+/// A folder for organizing library items (self-referencing subtree).
+model LibraryFolder {
   id        String          @id @default(cuid())
   tenantId  String
   tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   parentId  String?
-  parent    ResourceGroup?  @relation("ResourceGroupTree", fields: [parentId], references: [id], onDelete: Cascade)
-  children  ResourceGroup[] @relation("ResourceGroupTree")
+  parent    LibraryFolder?  @relation("LibraryFolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  LibraryFolder[] @relation("LibraryFolderTree")
   sortOrder Int             @default(0)
   createdAt DateTime        @default(now())
-  resources Resource[]
+  items     LibraryItem[]
 
   @@index([tenantId])
   @@index([parentId])
 }
 
-/// A managed file in the tenant resource library.
-model Resource {
-  id          String             @id @default(cuid())
+/// A managed media file in the tenant library.
+model LibraryItem {
+  id          String            @id @default(cuid())
   tenantId    String
-  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
-  key         String             @unique
+  key         String
   contentType String
-  sizeBytes   BigInt             @default(0)
-  groupId     String?
-  group       ResourceGroup?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  sizeBytes   BigInt            @default(0)
+  folderId    String?
+  folder      LibraryFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdById String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  tags        ResourceTagLink[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tags        LibraryItemTag[]
 
+  // `key` is unique per tenant, not globally: a global unique lets one tenant's
+  // insert fail on another tenant's key and leaks key existence across tenants.
+  @@unique([tenantId, key])
   @@index([tenantId])
-  @@index([groupId])
+  @@index([folderId])
 }
 
-model ResourceTag {
-  id       String            @id @default(cuid())
+model LibraryTag {
+  id       String           @id @default(cuid())
   tenantId String
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name     String
-  links    ResourceTagLink[]
+  links    LibraryItemTag[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
 }
 
-model ResourceTagLink {
-  id         String      @id @default(cuid())
-  tenantId   String
-  resourceId String
-  resource   Resource    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
-  tagId      String
-  tag        ResourceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+model LibraryItemTag {
+  id       String      @id @default(cuid())
+  tenantId String
+  itemId   String
+  item     LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      LibraryTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
-  @@unique([resourceId, tagId])
+  @@unique([itemId, tagId])
   @@index([tenantId])
 }
 

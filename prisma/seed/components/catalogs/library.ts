@@ -1,38 +1,38 @@
-export type ResourceSeed = {
+export type LibrarySeed = {
   name: string;
   contentType: string;
   sizeBytes: number;
-  groupPath: string[];
+  folderPath: string[];
   tags: string[];
 };
 
-export const RESOURCE_CATALOG: ResourceSeed[] = [
+export const LIBRARY_CATALOG: LibrarySeed[] = [
   {
     name: "WAEC Biology syllabus 2026.pdf",
     contentType: "application/pdf",
     sizeBytes: 1_240_000,
-    groupPath: ["Course Materials", "Biology"],
+    folderPath: ["Course Materials", "Biology"],
     tags: ["waec", "biology", "syllabus"],
   },
   {
     name: "Osmosis lab worksheet.pdf",
     contentType: "application/pdf",
     sizeBytes: 520_000,
-    groupPath: ["Course Materials", "Biology"],
+    folderPath: ["Course Materials", "Biology"],
     tags: ["biology", "lab"],
   },
   {
     name: "JavaScript cheatsheet — arrays.pdf",
     contentType: "application/pdf",
     sizeBytes: 380_000,
-    groupPath: ["Course Materials"],
+    folderPath: ["Course Materials"],
     tags: ["javascript", "reference"],
   },
   {
     name: "Brand colour palette — Nigeria SMEs.png",
     contentType: "image/png",
     sizeBytes: 890_000,
-    groupPath: ["Course Materials"],
+    folderPath: ["Course Materials"],
     tags: ["design", "branding"],
   },
 ];

@@ -32,7 +32,7 @@ async function main() {
   console.log("  Instructor  : instructor@demo.test / " + PASSWORD + " → /admin/auth/login");
   console.log("");
   console.log("  Smoke: dashboard, programmes, certificates, calendar, inbox, notifications, quizzes");
-  console.log("  Admin: fees, resources, activity, programmes, billing (active Growth plan + payouts)");
+  console.log("  Admin: fees, library, activity, programmes, billing (active Growth plan + payouts)");
   console.log("");
   console.log("  Payments: 3 paid courses + 1 paid programme (₦25,000); active Paystack subaccount.");
   console.log("  Lessons : mix of text, video (VIDEO_URL), and quiz across courses.");

@@ -10,12 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { FormField, TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
 
-export type ResourceItem = {
+export type LibraryItemView = {
   id: string;
   name: string;
   contentType: string;
   sizeBytes: number;
-  groupId: string | null;
+  folderId: string | null;
   tagIds: string[];
   url: string | null;
   createdAt: string;
@@ -28,7 +28,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 }
 
-function ResourceThumbnail({ item }: { item: ResourceItem }) {
+function LibraryThumbnail({ item }: { item: LibraryItemView }) {
   const [failed, setFailed] = useState(false);
   if (!item.url || !item.contentType.startsWith("image/") || failed) {
     return (
@@ -48,14 +48,14 @@ function ResourceThumbnail({ item }: { item: ResourceItem }) {
   );
 }
 
-export function ResourceLibrary({
+export function LibraryClient({
   items: initialItems,
   groups: initialGroups,
   tags: initialTags,
   storageConfigured,
   canWrite,
 }: {
-  items: ResourceItem[];
+  items: LibraryItemView[];
   groups: Named[];
   tags: Named[];
   storageConfigured: boolean;
@@ -78,8 +78,8 @@ export function ResourceLibrary({
 
   const filtered = useMemo(() => {
     if (activeGroup === "all") return items;
-    if (activeGroup === "ungrouped") return items.filter((i) => !i.groupId);
-    return items.filter((i) => i.groupId === activeGroup);
+    if (activeGroup === "ungrouped") return items.filter((i) => !i.folderId);
+    return items.filter((i) => i.folderId === activeGroup);
   }, [items, activeGroup]);
 
   async function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
@@ -87,62 +87,62 @@ export function ResourceLibrary({
     if (!file) return;
     setError(null);
     setUploading(true);
-    const up = await uploadViaPresign("/api/tenant/uploads/presign", file, { kind: "resource" });
+    const up = await uploadViaPresign("/api/tenant/uploads/presign", file, { kind: "library" });
     if ("error" in up) {
       setError(up.error);
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
-    const res = await apiPost<{ resource: ResourceItem }>("/api/tenant/resources", {
+    const res = await apiPost<{ item: LibraryItemView }>("/api/tenant/library", {
       name: file.name,
       key: up.key,
       contentType: up.contentType,
       sizeBytes: up.size,
-      groupId: uploadGroup || null,
+      folderId: uploadGroup || null,
     });
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
     if (res.error || !res.data) {
-      setError(res.error?.message ?? "Could not save resource.");
+      setError(res.error?.message ?? "Could not save file.");
       return;
     }
-    setItems((prev) => [res.data!.resource, ...prev]);
+    setItems((prev) => [res.data!.item, ...prev]);
     router.refresh();
   }
 
   async function createGroup() {
     if (!newGroup.trim()) return;
-    const res = await apiPost<{ group: Named }>("/api/tenant/resource-groups", { name: newGroup.trim() });
+    const res = await apiPost<{ folder: Named }>("/api/tenant/library/folders", { name: newGroup.trim() });
     if (res.error || !res.data) return setError(res.error?.message ?? "Failed.");
-    setGroups((prev) => [...prev, res.data!.group]);
+    setGroups((prev) => [...prev, res.data!.folder]);
     setNewGroup("");
   }
 
   async function createTag() {
     if (!newTag.trim()) return;
-    const res = await apiPost<{ tag: Named }>("/api/tenant/resource-tags", { name: newTag.trim() });
+    const res = await apiPost<{ tag: Named }>("/api/tenant/library/tags", { name: newTag.trim() });
     if (res.error || !res.data) return setError(res.error?.message ?? "Failed.");
     setTags((prev) => (prev.some((t) => t.id === res.data!.tag.id) ? prev : [...prev, res.data!.tag]));
     setNewTag("");
   }
 
-  async function moveTo(item: ResourceItem, groupId: string | null) {
-    const res = await apiPatch(`/api/tenant/resources/${item.id}`, { groupId });
+  async function moveTo(item: LibraryItemView, folderId: string | null) {
+    const res = await apiPatch(`/api/tenant/library/${item.id}`, { folderId });
     if (res.error) return setError(res.error.message);
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, groupId } : i)));
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, folderId } : i)));
   }
 
-  async function toggleTag(item: ResourceItem, tagId: string) {
+  async function toggleTag(item: LibraryItemView, tagId: string) {
     const next = item.tagIds.includes(tagId) ? item.tagIds.filter((t) => t !== tagId) : [...item.tagIds, tagId];
-    const res = await apiPatch(`/api/tenant/resources/${item.id}`, { tagIds: next });
+    const res = await apiPatch(`/api/tenant/library/${item.id}`, { tagIds: next });
     if (res.error) return setError(res.error.message);
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, tagIds: next } : i)));
   }
 
-  async function remove(item: ResourceItem) {
-    if (!confirm("Delete this resource?")) return;
-    const res = await apiDelete(`/api/tenant/resources/${item.id}`);
+  async function remove(item: LibraryItemView) {
+    if (!confirm("Delete this file?")) return;
+    const res = await apiDelete(`/api/tenant/library/${item.id}`);
     if (res.error) return setError(res.error.message);
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     router.refresh();
@@ -217,15 +217,15 @@ export function ResourceLibrary({
       </div>
 
       {filtered.length === 0 ? (
-        <Card><p className="text-sm text-stone-600">No resources here yet.</p></Card>
+        <Card><p className="text-sm text-stone-600">Nothing here yet.</p></Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => (
             <Card key={item.id} className="flex flex-col gap-2">
-              <ResourceThumbnail item={item} />
+              <LibraryThumbnail item={item} />
               <div className="min-w-0">
                 <div className="truncate text-sm font-bold" title={item.name}>{item.name}</div>
-                <div className="text-xs text-muted-foreground">{formatSize(item.sizeBytes)} · {groupName(item.groupId)}</div>
+                <div className="text-xs text-muted-foreground">{formatSize(item.sizeBytes)} · {groupName(item.folderId)}</div>
               </div>
               <div className="flex flex-wrap gap-1">
                 {item.tagIds.map((t) => (
@@ -239,7 +239,7 @@ export function ResourceLibrary({
                 {canWrite ? (
                   <>
                     <select
-                      value={item.groupId ?? ""}
+                      value={item.folderId ?? ""}
                       onChange={(e) => moveTo(item, e.target.value || null)}
                       className="rounded border-2 border-border bg-card px-1 py-0.5 text-xs"
                       title="Move to group"

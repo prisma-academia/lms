@@ -3,25 +3,25 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { createPresignedDownload, s3Configured } from "@/lib/storage/s3";
 import { PageHeader } from "@/components/shell";
-import { ResourceLibrary, type ResourceItem } from "./resource-library";
+import { LibraryClient, type LibraryItemView } from "./library-client";
 
-export default async function ResourcesPage() {
-  const actor = await requireTenantPage(PERMISSIONS.TENANT_RESOURCES_READ.key);
+export default async function LibraryPage() {
+  const actor = await requireTenantPage(PERMISSIONS.TENANT_LIBRARY_READ.key);
   const configured = s3Configured();
 
-  const [resources, groups, tags] = await Promise.all([
-    prisma.resource.findMany({
+  const [rows, folders, tags] = await Promise.all([
+    prisma.libraryItem.findMany({
       where: { tenantId: actor.tenantId },
       orderBy: { createdAt: "desc" },
       take: 500,
-      include: { group: { select: { name: true } }, tags: { select: { tagId: true } } },
+      include: { folder: { select: { name: true } }, tags: { select: { tagId: true } } },
     }),
-    prisma.resourceGroup.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.resourceTag.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.libraryFolder.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.libraryTag.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
-  const items: ResourceItem[] = await Promise.all(
-    resources.map(async (r) => {
+  const items: LibraryItemView[] = await Promise.all(
+    rows.map(async (r) => {
       let url: string | null = null;
       if (configured) {
         try {
@@ -35,7 +35,7 @@ export default async function ResourcesPage() {
         name: r.name,
         contentType: r.contentType,
         sizeBytes: Number(r.sizeBytes),
-        groupId: r.groupId,
+        folderId: r.folderId,
         tagIds: r.tags.map((t) => t.tagId),
         url,
         createdAt: r.createdAt.toISOString(),
@@ -45,13 +45,13 @@ export default async function ResourcesPage() {
 
   return (
     <div>
-      <PageHeader title="Resources" subtitle="Central file library — upload, tag, group, and reuse." />
-      <ResourceLibrary
+      <PageHeader title="Library" subtitle="Central media library — upload, tag, organise, and share." />
+      <LibraryClient
         items={items}
-        groups={groups}
+        groups={folders}
         tags={tags}
         storageConfigured={configured}
-        canWrite={hasPermission(actor, PERMISSIONS.TENANT_RESOURCES_WRITE.key)}
+        canWrite={hasPermission(actor, PERMISSIONS.TENANT_LIBRARY_WRITE.key)}
       />
     </div>
   );

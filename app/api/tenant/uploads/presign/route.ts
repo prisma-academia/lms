@@ -14,7 +14,7 @@ import {
 import { assertStorageQuota } from "@/lib/storage/quota";
 
 const Body = z.object({
-  kind: z.enum(["course_thumbnail", "lesson_asset", "resource"]),
+  kind: z.enum(["course_thumbnail", "lesson_asset", "library"]),
   contentType: z.string().min(1),
   contentLength: z.number().int().positive().optional(),
   courseId: z.string().min(1).optional(),
@@ -23,7 +23,7 @@ const Body = z.object({
 const PERMISSION_FOR_KIND: Record<string, PermissionKey> = {
   course_thumbnail: PERMISSIONS.TENANT_COURSES_WRITE.key,
   lesson_asset: PERMISSIONS.TENANT_COURSES_WRITE.key,
-  resource: PERMISSIONS.TENANT_RESOURCES_WRITE.key,
+  library: PERMISSIONS.TENANT_LIBRARY_WRITE.key,
 };
 
 export async function POST(request: Request) {

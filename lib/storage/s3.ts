@@ -27,7 +27,7 @@ const CONTENT_TYPE_EXT: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export type PresignKind = "logo" | "course_thumbnail" | "lesson_asset" | "resource" | "submission";
+export type PresignKind = "logo" | "course_thumbnail" | "lesson_asset" | "library" | "submission";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ...CONTENT_TYPE_EXT,
@@ -35,8 +35,8 @@ const ASSET_CONTENT_TYPES: Record<string, string> = {
   "video/mp4": "mp4",
 };
 
-// Broad set for the resource library and assignment submissions.
-const RESOURCE_CONTENT_TYPES: Record<string, string> = {
+// Broad set for the media library and assignment submissions.
+const LIBRARY_CONTENT_TYPES: Record<string, string> = {
   ...ASSET_CONTENT_TYPES,
   "image/gif": "gif",
   "audio/mpeg": "mp3",
@@ -57,13 +57,13 @@ export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   logo: 2 * 1024 * 1024,
   course_thumbnail: 5 * 1024 * 1024,
   lesson_asset: 100 * 1024 * 1024,
-  resource: 100 * 1024 * 1024,
+  library: 100 * 1024 * 1024,
   submission: 25 * 1024 * 1024,
 };
 
 function contentTypeMapFor(kind: PresignKind): Record<string, string> {
   if (kind === "logo") return CONTENT_TYPE_EXT;
-  if (kind === "resource" || kind === "submission") return RESOURCE_CONTENT_TYPES;
+  if (kind === "library" || kind === "submission") return LIBRARY_CONTENT_TYPES;
   return ASSET_CONTENT_TYPES;
 }
 
@@ -140,8 +140,11 @@ export async function createPresignedUpload(input: {
   let key: string;
   if (input.kind === "logo") {
     key = `tenants/${input.tenantId}/branding/${input.kind}-${rand}.${ext}`;
-  } else if (input.kind === "resource") {
-    key = `tenants/${input.tenantId}/resources/${rand}.${ext}`;
+  } else if (input.kind === "library") {
+    // Objects uploaded before the resource→library rename still live under
+    // `tenants/{id}/resources/`. Those keys keep resolving — only the prefix
+    // for NEW uploads changes.
+    key = `tenants/${input.tenantId}/library/${rand}.${ext}`;
   } else if (input.kind === "submission") {
     key = `tenants/${input.tenantId}/submissions/${rand}.${ext}`;
   } else if (input.courseId) {

@@ -14,7 +14,7 @@ const CreateBody = z.object({
   key: z.string().min(1).max(500),
   contentType: z.string().min(1).max(200),
   sizeBytes: z.number().int().min(0),
-  groupId: z.string().min(1).nullable().optional(),
+  folderId: z.string().min(1).nullable().optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional(),
 });
 
@@ -29,17 +29,17 @@ function serialize(r: any) {
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_READ.key);
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_READ.key);
     const url = new URL(request.url);
-    const groupId = url.searchParams.get("groupId");
+    const folderId = url.searchParams.get("folderId");
     const { cursor, take } = parsePagination(url.searchParams);
-    const rows = await prisma.resource.findMany({
-      where: { tenantId: actor.tenantId, ...(groupId ? { groupId } : {}) },
+    const rows = await prisma.libraryItem.findMany({
+      where: { tenantId: actor.tenantId, ...(folderId ? { folderId } : {}) },
       orderBy: { createdAt: "desc" },
       take,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       include: {
-        group: { select: { name: true } },
+        folder: { select: { name: true } },
         tags: { include: { tag: { select: { id: true, name: true } } } },
       },
     });
@@ -52,53 +52,53 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_WRITE.key);
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_WRITE.key);
     const body = CreateBody.parse(await request.json());
     const meta = requestMeta(request);
 
     if (!validateTenantAssetKey(actor.tenantId, body.key)) {
       throw new DomainError(400, "invalid_key", "Upload key does not belong to this tenant.");
     }
-    if (body.groupId) {
-      const group = await prisma.resourceGroup.findFirst({ where: { id: body.groupId, tenantId: actor.tenantId } });
-      if (!group) throw new DomainError(400, "invalid_group", "Resource group not found.");
+    if (body.folderId) {
+      const folder = await prisma.libraryFolder.findFirst({ where: { id: body.folderId, tenantId: actor.tenantId } });
+      if (!folder) throw new DomainError(400, "invalid_folder", "Library folder not found.");
     }
     if (body.tagIds && body.tagIds.length > 0) {
-      const found = await prisma.resourceTag.findMany({ where: { id: { in: body.tagIds } }, select: { id: true } });
+      const found = await prisma.libraryTag.findMany({ where: { id: { in: body.tagIds } }, select: { id: true } });
       if (found.length !== new Set(body.tagIds).size) {
         throw new DomainError(400, "invalid_tags", "One or more tags do not belong to this tenant.");
       }
     }
 
-    const resource = await prisma.resource.create({
+    const item = await prisma.libraryItem.create({
       data: {
         tenantId: actor.tenantId,
         name: body.name,
         key: body.key,
         contentType: body.contentType,
         sizeBytes: BigInt(body.sizeBytes),
-        groupId: body.groupId ?? null,
+        folderId: body.folderId ?? null,
         createdById: actor.userId,
         tags: body.tagIds
           ? { create: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, tagId })) }
           : undefined,
       },
-      include: { group: { select: { name: true } }, tags: { include: { tag: { select: { id: true, name: true } } } } },
+      include: { folder: { select: { name: true } }, tags: { include: { tag: { select: { id: true, name: true } } } } },
     });
 
     await recordStorageDelta(actor.tenantId, BigInt(body.sizeBytes));
     await audit({
       actorType: "TENANT_USER",
       actorId: actor.userId,
-      action: "resource.create",
+      action: "library.create",
       tenantId: actor.tenantId,
-      targetType: "Resource",
-      targetId: resource.id,
-      after: { name: resource.name, sizeBytes: body.sizeBytes } as object,
+      targetType: "LibraryItem",
+      targetId: item.id,
+      after: { name: item.name, sizeBytes: body.sizeBytes } as object,
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
-    return ok({ resource: serialize(resource) }, undefined, 201);
+    return ok({ item: serialize(item) }, undefined, 201);
   } catch (e) {
     return handleError(e);
   }

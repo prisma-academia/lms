@@ -9,8 +9,8 @@ const CreateBody = z.object({ name: z.string().min(1).max(80) });
 
 export async function GET() {
   try {
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_READ.key);
-    const tags = await prisma.resourceTag.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" } });
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_READ.key);
+    const tags = await prisma.libraryTag.findMany({ where: { tenantId: actor.tenantId }, orderBy: { name: "asc" } });
     return ok({ tags });
   } catch (e) {
     return handleError(e);
@@ -20,13 +20,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
-    const actor = await requireTenantActor(PERMISSIONS.TENANT_RESOURCES_WRITE.key);
+    const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_WRITE.key);
     const { name } = CreateBody.parse(await request.json());
-    const existing = await prisma.resourceTag.findUnique({
+    const existing = await prisma.libraryTag.findUnique({
       where: { tenantId_name: { tenantId: actor.tenantId, name } },
     });
     if (existing) return ok({ tag: existing });
-    const tag = await prisma.resourceTag.create({ data: { tenantId: actor.tenantId, name } });
+    const tag = await prisma.libraryTag.create({ data: { tenantId: actor.tenantId, name } });
     return ok({ tag }, undefined, 201);
   } catch (e) {
     return handleError(e);

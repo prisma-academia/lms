@@ -51,10 +51,10 @@ export const STRICT_SCOPED: ReadonlySet<string> = new Set([
   "MessageRecipient",
   "Notification",
   "NotificationPreference",
-  "Resource",
-  "ResourceGroup",
-  "ResourceTag",
-  "ResourceTagLink",
+  "LibraryItem",
+  "LibraryFolder",
+  "LibraryTag",
+  "LibraryItemTag",
 ]);
 
 export const NULLABLE_SCOPED: ReadonlySet<string> = new Set([

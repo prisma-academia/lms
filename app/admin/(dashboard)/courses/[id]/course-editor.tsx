@@ -73,13 +73,13 @@ export function CourseEditor({
   initial,
   canWrite,
   quizzes,
-  resources,
+  libraryItems,
   currencyOptions,
 }: {
   initial: CourseInitial;
   canWrite: boolean;
   quizzes: { id: string; title: string }[];
-  resources: { id: string; name: string; key: string }[];
+  libraryItems: { id: string; name: string; key: string }[];
   currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
@@ -124,7 +124,7 @@ export function CourseEditor({
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.title }));
   const quizOptions = quizzes.map((q) => ({ value: q.id, label: q.title }));
-  const resourceOptions = resources.map((r) => ({ value: r.key, label: r.name }));
+  const libraryOptions = libraryItems.map((r) => ({ value: r.key, label: r.name }));
 
   async function uploadThumbnail(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -575,12 +575,12 @@ export function CourseEditor({
                         )}
                       </FormField>
                     )}
-                    {editType === "FILE" && resourceOptions.length > 0 ? (
-                      <FormField label="Pick from resource library" htmlFor={`edit-resource-${lesson.id}`}>
+                    {editType === "FILE" && libraryOptions.length > 0 ? (
+                      <FormField label="Pick from library" htmlFor={`edit-library-${lesson.id}`}>
                         <SelectInput
-                          id={`edit-resource-${lesson.id}`}
-                          placeholder="Select a resource…"
-                          options={resourceOptions}
+                          id={`edit-library-${lesson.id}`}
+                          placeholder="Select a file…"
+                          options={libraryOptions}
                           value={editBody}
                           onChange={(e) => setEditBody(e.target.value)}
                         />
@@ -699,12 +699,12 @@ export function CourseEditor({
                   )}
                 </FormField>
               )}
-              {lessonType === "FILE" && resourceOptions.length > 0 ? (
-                <FormField label="Pick from resource library" htmlFor="lesson-resource">
+              {lessonType === "FILE" && libraryOptions.length > 0 ? (
+                <FormField label="Pick from library" htmlFor="lesson-library">
                   <SelectInput
-                    id="lesson-resource"
-                    placeholder="Select a resource…"
-                    options={resourceOptions}
+                    id="lesson-library"
+                    placeholder="Select a file…"
+                    options={libraryOptions}
                     value={lessonBody}
                     onChange={(e) => setLessonBody(e.target.value)}
                   />

@@ -1,11 +1,11 @@
-import { DAY, type SeedContext } from "../index";
+﻿import { DAY, type SeedContext } from "../index";
 import { NG_LOCALE } from "../components/locale/ng";
 import { FEE_CATALOG } from "../components/catalogs/fees";
 import {
   ACTIVITY_CATALOG,
-  RESOURCE_CATALOG,
+  LIBRARY_CATALOG,
   TEMPLATE_CATALOG,
-} from "../components/catalogs/resources";
+} from "../components/catalogs/library";
 
 export async function seedAdminData(ctx: SeedContext): Promise<void> {
   const { prisma, tenantId, now } = ctx;
@@ -57,7 +57,7 @@ export async function seedAdminData(ctx: SeedContext): Promise<void> {
       parentId = await ensureGroup(path.slice(0, -1));
     }
 
-    const group = await prisma.resourceGroup.create({
+    const group = await prisma.libraryFolder.create({
       data: {
         tenantId,
         name: path[path.length - 1],
@@ -70,19 +70,19 @@ export async function seedAdminData(ctx: SeedContext): Promise<void> {
   }
 
   const tagIds = new Map<string, string>();
-  for (const r of RESOURCE_CATALOG) {
+  for (const r of LIBRARY_CATALOG) {
     const parentId =
-      r.groupPath.length > 0 ? await ensureGroup(r.groupPath) : null;
+      r.folderPath.length > 0 ? await ensureGroup(r.folderPath) : null;
 
     const key = `demo/${tenantId}/${r.name.replace(/\s+/g, "-").toLowerCase()}`;
-    const resource = await prisma.resource.create({
+    const item = await prisma.libraryItem.create({
       data: {
         tenantId,
         name: r.name,
         key,
         contentType: r.contentType,
         sizeBytes: BigInt(r.sizeBytes),
-        groupId: parentId,
+        folderId: parentId,
         createdById: instructorId,
       },
     });
@@ -90,7 +90,7 @@ export async function seedAdminData(ctx: SeedContext): Promise<void> {
     for (const tagName of r.tags) {
       let tagId = tagIds.get(tagName);
       if (!tagId) {
-        const tag = await prisma.resourceTag.upsert({
+        const tag = await prisma.libraryTag.upsert({
           where: { tenantId_name: { tenantId, name: tagName } },
           create: { tenantId, name: tagName },
           update: {},
@@ -98,8 +98,8 @@ export async function seedAdminData(ctx: SeedContext): Promise<void> {
         tagId = tag.id;
         tagIds.set(tagName, tagId);
       }
-      await prisma.resourceTagLink.create({
-        data: { tenantId, resourceId: resource.id, tagId },
+      await prisma.libraryItemTag.create({
+        data: { tenantId, itemId: item.id, tagId },
       });
     }
   }
