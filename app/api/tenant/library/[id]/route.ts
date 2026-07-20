@@ -10,8 +10,17 @@ import { logger } from "@/lib/logger";
 
 const PatchBody = z.object({
   name: z.string().min(1).max(300).optional(),
+  title: z.string().max(300).nullable().optional(),
+  description: z.string().max(5000).nullable().optional(),
   folderId: z.string().min(1).nullable().optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional(),
+  isPublic: z.boolean().optional(),
+  isFree: z.boolean().optional(),
+  priceCents: z.number().int().min(0).nullable().optional(),
+  currency: z.string().length(3).nullable().optional(),
+  durationSeconds: z.number().int().min(0).nullable().optional(),
+  width: z.number().int().min(0).nullable().optional(),
+  height: z.number().int().min(0).nullable().optional(),
 });
 
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -35,12 +44,21 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       }
     }
 
+    // A paid item needs a price, or it is unbuyable and effectively invisible.
+    const nextIsFree = body.isFree ?? item.isFree;
+    const nextPrice = body.priceCents !== undefined ? body.priceCents : item.priceCents;
+    if (!nextIsFree && (nextPrice == null || nextPrice <= 0)) {
+      throw new DomainError(400, "price_required", "A paid item needs a price above zero.");
+    }
+
+    const { tagIds, ...scalars } = body;
     await prisma.$transaction([
       prisma.libraryItem.update({
         where: { id },
         data: {
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.folderId !== undefined ? { folderId: body.folderId } : {}),
+          ...scalars,
+          // Free items must not keep a stale price hanging around.
+          ...(nextIsFree ? { priceCents: null } : {}),
         },
       }),
       ...(body.tagIds !== undefined

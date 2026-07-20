@@ -7,7 +7,10 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { recordStorageDelta, validateTenantAssetKey } from "@/lib/storage/quota";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
+import { s3Configured } from "@/lib/storage/s3";
+import { mediaKindForContentType } from "@/lib/media/kind";
+import type { Prisma } from "@/lib/generated/prisma/client";
+import type { MediaKind } from "@/lib/generated/prisma/enums";
 
 const CreateBody = z.object({
   name: z.string().min(1).max(300),
@@ -23,24 +26,67 @@ function serialize(r: any) {
   return {
     ...r,
     sizeBytes: Number(r.sizeBytes),
-    url: s3Configured() ? publicUrlForKey(r.key) : null,
+    // A stable thumb route, not a signed URL: signed URLs expire, and baking
+    // hundreds of them into a response makes them uncacheable and short-lived.
+    thumbUrl: s3Configured() ? `/api/tenant/library/${r.id}/thumb` : null,
   };
 }
+
+const SORTS = {
+  recent: { createdAt: "desc" },
+  name: { name: "asc" },
+  size: { sizeBytes: "desc" },
+  type: { mediaKind: "asc" },
+} as const;
 
 export async function GET(request: Request) {
   try {
     const actor = await requireTenantActor(PERMISSIONS.TENANT_LIBRARY_READ.key);
     const url = new URL(request.url);
-    const folderId = url.searchParams.get("folderId");
-    const { cursor, take } = parsePagination(url.searchParams);
+    const sp = url.searchParams;
+    const { cursor, take } = parsePagination(sp);
+
+    const folderId = sp.get("folderId");
+    const kind = sp.get("kind");
+    const q = sp.get("q")?.trim();
+    const tagIds = sp.getAll("tagId").filter(Boolean);
+    const visibility = sp.get("visibility");
+    const sort = (sp.get("sort") ?? "recent") as keyof typeof SORTS;
+
+    const where: Prisma.LibraryItemWhereInput = {
+      tenantId: actor.tenantId,
+      ...(folderId === "none" ? { folderId: null } : folderId ? { folderId } : {}),
+      ...(kind && kind !== "all" ? { mediaKind: kind as MediaKind } : {}),
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { title: { contains: q, mode: "insensitive" } },
+              { description: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      // Every selected tag must be present, not any of them — narrowing by two
+      // tags should intersect, which is what filter chips imply.
+      ...(tagIds.length > 0 ? { AND: tagIds.map((id) => ({ tags: { some: { tagId: id } } })) } : {}),
+      ...(visibility === "public"
+        ? { isPublic: true, isFree: true }
+        : visibility === "paid"
+          ? { isFree: false }
+          : visibility === "private"
+            ? { isPublic: false, isFree: true }
+            : {}),
+    };
+
     const rows = await prisma.libraryItem.findMany({
-      where: { tenantId: actor.tenantId, ...(folderId ? { folderId } : {}) },
-      orderBy: { createdAt: "desc" },
+      where,
+      orderBy: SORTS[sort] ?? SORTS.recent,
       take,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       include: {
         folder: { select: { name: true } },
         tags: { include: { tag: { select: { id: true, name: true } } } },
+        _count: { select: { grants: true, entitlements: true } },
       },
     });
     return ok(rows.map(serialize), buildPageMeta(rows, take));
@@ -77,6 +123,8 @@ export async function POST(request: Request) {
         key: body.key,
         contentType: body.contentType,
         sizeBytes: BigInt(body.sizeBytes),
+        mediaKind: mediaKindForContentType(body.contentType),
+        originalFilename: body.name,
         folderId: body.folderId ?? null,
         createdById: actor.userId,
         tags: body.tagIds
