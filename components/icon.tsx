@@ -80,7 +80,10 @@ export type IconName =
   | "audio"
   | "archive"
   | "image"
-  | "list";
+  | "list"
+  | "sparkles"
+  | "chevron-up"
+  | "grip";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   grid: (
@@ -486,6 +489,24 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M3.5 6h.01" />
       <path d="M3.5 12h.01" />
       <path d="M3.5 18h.01" />
+    </>
+  ),
+  sparkles: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15v4M17 17h4" />
+      <path d="M5 18v2M4 19h2" />
+    </>
+  ),
+  "chevron-up": <path d="m6 15 6-6 6 6" />,
+  grip: (
+    <>
+      <circle cx="9" cy="6" r="1.2" />
+      <circle cx="15" cy="6" r="1.2" />
+      <circle cx="9" cy="12" r="1.2" />
+      <circle cx="15" cy="12" r="1.2" />
+      <circle cx="9" cy="18" r="1.2" />
+      <circle cx="15" cy="18" r="1.2" />
     </>
   ),
 };

@@ -125,6 +125,15 @@ export const courseBuilderInputSchema = z.object({
   allowPlaceholders: z.boolean().default(false),
 });
 
+/** Input for single-lesson AI generation from the lesson add/edit form.
+    Works for lessons that don't exist yet — the target is described by the body. */
+export const lessonGenerateInputSchema = z.object({
+  title: z.string().min(1).max(200),
+  contentType: z.enum(["TEXT", "HTML"]),
+  /** Optional admin guidance for what the lesson should emphasize. */
+  instructions: z.string().max(4_000).nullable().default(null),
+});
+
 export type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>;
 export type GeneratedQuiz = z.infer<typeof generatedQuizSchema>;
 export type GeneratedLesson = z.infer<typeof generatedLessonSchema>;
@@ -133,3 +142,4 @@ export type GeneratedCourse = z.infer<typeof generatedCourseSchema>;
 export type CourseTemplate = z.infer<typeof courseTemplateSchema>;
 export type CourseOutline = z.infer<typeof courseOutlineSchema>;
 export type CourseBuilderInput = z.infer<typeof courseBuilderInputSchema>;
+export type LessonGenerateInput = z.infer<typeof lessonGenerateInputSchema>;
