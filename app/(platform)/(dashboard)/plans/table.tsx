@@ -28,8 +28,7 @@ export function PlansTable({ data }: { data: PlanRow[] }) {
       columns={columns}
       data={data}
       rowHref={(p) => `/plans/${p.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search plans…"
     />
   );
 }

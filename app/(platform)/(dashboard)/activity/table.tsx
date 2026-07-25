@@ -79,8 +79,7 @@ export function ActivityTable({
     <DataTable
       columns={buildColumns(variant)}
       data={data}
-      filterColumnId="action"
-      searchPlaceholder="Search by action…"
+      searchPlaceholder="Search activity…"
     />
   );
 }

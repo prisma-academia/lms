@@ -136,7 +136,6 @@ export function CourseAnalyticsTab({
         <DataTable
           columns={columns}
           data={rows}
-          filterColumnId="title"
           searchPlaceholder="Search lessons…"
           empty={
             <EmptyState icon="chart" title="No lessons yet">

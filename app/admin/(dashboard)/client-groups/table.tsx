@@ -36,8 +36,7 @@ export function ClientGroupsTable({ data }: { data: ClientGroupRow[] }) {
       columns={columns}
       data={data}
       rowHref={(g) => `/admin/client-groups/${g.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search groups…"
     />
   );
 }

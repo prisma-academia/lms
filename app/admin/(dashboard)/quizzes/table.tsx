@@ -24,8 +24,7 @@ export function QuizzesTable({ data }: { data: QuizRow[] }) {
       columns={columns}
       data={data}
       rowHref={(q) => `/admin/quizzes/${q.id}`}
-      filterColumnId="title"
-      searchPlaceholder="Search by title…"
+      searchPlaceholder="Search quizzes…"
     />
   );
 }

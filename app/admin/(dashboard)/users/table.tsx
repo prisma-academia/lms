@@ -38,8 +38,7 @@ export function TenantUsersTable({ data }: { data: TenantUserRow[] }) {
       columns={columns}
       data={data}
       rowHref={(u) => `/admin/users/${u.id}`}
-      filterColumnId="email"
-      searchPlaceholder="Search by email…"
+      searchPlaceholder="Search users…"
     />
   );
 }

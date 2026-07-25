@@ -208,7 +208,6 @@ export function CourseContentTab({
       <DataTable
         columns={columns}
         data={lessons}
-        filterColumnId="title"
         searchPlaceholder="Search lessons…"
         empty={
           <EmptyState icon="book" title="No lessons yet">

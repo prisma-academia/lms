@@ -47,8 +47,7 @@ export function CoursesTable({ data }: { data: CourseRow[] }) {
       columns={columns}
       data={data}
       rowHref={(c) => `/admin/courses/${c.id}`}
-      filterColumnId="title"
-      searchPlaceholder="Search by title…"
+      searchPlaceholder="Search courses…"
     />
   );
 }

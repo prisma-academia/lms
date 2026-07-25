@@ -36,8 +36,7 @@ export function UserGroupsTable({ data }: { data: UserGroupRow[] }) {
       columns={columns}
       data={data}
       rowHref={(g) => `/admin/user-groups/${g.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search groups…"
     />
   );
 }

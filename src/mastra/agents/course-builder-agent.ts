@@ -33,5 +33,5 @@ Hard rules:
    present; adapt rather than reinvent; only fill genuine gaps.
 7. Always answer with data that matches the requested schema exactly.`,
   // Claude Sonnet 5 via OpenRouter (needs OPENROUTER_API_KEY in env).
-  model: 'openrouter/anthropic/claude-sonnet-5',
+  model: 'openrouter/anthropic/claude-sonnet-5'
 });

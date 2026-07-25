@@ -50,8 +50,7 @@ export function EnrollmentsTable({ data }: { data: EnrollmentRow[] }) {
     <DataTable
       columns={columns}
       data={data}
-      filterColumnId="clientEmail"
-      searchPlaceholder="Search by email…"
+      searchPlaceholder="Search enrollments…"
     />
   );
 }

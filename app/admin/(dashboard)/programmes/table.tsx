@@ -34,8 +34,7 @@ export function ProgrammesTable({ data }: { data: ProgrammeRow[] }) {
       columns={columns}
       data={data}
       rowHref={(p) => `/admin/programmes/${p.id}`}
-      filterColumnId="title"
-      searchPlaceholder="Search by title…"
+      searchPlaceholder="Search programmes…"
     />
   );
 }

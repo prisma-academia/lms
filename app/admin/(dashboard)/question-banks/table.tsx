@@ -28,8 +28,7 @@ export function QuestionBanksTable({ data }: { data: BankRow[] }) {
       columns={columns}
       data={data}
       rowHref={(b) => `/admin/question-banks/${b.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search question banks…"
     />
   );
 }

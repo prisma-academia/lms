@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Card } from "@/components/shell";
+import { DataTable } from "@/components/data-table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TenantActions } from "./actions";
 import { TenantProfileForm } from "./profile-form";
 import { TenantBillingPanel } from "./billing-panel";
@@ -69,6 +72,31 @@ export type TenantDetailProps = {
 
 const TABS = ["Overview", "Profile", "Billing", "Users"] as const;
 type Tab = (typeof TABS)[number];
+
+const userColumns: ColumnDef<TenantUserRow>[] = [
+  {
+    accessorKey: "email",
+    header: "Email",
+    cell: (info) => <span className="font-mono text-xs">{info.getValue() as string}</span>,
+  },
+  {
+    id: "name",
+    header: "Name",
+    accessorFn: (r) => `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || "—",
+  },
+  { accessorKey: "isOwner", header: "Owner", cell: (info) => (info.getValue() ? "yes" : "no") },
+  { accessorKey: "status", header: "Status" },
+  {
+    accessorKey: "lastLoginAt",
+    header: "Last login",
+    cell: (info) => {
+      const v = info.getValue() as string | null;
+      return (
+        <span className="text-xs text-stone-500">{v ? new Date(v).toLocaleString() : "—"}</span>
+      );
+    },
+  },
+];
 
 export function TenantDetailTabs({
   tenant,
@@ -170,38 +198,17 @@ export function TenantDetailTabs({
       {tab === "Users" ? (
         <Card>
           <div className="mb-4 text-xs uppercase text-stone-500">Tenant staff ({users.length})</div>
-          {users.length === 0 ? (
-            <p className="text-sm text-stone-500">No users yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-stone-200 text-left text-xs uppercase text-stone-500">
-                    <th className="pb-2 pr-4">Email</th>
-                    <th className="pb-2 pr-4">Name</th>
-                    <th className="pb-2 pr-4">Owner</th>
-                    <th className="pb-2 pr-4">Status</th>
-                    <th className="pb-2">Last login</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {users.map((u) => (
-                    <tr key={u.id}>
-                      <td className="py-2 pr-4 font-mono text-xs">{u.email}</td>
-                      <td className="py-2 pr-4">
-                        {`${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "—"}
-                      </td>
-                      <td className="py-2 pr-4">{u.isOwner ? "yes" : "no"}</td>
-                      <td className="py-2 pr-4">{u.status}</td>
-                      <td className="py-2 text-xs text-stone-500">
-                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={userColumns}
+            data={users}
+            rowHref={(u) => `/users/${u.id}`}
+            searchPlaceholder="Search staff…"
+            empty={
+              <EmptyState icon="users" title="No staff yet">
+                Nobody has been added to this tenant.
+              </EmptyState>
+            }
+          />
         </Card>
       ) : null}
     </div>

@@ -133,8 +133,7 @@ export function CourseEnrollmentsTab({
       <DataTable
         columns={columns}
         data={rows}
-        filterColumnId="clientEmail"
-        searchPlaceholder="Search by email…"
+        searchPlaceholder="Search enrollments…"
         empty={
           <EmptyState icon="users" title="No enrollments yet">
             Enroll a learner manually or share the course with your audience.

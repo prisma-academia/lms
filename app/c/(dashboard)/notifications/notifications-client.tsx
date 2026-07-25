@@ -74,7 +74,7 @@ export function NotificationsClient() {
             <EmptyState icon="bell" title="No notifications">You are all caught up.</EmptyState>
           </div>
         ) : (
-          <ul className="mt-4 flex flex-col gap-2">
+          <ul className="mt-4 flex max-h-[28rem] flex-col gap-2 overflow-y-auto [scrollbar-gutter:stable]">
             {notifs.map((n) => (
               <li key={n.id} className={cn("rounded-[10px] border-2 border-border px-3 py-2", n.readAt ? "bg-card" : "bg-muted")}>
                 <div className="flex items-center justify-between gap-2">
@@ -92,24 +92,51 @@ export function NotificationsClient() {
       <Card>
         <h2 className="text-sm font-semibold uppercase text-stone-500">Preferences</h2>
         <p className="mt-1 text-xs text-stone-500">Choose how you receive each type of notification.</p>
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-3 max-h-[24rem] overflow-auto rounded-[10px] border-2 border-border [scrollbar-gutter:stable]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-muted-foreground">
-                <th className="py-2">Category</th>
-                <th className="py-2 text-center">In-app</th>
-                <th className="py-2 text-center">Email</th>
+              <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                <th
+                  scope="col"
+                  className="sticky top-0 z-10 bg-muted px-3 py-2 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-border"
+                >
+                  Category
+                </th>
+                <th
+                  scope="col"
+                  className="sticky top-0 z-10 bg-muted px-3 py-2 text-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-border"
+                >
+                  In-app
+                </th>
+                <th
+                  scope="col"
+                  className="sticky top-0 z-10 bg-muted px-3 py-2 text-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-border"
+                >
+                  Email
+                </th>
               </tr>
             </thead>
             <tbody>
               {prefs.map((p) => (
-                <tr key={p.category} className="border-t border-border">
-                  <td className="py-2 font-semibold">{p.category}</td>
-                  <td className="py-2 text-center">
-                    <input type="checkbox" checked={p.inApp} onChange={() => togglePref(p.category, "inApp")} className="size-4" />
+                <tr key={p.category} className="border-t-2 border-dashed border-border">
+                  <td className="px-3 py-2 font-semibold">{p.category}</td>
+                  <td className="px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label={`In-app notifications for ${p.category}`}
+                      checked={p.inApp}
+                      onChange={() => togglePref(p.category, "inApp")}
+                      className="size-4"
+                    />
                   </td>
-                  <td className="py-2 text-center">
-                    <input type="checkbox" checked={p.email} onChange={() => togglePref(p.category, "email")} className="size-4" />
+                  <td className="px-3 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label={`Email notifications for ${p.category}`}
+                      checked={p.email}
+                      onChange={() => togglePref(p.category, "email")}
+                      className="size-4"
+                    />
                   </td>
                 </tr>
               ))}

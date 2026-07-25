@@ -42,8 +42,7 @@ export function UsersTable({ data }: { data: PlatformUserRow[] }) {
       columns={columns}
       data={data}
       rowHref={(u) => `/users/${u.id}`}
-      filterColumnId="email"
-      searchPlaceholder="Search by email…"
+      searchPlaceholder="Search users…"
     />
   );
 }

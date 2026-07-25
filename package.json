@@ -18,6 +18,7 @@
     "db:seed": "prisma db seed",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:seed:verify": "tsx scripts/verify-demo-seed.ts",
+    "verify:course-builder": "tsx scripts/verify-course-builder.ts",
     "verify:library-access": "tsx scripts/verify-library-access.ts",
     "verify:library-matrix": "tsx scripts/verify-library-matrix.ts",
     "jobs:expire-trials": "tsx scripts/jobs.ts expire-trials",

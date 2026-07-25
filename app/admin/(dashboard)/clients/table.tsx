@@ -38,8 +38,7 @@ export function ClientsTable({ data }: { data: ClientRow[] }) {
       columns={columns}
       data={data}
       rowHref={(c) => `/admin/clients/${c.id}`}
-      filterColumnId="email"
-      searchPlaceholder="Search by email…"
+      searchPlaceholder="Search learners…"
     />
   );
 }

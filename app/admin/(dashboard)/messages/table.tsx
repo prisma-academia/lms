@@ -32,8 +32,7 @@ export function MessagesTable({ data }: { data: MessageRow[] }) {
       columns={columns}
       data={data}
       rowHref={(m) => `/admin/messages/${m.id}`}
-      filterColumnId="subject"
-      searchPlaceholder="Search by subject…"
+      searchPlaceholder="Search messages…"
     />
   );
 }

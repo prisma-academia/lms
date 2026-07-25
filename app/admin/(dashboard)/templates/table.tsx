@@ -28,8 +28,7 @@ export function TemplatesTable({ data }: { data: TemplateRow[] }) {
       columns={columns}
       data={data}
       rowHref={(t) => `/admin/templates/${t.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search templates…"
     />
   );
 }

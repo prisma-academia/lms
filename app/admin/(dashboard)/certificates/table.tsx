@@ -22,8 +22,7 @@ export function CertificatesTable({ data }: { data: CertRow[] }) {
       columns={columns}
       data={data}
       rowHref={(c) => `/admin/certificates/${c.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search certificates…"
     />
   );
 }

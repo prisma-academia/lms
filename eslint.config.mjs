@@ -15,6 +15,9 @@ const eslintConfig = defineConfig([
     // Vendored pdf.js worker, copied verbatim from node_modules by
     // scripts/copy-pdf-worker.mjs. Not ours to lint or fix.
     "public/pdf.worker.min.mjs",
+    // `mastra build` output. Multi-megabyte generated bundles that took the
+    // linter's heap out — `npm run lint` died with OOM before reaching src.
+    ".mastra/**",
   ]),
 ]);
 

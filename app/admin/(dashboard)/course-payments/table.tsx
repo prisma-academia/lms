@@ -37,8 +37,7 @@ export function CoursePaymentsTable({ data }: { data: CoursePaymentRow[] }) {
     <DataTable
       columns={columns}
       data={data}
-      filterColumnId="client"
-      searchPlaceholder="Search by learner email…"
+      searchPlaceholder="Search payments…"
     />
   );
 }

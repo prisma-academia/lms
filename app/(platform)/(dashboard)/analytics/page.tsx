@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
@@ -45,25 +46,43 @@ export default async function PlatformAnalyticsPage() {
 
       <Card>
         <h2 className="mb-3 text-sm font-semibold uppercase text-stone-500">Top tenants by clients</h2>
-        <div className="overflow-x-auto">
+        {/* Capped viewport with a stuck header, like every other table in the app. */}
+        <div className="max-h-[24rem] overflow-auto rounded-[10px] border-2 border-border [scrollbar-gutter:stable]">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase text-stone-500">
-                <th className="py-2">Tenant</th>
-                <th>Status</th>
-                <th>Clients</th>
-                <th>Courses</th>
+              <tr className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                {["Tenant", "Status", "Clients", "Courses"].map((h) => (
+                  <th
+                    key={h}
+                    scope="col"
+                    className="sticky top-0 z-10 bg-muted px-3 py-2 after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-border"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {topTenants.map((t) => (
-                <tr key={t.id} className="border-t border-border">
-                  <td className="py-2 font-semibold">{t.name}</td>
-                  <td className="text-xs">{t.status}</td>
-                  <td>{t._count.clients}</td>
-                  <td>{t._count.courses}</td>
+              {topTenants.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center font-medium text-muted-foreground">
+                    No tenants yet.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                topTenants.map((t) => (
+                  <tr key={t.id} className="border-t-2 border-dashed border-border">
+                    <td className="px-3 py-2 font-semibold">
+                      <Link href={`/tenants/${t.id}`} className="hover:underline">
+                        {t.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-xs">{t.status}</td>
+                    <td className="num px-3 py-2">{t._count.clients}</td>
+                    <td className="num px-3 py-2">{t._count.courses}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

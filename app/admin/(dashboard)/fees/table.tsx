@@ -33,8 +33,7 @@ export function FeesTable({ data }: { data: FeeRow[] }) {
       columns={columns}
       data={data}
       rowHref={(f) => `/admin/fees/${f.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search fees…"
     />
   );
 }

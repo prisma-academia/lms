@@ -30,8 +30,7 @@ export function RolesTable({ data }: { data: RoleRow[] }) {
       columns={columns}
       data={data}
       rowHref={(r) => `/role-templates/${r.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search role templates…"
     />
   );
 }

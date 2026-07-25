@@ -51,8 +51,7 @@ export function TenantsTable({ data }: { data: TenantRow[] }) {
       columns={columns}
       data={data}
       rowHref={(t) => `/tenants/${t.id}`}
-      filterColumnId="name"
-      searchPlaceholder="Search by name…"
+      searchPlaceholder="Search tenants…"
     />
   );
 }
