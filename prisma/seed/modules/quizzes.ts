@@ -86,6 +86,25 @@ export async function seedQuizzes(ctx: SeedContext): Promise<void> {
       },
     });
 
+    // A later, perfect retake. Completing a QUIZ lesson now requires a 100%
+    // attempt, so without this the demo learner is permanently stuck on the
+    // first quiz in every course. Seeding both attempts also demonstrates the
+    // intended shape of the feature: retry until mastery.
+    await prisma.quizAttempt.create({
+      data: {
+        tenantId,
+        quizId: quiz.id,
+        clientId,
+        startedAt: new Date(now - 1 * DAY),
+        submittedAt: new Date(now - 1 * DAY + 420_000),
+        scorePercent: 100,
+        passed: true,
+        answersJson: {} as object,
+        gradingStatus: "GRADED",
+        gradedAt: new Date(now - 1 * DAY + 420_000),
+      },
+    });
+
     // Track the first quiz/bank for any downstream references.
     ctx.ids.questionBankId ??= bank.id;
     ctx.ids.quizId ??= quiz.id;

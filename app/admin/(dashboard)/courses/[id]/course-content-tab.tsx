@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { apiDelete, apiPatch } from "@/lib/client/api";
+import { withViewTransition } from "@/lib/client/view-transition";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -79,7 +80,7 @@ export function CourseContentTab({
     [next[index], next[j]] = [next[j], next[index]];
     setError(null);
     setReordering(true);
-    setLessons(next);
+    withViewTransition(() => setLessons(next));
 
     const [r1, r2] = await Promise.all([
       apiPatch(`/api/tenant/courses/${initial.id}/lessons/${next[index].id}`, {
@@ -89,7 +90,7 @@ export function CourseContentTab({
     ]);
     setReordering(false);
     if (r1.error || r2.error) {
-      setLessons(prev);
+      withViewTransition(() => setLessons(prev));
       setError((r1.error ?? r2.error)!.message);
       return;
     }
@@ -208,6 +209,8 @@ export function CourseContentTab({
       <DataTable
         columns={columns}
         data={lessons}
+        getRowId={(row) => row.id}
+        rowStyle={(row) => ({ viewTransitionName: `course-lesson-${row.id}` })}
         searchPlaceholder="Search lessons…"
         empty={
           <EmptyState icon="book" title="No lessons yet">

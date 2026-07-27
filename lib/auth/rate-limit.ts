@@ -63,6 +63,13 @@ export const RATE_PRESETS = {
   RESET_PASSWORD: { name: "reset-password", limit: 10, windowSeconds: 15 * 60 },
   CHANGE_PASSWORD: { name: "change-password", limit: 10, windowSeconds: 15 * 60 },
   REGISTER: { name: "register", limit: 5, windowSeconds: 30 * 60 },
+  /**
+   * Essay grading spends real money per call, and quiz retries are unlimited, so
+   * one logged-in account in a loop is an unbounded bill. NOTE: this limiter
+   * fails open when Upstash is unconfigured — correct for auth, wrong for spend,
+   * so the attempt route also enforces a DB-backed hourly cap.
+   */
+  ESSAY_GRADE: { name: "essay-grade", limit: 12, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateLimitPreset>;
 
 let redis: Redis | null = null;

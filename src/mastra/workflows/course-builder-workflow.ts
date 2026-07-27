@@ -20,6 +20,9 @@ function describeRequest(input: CourseBuilderInput): string {
     input.allowPlaceholders
       ? 'Placeholders: VIDEO_URL/FILE placeholder lessons are allowed (title + placeholderNote only).'
       : 'Placeholders: do NOT generate VIDEO_URL or FILE lessons. Use TEXT, HTML and QUIZ only.',
+    input.allowEssays
+      ? 'Essays: ESSAY questions are allowed. Each needs 2-4 objectively checkable weighted rubric criteria and a concise model answer.'
+      : 'Essays: do NOT generate ESSAY questions. Use SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE and SHORT_ANSWER only.',
   ].filter(Boolean);
   if (input.mode === 'adapt-json' && input.sourceJson) {
     lines.push(
@@ -32,23 +35,18 @@ function describeRequest(input: CourseBuilderInput): string {
   return lines.join('\n\n');
 }
 
-/** Run tasks with a small concurrency cap to respect provider rate limits. */
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i], i);
-    }
-  });
-  await Promise.all(workers);
-  return results;
+function outlineSummary(o: CourseOutline): string {
+  return o.groups
+    .map(
+      (g, i) =>
+        `${i + 1}. ${g.title}\n${g.lessons
+          .map((l) => `   - [${l.contentType}] ${l.title}`)
+          .join('\n')}`
+    )
+    .join('\n');
 }
+
+const outlineGroupSchema = courseOutlineSchema.shape.groups.element;
 
 const outlineStepOutputSchema = z.object({
   input: courseBuilderInputSchema,
@@ -57,13 +55,22 @@ const outlineStepOutputSchema = z.object({
   fastPathCourse: generatedCourseSchema.nullable(),
 });
 
+/** One module job for the foreach step (progress events come from Mastra). */
+const moduleJobSchema = z.object({
+  input: courseBuilderInputSchema,
+  outline: courseOutlineSchema,
+  group: outlineGroupSchema,
+});
+
 const generateOutline = createStep({
   id: 'generate-outline',
   description: 'Generates the course outline (groups + lesson titles/types/synopses) from the request',
   inputSchema: courseBuilderInputSchema,
   outputSchema: outlineStepOutputSchema,
-  execute: async ({ inputData, mastra }) => {
+  execute: async ({ inputData, mastra, writer }) => {
     const input = inputData;
+
+    await writer.write({ phase: 'outline', label: 'Designing outline…' });
 
     // Fast path: an exact course-template JSON import needs no AI at all.
     if (input.mode === 'adapt-json' && input.sourceJson) {
@@ -101,34 +108,18 @@ Do not write the lesson content yet.`;
   },
 });
 
-const generateLessonContent = createStep({
-  id: 'generate-lesson-content',
-  description: 'Generates full lesson content (text, HTML, quizzes) for each group in the outline',
-  inputSchema: outlineStepOutputSchema,
-  outputSchema: z.object({ course: generatedCourseSchema }),
+const generateModule = createStep({
+  id: 'generate-module',
+  description: 'Generates full lesson content for one module from the outline',
+  inputSchema: moduleJobSchema,
+  outputSchema: generatedGroupSchema,
   execute: async ({ inputData, mastra }) => {
-    const { input, outline, fastPathCourse } = inputData;
-
-    if (fastPathCourse) {
-      return { course: generatedCourseSchema.parse(fastPathCourse) };
-    }
-    if (!outline) throw new Error('Outline not found');
+    const { input, outline, group } = inputData;
 
     const agent = mastra?.getAgent('courseBuilderAgent');
     if (!agent) throw new Error('Course builder agent not found');
 
-    const outlineSummary = (o: CourseOutline) =>
-      o.groups
-        .map(
-          (g, i) =>
-            `${i + 1}. ${g.title}\n${g.lessons
-              .map((l) => `   - [${l.contentType}] ${l.title}`)
-              .join('\n')}`
-        )
-        .join('\n');
-
-    const groups = await mapWithConcurrency(outline.groups, 2, async (group): Promise<GeneratedGroup> => {
-      const prompt = `Write the full content for ONE module of a course.
+    const prompt = `Write the full content for ONE module of a course.
 
 ${describeRequest(input)}
 
@@ -147,12 +138,31 @@ ${group.lessons
 Keep the same lesson order, titles and content types. Fill in body (TEXT), html (HTML),
 or quiz (QUIZ) as appropriate; VIDEO_URL/FILE lessons get only a placeholderNote.`;
 
-      const result = await agent.generate([{ role: 'user', content: prompt }], {
-        structuredOutput: { schema: generatedGroupSchema, errorStrategy: 'strict' },
-      });
-      if (!result.object) throw new Error(`Content generation failed for module "${group.title}"`);
-      return generatedGroupSchema.parse(result.object);
+    const result = await agent.generate([{ role: 'user', content: prompt }], {
+      structuredOutput: { schema: generatedGroupSchema, errorStrategy: 'strict' },
     });
+    if (!result.object) throw new Error(`Content generation failed for module "${group.title}"`);
+    return generatedGroupSchema.parse(result.object);
+  },
+});
+
+const assembleCourse = createStep({
+  id: 'assemble-course',
+  description: 'Assembles generated modules into a course, or returns the fast-path template',
+  inputSchema: z.array(generatedGroupSchema),
+  outputSchema: z.object({ course: generatedCourseSchema }),
+  execute: async ({ inputData, getStepResult }) => {
+    const outlineResult = getStepResult(generateOutline) as z.infer<typeof outlineStepOutputSchema>;
+
+    if (outlineResult.fastPathCourse) {
+      return { course: generatedCourseSchema.parse(outlineResult.fastPathCourse) };
+    }
+
+    const outline = outlineResult.outline;
+    if (!outline) throw new Error('Outline not found');
+
+    const groups = inputData as GeneratedGroup[];
+    if (groups.length === 0) throw new Error('No modules were generated');
 
     const course: GeneratedCourse = generatedCourseSchema.parse({
       courseSummary: outline.courseSummary,
@@ -168,7 +178,15 @@ const courseBuilderWorkflow = createWorkflow({
   outputSchema: z.object({ course: generatedCourseSchema }),
 })
   .then(generateOutline)
-  .then(generateLessonContent);
+  .map(async ({ inputData }) => {
+    const { input, outline, fastPathCourse } = inputData as z.infer<typeof outlineStepOutputSchema>;
+    // Fast path: empty foreach list; assemble reads fastPathCourse from outline step.
+    if (fastPathCourse) return [];
+    if (!outline) throw new Error('Outline not found');
+    return outline.groups.map((group) => ({ input, outline, group }));
+  })
+  .foreach(generateModule, { concurrency: 2 })
+  .then(assembleCourse);
 
 courseBuilderWorkflow.commit();
 

@@ -35,7 +35,14 @@ type PdfPage = {
   getTextContent: () => Promise<{ items: { str: string }[] }>;
 };
 
-export default function PdfViewer({ payload }: { payload: MediaPayload }) {
+export default function PdfViewer({
+  payload,
+  onPageChange,
+}: {
+  payload: MediaPayload;
+  /** Current page and total. Optional — only the lesson gate passes it. */
+  onPageChange?: (page: number, total: number) => void;
+}) {
   const { item, playbackUrl, access } = payload;
   const canDownload = access.state === "open" && access.canDownload;
 
@@ -51,6 +58,12 @@ export default function PdfViewer({ payload }: { payload: MediaPayload }) {
   const [searching, setSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const textCache = useRef<Map<number, string>>(new Map());
+
+  // Report reading position so a lesson gate can tell when the learner reached
+  // the last page. A one-page PDF satisfies as soon as it loads, which is right.
+  useEffect(() => {
+    if (numPages > 0) onPageChange?.(page, numPages);
+  }, [page, numPages, onPageChange]);
 
   useEffect(() => {
     if (!playbackUrl) return;

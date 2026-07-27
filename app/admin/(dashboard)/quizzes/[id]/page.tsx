@@ -4,7 +4,9 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { accessibleBankWhere } from "@/lib/assessments/bank-access";
 import { PageHeader } from "@/components/shell";
+import type { QuestionResult } from "@/lib/assessments/scoring";
 import { QuizBuilder, type Candidate, type SelectedQ } from "./quiz-builder";
+import { AttemptsPanel, type AttemptRow } from "./attempts-panel";
 
 export default async function QuizDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireTenantPage(PERMISSIONS.TENANT_QUIZZES_READ.key);
@@ -40,6 +42,54 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
     points: qq.points ?? qq.question.points,
   }));
 
+  const attemptRows = await prisma.quizAttempt.findMany({
+    where: { quizId: id, tenantId: actor.tenantId, submittedAt: { not: null } },
+    orderBy: { submittedAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      submittedAt: true,
+      scorePercent: true,
+      gradingStatus: true,
+      gradingError: true,
+      answersJson: true,
+      resultsJson: true,
+      client: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+
+  const promptById = new Map(quiz.questions.map((qq) => [qq.question.id, qq.question] as const));
+  const attempts: AttemptRow[] = attemptRows.map((a) => {
+    const answers = (a.answersJson ?? {}) as Record<string, unknown>;
+    const results = (a.resultsJson ?? {}) as Record<string, QuestionResult>;
+    return {
+      id: a.id,
+      learner:
+        [a.client?.firstName, a.client?.lastName].filter(Boolean).join(" ") ||
+        a.client?.email ||
+        "Unknown learner",
+      submittedAt: a.submittedAt?.toISOString() ?? null,
+      scorePercent: a.scorePercent,
+      gradingStatus: a.gradingStatus,
+      gradingError: a.gradingError,
+      questions: Object.entries(results).map(([questionId, r]) => {
+        const q = promptById.get(questionId);
+        const raw = answers[questionId];
+        return {
+          questionId,
+          prompt: q?.prompt ?? "(question removed)",
+          type: q?.type ?? "UNKNOWN",
+          answer: typeof raw === "string" ? raw : Array.isArray(raw) ? raw.join(", ") : "",
+          earned: r.earned ?? 0,
+          points: r.points ?? 0,
+          correct: r.correct ?? false,
+          feedback: r.feedback ?? null,
+          criteria: r.criteria ?? [],
+        };
+      }),
+    };
+  });
+
   return (
     <div>
       <PageHeader title={quiz.title} subtitle="Assemble questions and settings." backHref="/admin/quizzes" backLabel="Quizzes" />
@@ -55,6 +105,9 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
         candidates={candidates}
         canWrite={hasPermission(actor, PERMISSIONS.TENANT_QUIZZES_WRITE.key)}
       />
+      <div className="mt-6">
+        <AttemptsPanel attempts={attempts} />
+      </div>
     </div>
   );
 }

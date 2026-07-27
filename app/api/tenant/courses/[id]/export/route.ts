@@ -7,6 +7,8 @@ import {
   type GeneratedLesson,
   type GeneratedQuiz,
 } from "@/lib/schemas/course-builder";
+import { isChoiceQuestion } from "@/lib/schemas/question";
+import { parseRubric } from "@/lib/schemas/essay-grading";
 
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -56,13 +58,19 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
             passingScore: q.passingScore,
             questions: q.questions.slice(0, 20).map((link) => {
               const question = link.question;
-              const isChoice = question.type !== "SHORT_ANSWER";
+              // Explicit allowlist, not `!== "SHORT_ANSWER"`: under the negated
+              // form an ESSAY would export its empty answerJson as correct
+              // option indices and lose its rubric, so export→import would
+              // silently turn a graded essay into an unanswerable choice question.
+              const isChoice = isChoiceQuestion(question.type);
               return {
                 type: question.type,
                 prompt: question.prompt,
                 options: isChoice ? asStringArray(question.optionsJson) : [],
                 correctOptionIndexes: isChoice ? asNumberArray(question.answerJson) : [],
-                acceptedAnswers: isChoice ? [] : asStringArray(question.answerJson),
+                acceptedAnswers:
+                  question.type === "SHORT_ANSWER" ? asStringArray(question.answerJson) : [],
+                rubric: question.type === "ESSAY" ? parseRubric(question.rubricJson) : null,
                 points: link.points ?? question.points,
               };
             }),

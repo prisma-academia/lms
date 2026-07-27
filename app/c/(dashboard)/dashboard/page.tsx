@@ -43,12 +43,18 @@ export default async function OverviewPage() {
           title: true,
           slug: true,
           lessons: {
-            orderBy: { sortOrder: "asc" },
+            orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
             select: { id: true, title: true },
           },
         },
       },
-      lessonProgress: { select: { lessonId: true, completedAt: true } },
+      // Filtered here, once: this array feeds the lessons-completed stat, the
+      // streak/activity heatmap and the continue-learning frontier. Row presence
+      // now means "opened", so an unfiltered include would count opens as study.
+      lessonProgress: {
+        where: { completedAt: { not: null } },
+        select: { lessonId: true, completedAt: true },
+      },
     },
   });
 
@@ -90,7 +96,9 @@ export default async function OverviewPage() {
 
   // --- activity + streak from lesson completions ---
   const completions = enrollments.flatMap((e) =>
-    e.lessonProgress.map((p) => p.completedAt)
+    e.lessonProgress
+      .map((p) => p.completedAt)
+      .filter((d): d is Date => d != null)
   );
   const activeDays = new Set(completions.map((d) => dayKey(new Date(d))));
   let streak = 0;
@@ -266,7 +274,11 @@ export default async function OverviewPage() {
                         {e.progressPercent}%
                       </span>
                       <Link
-                        href={`/courses/${e.course.slug}/learn`}
+                        href={
+                          next
+                            ? `/courses/${e.course.slug}/learn?lesson=${next.id}`
+                            : `/courses/${e.course.slug}/learn`
+                        }
                         aria-label={`Resume ${e.course.title}`}
                         className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
                       >

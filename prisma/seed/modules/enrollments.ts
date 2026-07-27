@@ -60,6 +60,9 @@ export async function seedEnrollments(ctx: SeedContext): Promise<void> {
           tenantId,
           enrollmentId: enrollment.id,
           lessonId: ref.lessonIds[i],
+          // startedAt mirrors completedAt so seeded progress never trips the
+          // dwell gate (same rule as the production backfill).
+          startedAt: dates[i],
           completedAt: dates[i],
         },
       });

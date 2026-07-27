@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
+import type { QuestionTypeValue } from "@/lib/schemas/question";
+import type { EssayRubric, RubricCriterion } from "@/lib/schemas/essay-grading";
 
-type QType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "SHORT_ANSWER";
+type QType = QuestionTypeValue;
 
 export type BankQuestion = {
   id: string;
@@ -16,22 +18,40 @@ export type BankQuestion = {
   prompt: string;
   options: string[];
   answer: (number | string)[];
+  /** ESSAY only. */
+  rubric: EssayRubric | null;
   points: number;
   tagIds: string[];
 };
 
+/** Stable criterion id, generated once at authoring time and never shown. */
+function newCriterionId(): string {
+  return `c_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function blankCriterion(): RubricCriterion {
+  return { id: newCriterionId(), label: "", description: "", weight: 1 };
+}
+
 type Tag = { id: string; name: string };
 type Group = { id: string; name: string };
 
-const TYPE_OPTIONS = [
-  { value: "SINGLE_CHOICE", label: "Single choice" },
-  { value: "MULTIPLE_CHOICE", label: "Multiple choice" },
-  { value: "TRUE_FALSE", label: "True / False" },
-  { value: "SHORT_ANSWER", label: "Short answer" },
-];
+/** Record, not an array literal: adding a question type is then a compile error here. */
+const TYPE_LABELS: Record<QType, string> = {
+  SINGLE_CHOICE: "Single choice",
+  MULTIPLE_CHOICE: "Multiple choice",
+  TRUE_FALSE: "True / False",
+  SHORT_ANSWER: "Short answer",
+  ESSAY: "Essay (AI graded)",
+};
+
+const TYPE_OPTIONS = (Object.keys(TYPE_LABELS) as QType[]).map((value) => ({
+  value,
+  label: TYPE_LABELS[value],
+}));
 
 function typeLabel(t: QType): string {
-  return TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
+  return TYPE_LABELS[t] ?? t;
 }
 
 export function BankEditor({
@@ -71,6 +91,11 @@ export function BankEditor({
   const [qPoints, setQPoints] = useState("1");
   const [qTagIds, setQTagIds] = useState<Set<string>>(new Set());
   const [newTag, setNewTag] = useState("");
+  // ESSAY rubric
+  const [qCriteria, setQCriteria] = useState<RubricCriterion[]>([blankCriterion()]);
+  const [qModelAnswer, setQModelAnswer] = useState("");
+  const [qMinWords, setQMinWords] = useState("");
+  const [qMaxWords, setQMaxWords] = useState("");
 
   function resetQuestionForm() {
     setQType("SINGLE_CHOICE");
@@ -81,6 +106,11 @@ export function BankEditor({
     setQShort("");
     setQPoints("1");
     setQTagIds(new Set());
+    // Seed one blank row so the rubric form is never structurally invalid.
+    setQCriteria([blankCriterion()]);
+    setQModelAnswer("");
+    setQMinWords("");
+    setQMaxWords("");
   }
 
   function startAdd() {
@@ -94,7 +124,13 @@ export function BankEditor({
     setQPrompt(q.prompt);
     setQPoints(String(q.points));
     setQTagIds(new Set(q.tagIds));
-    if (q.type === "SHORT_ANSWER") {
+    if (q.type === "ESSAY") {
+      setQCriteria(q.rubric?.criteria.length ? q.rubric.criteria : [blankCriterion()]);
+      setQModelAnswer(q.rubric?.modelAnswer ?? "");
+      setQMinWords(q.rubric?.minWords != null ? String(q.rubric.minWords) : "");
+      setQMaxWords(q.rubric?.maxWords != null ? String(q.rubric.maxWords) : "");
+      setQOptions(["", ""]);
+    } else if (q.type === "SHORT_ANSWER") {
       setQShort((q.answer as string[]).join("\n"));
       setQOptions(["", ""]);
     } else if (q.type === "TRUE_FALSE") {
@@ -140,6 +176,20 @@ export function BankEditor({
   function buildPayload() {
     const points = parseInt(qPoints, 10) || 0;
     const tagIds = [...qTagIds];
+    if (qType === "ESSAY") {
+      const rubric: EssayRubric = {
+        criteria: qCriteria.map((c) => ({
+          id: c.id,
+          label: c.label.trim(),
+          description: c.description.trim(),
+          weight: c.weight,
+        })),
+        modelAnswer: qModelAnswer.trim() === "" ? null : qModelAnswer.trim(),
+        minWords: qMinWords.trim() === "" ? null : parseInt(qMinWords, 10) || null,
+        maxWords: qMaxWords.trim() === "" ? null : parseInt(qMaxWords, 10) || null,
+      };
+      return { type: qType, prompt: qPrompt.trim(), options: [], answer: [], rubric, points, tagIds };
+    }
     if (qType === "SHORT_ANSWER") {
       const answer = qShort.split("\n").map((s) => s.trim()).filter(Boolean);
       return { type: qType, prompt: qPrompt.trim(), options: [], answer, points, tagIds };
@@ -165,6 +215,14 @@ export function BankEditor({
     }
     if (qType === "SHORT_ANSWER" && payload.answer.length === 0) {
       return setError("Add at least one acceptable answer.");
+    }
+    if (qType === "ESSAY") {
+      const criteria = payload.rubric?.criteria ?? [];
+      if (criteria.length === 0) return setError("Add at least one rubric criterion.");
+      if (criteria.some((c) => !c.label)) return setError("Every rubric criterion needs a label.");
+      if (criteria.some((c) => !Number.isInteger(c.weight) || c.weight < 1)) {
+        return setError("Every rubric criterion needs a weight of 1 or more.");
+      }
     }
 
     if (editing === "new") {
@@ -280,7 +338,117 @@ export function BankEditor({
                 <TextArea id="q-prompt" value={qPrompt} onChange={(e) => setQPrompt(e.target.value)} />
               </FormField>
 
-              {qType === "SHORT_ANSWER" ? (
+              {qType === "ESSAY" ? (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <span className="text-[13px] font-bold text-foreground">Rubric criteria</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      The AI grades against these and nothing else. Write criteria that can be
+                      checked objectively — &ldquo;names all three phases of X&rdquo;, not
+                      &ldquo;shows good understanding&rdquo;. Learners must score full marks on
+                      every criterion to move on, so vague wording blocks them.
+                    </p>
+                    <div className="mt-2 flex flex-col gap-3">
+                      {qCriteria.map((c, idx) => (
+                        <div key={c.id} className="rounded-[10px] border-2 border-border bg-card p-3">
+                          <div className="flex items-center gap-2">
+                            <TextInput
+                              value={c.label}
+                              onChange={(e) =>
+                                setQCriteria((prev) =>
+                                  prev.map((x, i) => (i === idx ? { ...x, label: e.target.value } : x))
+                                )
+                              }
+                              placeholder={`Criterion ${idx + 1}`}
+                            />
+                            <label className="flex shrink-0 items-center gap-1 text-xs font-bold text-muted-foreground">
+                              Weight
+                              <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={c.weight}
+                                onChange={(e) =>
+                                  setQCriteria((prev) =>
+                                    prev.map((x, i) =>
+                                      i === idx
+                                        ? { ...x, weight: Math.max(1, Number(e.target.value) || 1) }
+                                        : x
+                                    )
+                                  )
+                                }
+                                className="w-16 rounded-[8px] border-2 border-border bg-card px-2 py-1 text-sm outline-none"
+                              />
+                            </label>
+                            {qCriteria.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => setQCriteria((prev) => prev.filter((_, i) => i !== idx))}
+                                className="text-muted-foreground hover:text-destructive"
+                                aria-label="Remove criterion"
+                              >
+                                ✕
+                              </button>
+                            ) : null}
+                          </div>
+                          <TextArea
+                            className="mt-2"
+                            value={c.description}
+                            onChange={(e) =>
+                              setQCriteria((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx ? { ...x, description: e.target.value } : x
+                                )
+                              )
+                            }
+                            placeholder="What earns full marks for this criterion?"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      disabled={qCriteria.length >= 8}
+                      onClick={() => setQCriteria((prev) => [...prev, blankCriterion()])}
+                    >
+                      Add criterion
+                    </Button>
+                  </div>
+
+                  <FormField label="Model answer (optional)" htmlFor="q-model">
+                    <TextArea
+                      id="q-model"
+                      value={qModelAnswer}
+                      onChange={(e) => setQModelAnswer(e.target.value)}
+                      placeholder="One acceptable answer. The grader is told a different but equally valid answer still earns full marks."
+                    />
+                  </FormField>
+
+                  <div className="flex gap-3">
+                    <FormField label="Min words (optional)" htmlFor="q-minw">
+                      <TextInput
+                        id="q-minw"
+                        type="number"
+                        min="0"
+                        value={qMinWords}
+                        onChange={(e) => setQMinWords(e.target.value)}
+                      />
+                    </FormField>
+                    <FormField label="Max words (optional)" htmlFor="q-maxw">
+                      <TextInput
+                        id="q-maxw"
+                        type="number"
+                        min="1"
+                        value={qMaxWords}
+                        onChange={(e) => setQMaxWords(e.target.value)}
+                      />
+                    </FormField>
+                  </div>
+                </div>
+              ) : qType === "SHORT_ANSWER" ? (
                 <FormField label="Acceptable answers (one per line)" htmlFor="q-short">
                   <TextArea id="q-short" value={qShort} onChange={(e) => setQShort(e.target.value)} />
                 </FormField>
@@ -399,6 +567,12 @@ export function BankEditor({
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <Badge>{typeLabel(q.type)}</Badge>
                     <span>{q.points} pt</span>
+                    {q.type === "ESSAY" ? (
+                      <span>
+                        · {q.rubric?.criteria.length ?? 0}{" "}
+                        {(q.rubric?.criteria.length ?? 0) === 1 ? "criterion" : "criteria"}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 {canWrite ? (

@@ -4,12 +4,16 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { questionTypeSchema } from "@/lib/schemas/question";
+import { essayRubricSchema } from "@/lib/schemas/essay-grading";
+import { Prisma } from "@/lib/generated/prisma/client";
 
 const PatchBody = z.object({
-  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"]).optional(),
+  type: questionTypeSchema.optional(),
   prompt: z.string().min(1).max(5000).optional(),
   options: z.array(z.string().max(1000)).max(26).optional(),
   answer: z.array(z.union([z.number().int(), z.string()])).optional(),
+  rubric: essayRubricSchema.nullable().optional(),
   points: z.number().int().min(0).max(1000).optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional(),
 });
@@ -23,6 +27,14 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
     const question = await prisma.question.findFirst({ where: { id, tenantId: actor.tenantId } });
     if (!question) throw new DomainError(404, "not_found", "Question not found.");
+
+    // Rubric consistency is checked against the EFFECTIVE type, since a PATCH
+    // may change the type, the rubric, or only one of them.
+    const nextType = body.type ?? question.type;
+    const nextRubric = body.rubric !== undefined ? body.rubric : question.rubricJson;
+    if (nextType === "ESSAY" && nextRubric == null) {
+      throw new DomainError(400, "rubric_required", "Essay questions need a rubric.");
+    }
 
     if (body.tagIds && body.tagIds.length > 0) {
       const found = await prisma.questionTag.findMany({ where: { id: { in: body.tagIds } }, select: { id: true } });
@@ -39,6 +51,13 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
           ...(body.prompt !== undefined ? { prompt: body.prompt } : {}),
           ...(body.options !== undefined ? { optionsJson: body.options as object } : {}),
           ...(body.answer !== undefined ? { answerJson: body.answer as object } : {}),
+          // Switching away from ESSAY clears the rubric, so a question can never
+          // carry a stale rubric that the grader might later act on.
+          ...(nextType !== "ESSAY"
+            ? { rubricJson: Prisma.DbNull }
+            : body.rubric !== undefined
+              ? { rubricJson: body.rubric as object }
+              : {}),
           ...(body.points !== undefined ? { points: body.points } : {}),
         },
       }),

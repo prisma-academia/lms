@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
+import { Spinner } from "@/components/spinner";
 import { LearnPlayer } from "./learn-player";
 
 export default async function CourseLearnPage({
@@ -22,5 +24,10 @@ export default async function CourseLearnPage({
   });
   if (!enrollment) redirect(`/courses/${slug}`);
 
-  return <LearnPlayer slug={slug} />;
+  // Suspense boundary: LearnPlayer reads ?lesson= via useSearchParams.
+  return (
+    <Suspense fallback={<Spinner label="Loading course…" />}>
+      <LearnPlayer slug={slug} />
+    </Suspense>
+  );
 }

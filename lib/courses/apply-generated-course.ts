@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { DomainError } from "@/lib/api/errors";
 import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import type { GeneratedCourse, GeneratedQuestion } from "@/lib/schemas/course-builder";
+import { isChoiceQuestion } from "@/lib/schemas/question";
 
 /**
  * Writes a generated/imported course structure into an existing course.
@@ -18,10 +19,23 @@ export type ApplyCounts = {
 };
 
 /** Reject structurally-broken quiz questions before touching the database. */
-function validateQuestion(q: GeneratedQuestion, where: string): void {
+function validateQuestion(q: GeneratedQuestion, where: string, allowEssays: boolean): void {
   const fail = (msg: string): never => {
     throw new DomainError(400, "invalid_quiz", `${where}: ${msg}`);
   };
+  if (q.type === "ESSAY") {
+    // Defence in depth: the agent is instructed not to emit essays unless they
+    // were permitted, but a model can ignore instructions and a validator can't.
+    // An unreviewed AI rubric is a permanent progression gate, so this stays a
+    // hard reject rather than a downgrade to another type.
+    if (!allowEssays) fail("essay questions were not enabled for this generation");
+    const criteria = q.rubric?.criteria ?? [];
+    if (criteria.length === 0) fail("essay question needs at least one rubric criterion");
+    if (criteria.some((c) => !c.label.trim())) fail("every rubric criterion needs a label");
+    if (criteria.some((c) => !Number.isInteger(c.weight) || c.weight < 1))
+      fail("every rubric criterion needs a weight of 1 or more");
+    return;
+  }
   if (q.type === "SHORT_ANSWER") {
     if (q.acceptedAnswers.filter((a) => a.trim()).length === 0)
       fail("short-answer question needs at least one accepted answer");
@@ -39,7 +53,11 @@ function validateQuestion(q: GeneratedQuestion, where: string): void {
  * Validates every quiz in the structure, normalising TRUE_FALSE options in
  * place. Runs before the transaction so bad data never half-writes.
  */
-export function validateGeneratedCourse(generated: GeneratedCourse): void {
+export function validateGeneratedCourse(
+  generated: GeneratedCourse,
+  opts: { allowEssays?: boolean } = {}
+): void {
+  const allowEssays = opts.allowEssays ?? false;
   for (const group of generated.groups) {
     for (const lesson of group.lessons) {
       if (lesson.contentType !== "QUIZ") continue;
@@ -47,7 +65,7 @@ export function validateGeneratedCourse(generated: GeneratedCourse): void {
         throw new DomainError(400, "invalid_quiz", `Quiz lesson "${lesson.title}" has no quiz.`);
       lesson.quiz.questions.forEach((q, i) => {
         if (q.type === "TRUE_FALSE") q.options = ["True", "False"];
-        validateQuestion(q, `"${lesson.title}" question ${i + 1}`);
+        validateQuestion(q, `"${lesson.title}" question ${i + 1}`, allowEssays);
       });
     }
   }
@@ -58,14 +76,20 @@ export async function applyGeneratedCourse({
   courseId,
   courseTitle,
   generated,
+  allowEssays = false,
 }: {
   tenantId: string;
   courseId: string;
   /** Used to name the question bank the generated quizzes land in. */
   courseTitle: string;
   generated: GeneratedCourse;
+  /**
+   * Whether ESSAY questions were permitted for this generation. Defaults false
+   * so an import that never opted in can't smuggle in an AI-authored rubric.
+   */
+  allowEssays?: boolean;
 }): Promise<ApplyCounts> {
-  validateGeneratedCourse(generated);
+  validateGeneratedCourse(generated, { allowEssays });
 
   const hasQuizzes = generated.groups.some((g) => g.lessons.some((l) => l.contentType === "QUIZ"));
   const created: ApplyCounts = { groups: 0, lessons: 0, quizzes: 0, questions: 0 };
@@ -119,7 +143,10 @@ export async function applyGeneratedCourse({
             });
             created.quizzes++;
             for (const [qIdx, q] of lesson.quiz.questions.entries()) {
-              const isChoice = q.type !== "SHORT_ANSWER";
+              // Explicit allowlist, not `!== "SHORT_ANSWER"`: ESSAY has neither
+              // options nor correct indices, and the negated form would have
+              // silently written its (empty) option indices as the answer key.
+              const isChoice = isChoiceQuestion(q.type);
               const question = await tx.question.create({
                 data: {
                   tenantId,
@@ -127,7 +154,12 @@ export async function applyGeneratedCourse({
                   type: q.type,
                   prompt: q.prompt,
                   optionsJson: isChoice ? q.options : [],
-                  answerJson: isChoice ? q.correctOptionIndexes : q.acceptedAnswers,
+                  answerJson: isChoice
+                    ? q.correctOptionIndexes
+                    : q.type === "SHORT_ANSWER"
+                      ? q.acceptedAnswers
+                      : [],
+                  rubricJson: q.type === "ESSAY" ? (q.rubric as object) : undefined,
                   points: q.points,
                 },
               });

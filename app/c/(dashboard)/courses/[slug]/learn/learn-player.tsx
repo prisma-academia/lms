@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -17,16 +17,23 @@ import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import { MediaViewer } from "@/components/media/media-viewer";
 import type { MediaPayload } from "@/components/media/types";
 import type { MediaKind } from "@/lib/generated/prisma/enums";
+import { useContentGate, type ContentGate } from "@/components/lesson/use-content-gate";
+import type { GateContentType } from "@/lib/courses/content-gate";
 
 type LearnLesson = {
   id: string;
   title: string;
   sortOrder: number;
-  contentType: "TEXT" | "HTML" | "VIDEO_URL" | "FILE" | "QUIZ";
+  contentType: GateContentType;
   contentJson: Record<string, unknown>;
   assetUrl: string | null;
   durationMin: number | null;
   completed: boolean;
+  /** Server-decided: earlier lessons aren't finished yet. Content is redacted. */
+  locked: boolean;
+  startedAt: string | null;
+  requiredSeconds: number;
+  playbackProgress: { positionSeconds: number; completed: boolean } | null;
   libraryItem: {
     id: string;
     name: string;
@@ -75,10 +82,25 @@ function renderLessonBody(text: string) {
   });
 }
 
-function LessonContent({ lesson }: { lesson: LearnLesson }) {
+/** True when a FILE lesson renders through MediaViewer rather than a bare link. */
+function hasInlineViewer(lesson: LearnLesson): boolean {
+  return lesson.contentType === "FILE" && lesson.libraryItem != null && lesson.assetUrl != null;
+}
+
+function isTimedMedia(lesson: LearnLesson): boolean {
+  if (lesson.contentType === "VIDEO_URL") return true;
+  const kind = lesson.libraryItem?.mediaKind;
+  return hasInlineViewer(lesson) && (kind === "VIDEO" || kind === "AUDIO");
+}
+
+function isPagedMedia(lesson: LearnLesson): boolean {
+  return hasInlineViewer(lesson) && lesson.libraryItem?.mediaKind === "PDF";
+}
+
+function LessonContent({ lesson, gate }: { lesson: LearnLesson; gate: ContentGate }) {
   if (lesson.contentType === "QUIZ") {
     const quizId = typeof lesson.contentJson.quizId === "string" ? lesson.contentJson.quizId : null;
-    if (quizId) return <QuizPlayer quizId={quizId} />;
+    if (quizId) return <QuizPlayer quizId={quizId} onPerfect={gate.reportQuizPerfect} />;
     return <p className="text-sm font-medium text-muted-foreground">This quiz is not configured yet.</p>;
   }
 
@@ -106,6 +128,11 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
           src={url}
           controls
           className="w-full rounded-[10px] border-2 border-border bg-black"
+          onTimeUpdate={(e) => {
+            const total = e.currentTarget.duration || 0;
+            if (total > 0) gate.reportMedia(e.currentTarget.currentTime / total);
+          }}
+          onEnded={() => gate.reportMedia(1)}
         >
           <track kind="captions" />
         </video>
@@ -138,8 +165,17 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
         access: { state: "open", canDownload: true },
         playbackUrl: lesson.assetUrl,
         posterUrl: lesson.libraryItem.posterUrl,
+        // Saved position, so the player can offer a resume instead of restarting.
+        progress: lesson.playbackProgress,
       };
-      return <MediaViewer payload={payload} thumbUrl={lesson.libraryItem.posterUrl} />;
+      return (
+        <MediaViewer
+          payload={payload}
+          thumbUrl={lesson.libraryItem.posterUrl}
+          onWatchedFraction={gate.reportMedia}
+          onPageChange={gate.reportPage}
+        />
+      );
     }
     return (
       <a
@@ -185,19 +221,34 @@ function LessonList({
             <button
               type="button"
               onClick={() => onPick(lesson.id)}
+              disabled={lesson.locked}
+              aria-disabled={lesson.locked}
+              title={lesson.locked ? "Finish the previous lesson to unlock this one." : undefined}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-3 text-left text-sm font-medium [touch-action:manipulation] transition-colors",
                 i > 0 && "border-t-2 border-dashed border-border",
-                active ? "bg-primary text-primary-foreground font-bold" : "hover:bg-accent"
+                lesson.locked
+                  ? "cursor-not-allowed text-muted-foreground opacity-60"
+                  : active
+                    ? "bg-primary text-primary-foreground font-bold"
+                    : "hover:bg-accent"
               )}
             >
               <span
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-[7px] border-2 border-border text-[11px] font-bold",
-                  lesson.completed ? "bg-success text-success-foreground" : "bg-card text-muted-foreground"
+                  lesson.completed
+                    ? "bg-success text-success-foreground"
+                    : "bg-card text-muted-foreground"
                 )}
               >
-                {lesson.completed ? <Icon name="check" className="size-3" /> : i + 1}
+                {lesson.completed ? (
+                  <Icon name="check" className="size-3" />
+                ) : lesson.locked ? (
+                  <Icon name="lock" className="size-3" />
+                ) : (
+                  i + 1
+                )}
               </span>
               <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
             </button>
@@ -210,6 +261,7 @@ function LessonList({
 
 export function LearnPlayer({ slug }: { slug: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast, celebrate } = useToast();
   const report = useApiError();
   const [data, setData] = useState<LearnPayload | null>(null);
@@ -217,6 +269,10 @@ export function LearnPlayer({ slug }: { slug: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+
+  // Deep link (?lesson=) is honoured once, on first load. After that the URL
+  // follows the selection rather than driving it.
+  const initialLessonId = useRef(searchParams.get("lesson"));
 
   const load = useCallback(async () => {
     const res = await apiGet<LearnPayload>(`/api/client/courses/${slug}/learn`);
@@ -228,12 +284,17 @@ export function LearnPlayer({ slug }: { slug: string }) {
       setError("Could not load course.");
       return;
     }
+    const payload = res.data;
     setError(null);
-    setData(res.data);
+    setData(payload);
     setSelectedId((prev) => {
-      if (prev && res.data!.lessons.some((l) => l.id === prev)) return prev;
-      const firstIncomplete = res.data!.lessons.find((l) => !l.completed);
-      return firstIncomplete?.id ?? res.data!.lessons[0]?.id ?? null;
+      const wanted = prev ?? initialLessonId.current;
+      const target = wanted ? payload.lessons.find((l) => l.id === wanted) : undefined;
+      // Fall back to the frontier when the requested lesson is locked or gone —
+      // a stale bookmark shouldn't strand the learner on an empty screen.
+      if (target && !target.locked) return target.id;
+      const firstIncomplete = payload.lessons.find((l) => !l.completed && !l.locked);
+      return firstIncomplete?.id ?? payload.lessons.find((l) => !l.locked)?.id ?? null;
     });
   }, [slug]);
 
@@ -242,11 +303,68 @@ export function LearnPlayer({ slug }: { slug: string }) {
     void load();
   }, [load]);
 
+  const lessons = data?.lessons ?? [];
+  const selected = lessons.find((l) => l.id === selectedId) ?? lessons[0];
+
+  // Keep the URL in step so refresh, back/forward and shared links all land on
+  // the same lesson. replaceState rather than router.replace: this is pure
+  // client state and doesn't warrant a server round-trip.
+  useEffect(() => {
+    if (!selected) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("lesson") === selected.id) return;
+    url.searchParams.set("lesson", selected.id);
+    window.history.replaceState(null, "", url);
+  }, [selected]);
+
+  // Start the dwell clock. Fire-and-forget: a failed open just leaves the button
+  // gated, which is the safe outcome.
+  const openedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!selected || selected.locked || selected.startedAt) return;
+    if (openedRef.current.has(selected.id)) return;
+    openedRef.current.add(selected.id);
+
+    const lessonId = selected.id;
+    void apiPost<{ startedAt: string | null; requiredSeconds: number }>(
+      `/api/client/courses/${slug}/learn`,
+      { lessonId, action: "open" }
+    ).then((res) => {
+      if (!res.data) return;
+      const startedAt = res.data.startedAt;
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              lessons: prev.lessons.map((l) => (l.id === lessonId ? { ...l, startedAt } : l)),
+            }
+          : prev
+      );
+    });
+  }, [selected, slug]);
+
+  const gate = useContentGate({
+    lessonId: selected?.id ?? "",
+    contentType: selected?.contentType ?? "TEXT",
+    requiredSeconds: selected?.requiredSeconds ?? 0,
+    startedAt: selected?.startedAt ?? null,
+    hasViewer: selected ? hasInlineViewer(selected) : false,
+    isTimedMedia: selected ? isTimedMedia(selected) : false,
+    isPaged: selected ? isPagedMedia(selected) : false,
+    initialMediaFraction:
+      selected?.playbackProgress && selected.libraryItem?.durationSeconds
+        ? selected.playbackProgress.completed
+          ? 1
+          : selected.playbackProgress.positionSeconds / selected.libraryItem.durationSeconds
+        : 0,
+    alreadyComplete: selected?.completed ?? false,
+  });
+
   async function markComplete(lessonId: string) {
     setCompleting(true);
     const res = await apiPost<{
       enrollment: { progressPercent: number; completedAt: string | null };
-    }>(`/api/client/courses/${slug}/learn`, { lessonId });
+    }>(`/api/client/courses/${slug}/learn`, { lessonId, action: "complete" });
     setCompleting(false);
     if (!report(res, () => markComplete(lessonId))) return;
     if (res.data?.enrollment.progressPercent === 100) {
@@ -275,16 +393,16 @@ export function LearnPlayer({ slug }: { slug: string }) {
 
   if (!data) return <Spinner label="Loading course…" />;
 
-  const lessons = data.lessons;
-  const selected = lessons.find((l) => l.id === selectedId) ?? lessons[0];
   const selectedIndex = lessons.findIndex((l) => l.id === selected?.id);
   const prev = selectedIndex > 0 ? lessons[selectedIndex - 1] : null;
-  const next =
-    selectedIndex >= 0 && selectedIndex < lessons.length - 1
-      ? lessons[selectedIndex + 1]
-      : null;
+  const nextLesson =
+    selectedIndex >= 0 && selectedIndex < lessons.length - 1 ? lessons[selectedIndex + 1] : null;
+  // Next only moves forward through unlocked ground.
+  const next = nextLesson && !nextLesson.locked ? nextLesson : null;
 
   function pick(id: string) {
+    const target = lessons.find((l) => l.id === id);
+    if (!target || target.locked) return;
     setSelectedId(id);
     setListOpen(false);
     if (typeof window !== "undefined") window.scrollTo({ top: 0 });
@@ -359,17 +477,28 @@ export function LearnPlayer({ slug }: { slug: string }) {
                 ) : null}
               </div>
 
-              <LessonContent lesson={selected} />
+              <LessonContent lesson={selected} gate={gate} />
+
+              {/* Zero-height scroll sentinel: reaching it means the learner got
+                  to the end of the content above. */}
+              <div ref={gate.sentinelRef} aria-hidden className="h-px w-full" />
 
               <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-border pt-4">
                 {!selected.completed ? (
-                  <Button
-                    onClick={() => markComplete(selected.id)}
-                    disabled={completing}
-                  >
-                    {completing ? "Saving…" : "Mark complete"}
-                    <Icon name="check" />
-                  </Button>
+                  <div className="flex flex-col gap-1.5">
+                    <Button
+                      onClick={() => markComplete(selected.id)}
+                      disabled={completing || !gate.satisfied}
+                    >
+                      {completing ? "Saving…" : "Mark complete"}
+                      <Icon name="check" />
+                    </Button>
+                    {gate.hint ? (
+                      <span className="text-[12px] font-bold text-muted-foreground">
+                        {gate.hint}
+                      </span>
+                    ) : null}
+                  </div>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm font-bold text-success">
                     <Icon name="check-circle" className="size-4" /> Completed
@@ -391,6 +520,11 @@ export function LearnPlayer({ slug }: { slug: string }) {
                     disabled={!next}
                     onClick={() => next && pick(next.id)}
                     aria-label="Next lesson"
+                    title={
+                      !next && nextLesson
+                        ? "Complete this lesson to unlock the next one."
+                        : undefined
+                    }
                   >
                     <Icon name="arrow-right" />
                   </Button>

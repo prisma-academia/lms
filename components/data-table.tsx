@@ -15,7 +15,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useState, type ReactNode } from "react";
+import { useDeferredValue, useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
@@ -73,6 +73,10 @@ export type DataTableProps<TData> = {
    */
   maxHeight?: string;
   className?: string;
+  /** Stable row id for React keys / View Transitions (defaults to index). */
+  getRowId?: (row: TData) => string;
+  /** Optional inline style per row (e.g. viewTransitionName). */
+  rowStyle?: (row: TData) => CSSProperties | undefined;
 };
 
 export function DataTable<TData>({
@@ -91,6 +95,8 @@ export function DataTable<TData>({
   initialPageSize = 25,
   maxHeight = "min(65vh, 40rem)",
   className,
+  getRowId,
+  rowStyle,
 }: DataTableProps<TData>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -107,6 +113,7 @@ export function DataTable<TData>({
     data,
     columns,
     state: { sorting, pagination, globalFilter: deferredQuery },
+    getRowId: getRowId ? (row) => getRowId(row) : undefined,
     onSortingChange: (next) => {
       setSorting(next);
       setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
@@ -208,6 +215,7 @@ export function DataTable<TData>({
                 key={row.id}
                 role={href ? "link" : undefined}
                 tabIndex={href ? 0 : undefined}
+                style={rowStyle?.(row.original)}
                 onClick={(e) => {
                   if (!isInteractiveTarget(e.target)) go(href);
                 }}
@@ -296,6 +304,7 @@ export function DataTable<TData>({
                   <tr
                     key={row.id}
                     tabIndex={href ? 0 : undefined}
+                    style={rowStyle?.(row.original)}
                     onClick={(e) => {
                       if (!isInteractiveTarget(e.target)) go(href);
                     }}

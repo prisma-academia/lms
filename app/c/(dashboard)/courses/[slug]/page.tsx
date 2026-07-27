@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Icon } from "@/components/icon";
 import { CourseEnrollButton } from "../enroll-button";
 import { courseAccent, courseIcon } from "@/lib/ui/course-color";
+import { isUnlocked, frontierLesson } from "@/lib/courses/gating";
 
 function formatPrice(cents: number | null, currency: string): string {
   if (cents == null || cents === 0) return "Free";
@@ -29,7 +30,7 @@ export default async function CourseDetailPage({
     where: { slug, status: "PUBLISHED" },
     include: {
       lessons: {
-        orderBy: { sortOrder: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
         select: { id: true, title: true, durationMin: true },
       },
     },
@@ -40,11 +41,17 @@ export default async function CourseDetailPage({
     where: {
       courseId_clientId: { courseId: course.id, clientId: actor.clientId },
     },
-    include: { lessonProgress: { select: { lessonId: true } } },
+    // completedAt filter: row presence now means "opened", not "completed".
+    include: {
+      lessonProgress: { where: { completedAt: { not: null } }, select: { lessonId: true } },
+    },
   });
 
   const enrolled = enrollment != null;
   const doneSet = new Set(enrollment?.lessonProgress.map((p) => p.lessonId) ?? []);
+  // Same predicate the learn API enforces, so the syllabus can't promise access
+  // the player then refuses.
+  const nextLesson = enrolled ? frontierLesson(course.lessons, doneSet) : null;
   const totalDuration = course.lessons.reduce(
     (sum, l) => sum + (l.durationMin ?? 0),
     0
@@ -120,20 +127,33 @@ export default async function CourseDetailPage({
           <ul className="divide-dash">
             {course.lessons.map((lesson, i) => {
               const done = doneSet.has(lesson.id);
+              const locked = enrolled && !isUnlocked(course.lessons, doneSet, lesson.id);
               return (
                 <li
                   key={lesson.id}
-                  className="flex items-center gap-3 px-2 py-3 text-sm"
+                  className={`flex items-center gap-3 px-2 py-3 text-sm ${
+                    locked ? "opacity-60" : ""
+                  }`}
                 >
                   <span
                     className={`flex size-7 shrink-0 items-center justify-center rounded-[8px] border-2 border-border text-[12px] font-bold ${
                       done ? "bg-success text-success-foreground" : "bg-card text-muted-foreground"
                     }`}
                   >
-                    {done ? <Icon name="check" className="size-3.5" /> : i + 1}
+                    {done ? (
+                      <Icon name="check" className="size-3.5" />
+                    ) : locked ? (
+                      <Icon name="lock" className="size-3.5" />
+                    ) : (
+                      i + 1
+                    )}
                   </span>
                   <span className="min-w-0 flex-1 font-medium">{lesson.title}</span>
-                  {lesson.durationMin != null ? (
+                  {locked ? (
+                    <span className="shrink-0 text-[12px] font-bold text-muted-foreground">
+                      Locked
+                    </span>
+                  ) : lesson.durationMin != null ? (
                     <span className="num shrink-0 text-[12px] font-bold text-muted-foreground">
                       {lesson.durationMin} min
                     </span>
@@ -147,8 +167,17 @@ export default async function CourseDetailPage({
 
       {enrolled ? (
         <Button asChild className="mt-6">
-          <Link href={`/courses/${course.slug}/learn`}>
-            Go to course player <Icon name="arrow-right" />
+          <Link
+            href={
+              nextLesson
+                ? `/courses/${course.slug}/learn?lesson=${nextLesson.id}`
+                : `/courses/${course.slug}/learn`
+            }
+          >
+            {nextLesson && !doneSet.has(nextLesson.id)
+              ? `Continue: ${nextLesson.title}`
+              : "Go to course player"}
+            <Icon name="arrow-right" />
           </Link>
         </Button>
       ) : null}

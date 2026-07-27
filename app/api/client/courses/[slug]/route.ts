@@ -20,14 +20,18 @@ export async function GET(_request: Request, ctx: { params: Promise<{ slug: stri
     const course = await prisma.course.findFirst({
       where: { tenantId: actor.tenantId, slug, status: "PUBLISHED" },
       include: {
-        lessons: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true, sortOrder: true, durationMin: true } },
+        lessons: {
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          select: { id: true, title: true, sortOrder: true, durationMin: true },
+        },
       },
     });
     if (!course) throw new DomainError(404, "not_found", "Course not found.");
 
     const enrollment = await prisma.enrollment.findUnique({
       where: { courseId_clientId: { courseId: course.id, clientId: actor.clientId } },
-      include: { lessonProgress: true },
+      // completedAt filter: row presence now means "opened", not "completed".
+      include: { lessonProgress: { where: { completedAt: { not: null } } } },
     });
 
     // Private courses are only visible to already-enrolled learners.

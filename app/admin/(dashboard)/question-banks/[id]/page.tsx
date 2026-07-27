@@ -4,6 +4,7 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { canAccessBank } from "@/lib/assessments/bank-access";
 import { PageHeader } from "@/components/shell";
+import { parseRubric } from "@/lib/schemas/essay-grading";
 import { BankEditor, type BankQuestion } from "./bank-editor";
 
 export default async function BankDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +35,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
     prompt: q.prompt,
     options: (q.optionsJson as string[]) ?? [],
     answer: (q.answerJson as (number | string)[]) ?? [],
+    rubric: parseRubric(q.rubricJson),
     points: q.points,
     tagIds: q.tags.map((t) => t.tagId),
   }));

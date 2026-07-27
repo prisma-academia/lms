@@ -134,6 +134,7 @@ async function main() {
         sourceMaterial: null,
         sourceJson: JSON.stringify(TEMPLATE),
         allowPlaceholders: true,
+        allowEssays: false,
       });
       eq("workflow fast path returns the template's modules", fromWorkflow.groups.length, 2);
       eq(
@@ -301,6 +302,7 @@ async function main() {
           sourceMaterial: null,
           sourceJson: null,
           allowPlaceholders: false,
+          allowEssays: false,
         });
         check("AI generation returns at least one module", generated.groups.length >= 1);
         check(

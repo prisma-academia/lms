@@ -27,11 +27,16 @@ export function MediaViewer({
   thumbUrl,
   autoPlay,
   compact,
+  onWatchedFraction,
+  onPageChange,
 }: {
   payload: MediaPayload;
   thumbUrl?: string | null;
   autoPlay?: boolean;
   compact?: boolean;
+  /** Consumption callbacks for the lesson completion gate. Optional everywhere else. */
+  onWatchedFraction?: (fraction: number) => void;
+  onPageChange?: (page: number, total: number) => void;
 }) {
   // Access is checked before kind: a locked item shows the paywall regardless
   // of what it is, and never receives a playback URL to begin with.
@@ -41,11 +46,18 @@ export function MediaViewer({
 
   switch (payload.item.mediaKind) {
     case "VIDEO":
-      return <VideoPlayer payload={payload} autoPlay={autoPlay} compact={compact} />;
+      return (
+        <VideoPlayer
+          payload={payload}
+          autoPlay={autoPlay}
+          compact={compact}
+          onWatchedFraction={onWatchedFraction}
+        />
+      );
     case "AUDIO":
-      return <AudioPlayer payload={payload} />;
+      return <AudioPlayer payload={payload} onWatchedFraction={onWatchedFraction} />;
     case "PDF":
-      return <PdfViewer payload={payload} />;
+      return <PdfViewer payload={payload} onPageChange={onPageChange} />;
     case "IMAGE":
       return <ImageLightbox src={payload.playbackUrl} alt={payload.item.description || displayTitle(payload.item)} />;
     default:

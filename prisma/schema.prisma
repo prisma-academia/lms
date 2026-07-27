@@ -129,6 +129,16 @@ enum QuestionType {
   MULTIPLE_CHOICE
   TRUE_FALSE
   SHORT_ANSWER
+  /// Free-text, graded by AI against the author's rubric (see Question.rubricJson).
+  ESSAY
+}
+
+/// Whether an attempt's score is final. Only GRADED attempts can unlock a lesson.
+enum GradingStatus {
+  GRADED
+  /// An essay grader call failed; the learner's answers are saved and re-gradable.
+  PENDING
+  FAILED
 }
 
 enum EventType {
@@ -507,6 +517,10 @@ model ProgrammeEnrollment {
   @@index([clientId])
 }
 
+/// A learner's relationship with one lesson. NOTE: row presence means "opened",
+/// NOT "completed" — `completedAt != null` is completion. Every read that counts
+/// progress MUST filter on `completedAt: { not: null }`, or merely opening
+/// lessons drives Enrollment.progressPercent to 100 and issues certificates.
 model LessonProgress {
   id           String     @id @default(cuid())
   tenantId     String
@@ -514,10 +528,13 @@ model LessonProgress {
   enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   lessonId     String
   lesson       Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  completedAt  DateTime   @default(now())
+  /// First open. The dwell clock the completion gate measures against.
+  startedAt    DateTime?
+  completedAt  DateTime?
 
   @@unique([enrollmentId, lessonId])
   @@index([tenantId])
+  @@index([enrollmentId, completedAt])
 }
 
 model CoursePayment {
@@ -700,6 +717,11 @@ model Question {
   prompt      String
   optionsJson Json              @default("[]")
   answerJson  Json              @default("[]")
+  /// ESSAY only; NULL for every other type. Shape: lib/schemas/essay-grading.ts
+  /// `essayRubricSchema` — weighted criteria, an optional model answer, word bounds.
+  /// A separate column rather than overloading answerJson, whose "option indices
+  /// or accepted strings" meaning the scorer, seeds and export path all rely on.
+  rubricJson  Json?
   points      Int               @default(1)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -764,11 +786,21 @@ model QuizAttempt {
   submittedAt  DateTime?
   scorePercent Int?
   passed       Boolean?
+  /// The learner's submission, keyed by questionId. Immutable once written.
   answersJson  Json      @default("{}")
+  /// Grader output keyed by questionId: earned points, per-criterion essay
+  /// scores and feedback. Kept apart from answersJson so a re-grade can be
+  /// rewritten without ever touching what the learner actually submitted.
+  resultsJson   Json          @default("{}")
+  gradingStatus GradingStatus @default(GRADED)
+  gradingError  String?
+  gradedAt      DateTime?
 
   @@index([tenantId])
   @@index([quizId])
   @@index([clientId])
+  /// Serves the quiz-completion gate: "has this learner ever scored 100% here?"
+  @@index([clientId, quizId])
 }
 
 /// A certificate template (design stored as contentJson for the WYSIWYG editor),

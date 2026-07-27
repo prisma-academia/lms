@@ -4,9 +4,13 @@ import { useState } from "react";
 import { apiPatch, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  GenerationProgressModal,
+  INITIAL_GENERATION_PROGRESS,
+  type GenerationProgressState,
+} from "@/components/generation-progress-modal";
 import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
-import { Spinner } from "@/components/spinner";
 import type { GeneratedLesson } from "@/lib/schemas/course-builder";
 import {
   CONTENT_TYPE_OPTIONS,
@@ -95,6 +99,7 @@ function LessonForm({
   const [aiPreview, setAiPreview] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiProgress, setAiProgress] = useState<GenerationProgressState>(INITIAL_GENERATION_PROGRESS);
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.title }));
   const quizOptions = quizzes.map((q) => ({ value: q.id, label: q.title }));
@@ -108,6 +113,28 @@ function LessonForm({
     }
     setAiError(null);
     setAiGenerating(true);
+    setAiProgress({
+      open: true,
+      percent: 10,
+      label: "Preparing…",
+      error: null,
+      running: true,
+    });
+
+    // Stepped progress while the blocking generate call runs (no workflow stream).
+    const timers = [
+      window.setTimeout(() => {
+        setAiProgress((p) =>
+          p.running ? { ...p, percent: 35, label: "Writing lesson…" } : p
+        );
+      }, 600),
+      window.setTimeout(() => {
+        setAiProgress((p) =>
+          p.running ? { ...p, percent: 70, label: "Finishing…" } : p
+        );
+      }, 2500),
+    ];
+
     const res = await apiPost<{ lesson: GeneratedLesson }>(
       `/api/tenant/courses/${courseId}/lessons/generate`,
       {
@@ -116,17 +143,36 @@ function LessonForm({
         instructions: aiInstructions.trim() || null,
       }
     );
+
+    for (const t of timers) window.clearTimeout(t);
     setAiGenerating(false);
+
     if (res.error) {
+      setAiProgress({
+        open: true,
+        percent: 0,
+        label: "",
+        error: res.error.message,
+        running: false,
+      });
       setAiError(res.error.message);
       return;
     }
     const gen = res.data?.lesson;
     const content = (type === "HTML" ? gen?.html : gen?.body) ?? "";
     if (!content) {
-      setAiError("The AI returned no content — try again.");
+      const msg = "The AI returned no content — try again.";
+      setAiProgress({ open: true, percent: 0, label: "", error: msg, running: false });
+      setAiError(msg);
       return;
     }
+    setAiProgress({
+      open: false,
+      percent: 100,
+      label: "Done",
+      error: null,
+      running: false,
+    });
     setAiPreview(content);
   }
 
@@ -174,7 +220,17 @@ function LessonForm({
   }
 
   return (
-    <DialogContent className="max-w-2xl">
+    <>
+      <GenerationProgressModal
+        title="Writing lesson"
+        state={aiProgress}
+        onClose={() => setAiProgress(INITIAL_GENERATION_PROGRESS)}
+        onRetry={() => {
+          setAiProgress(INITIAL_GENERATION_PROGRESS);
+          void generateWithAi();
+        }}
+      />
+      <DialogContent className="max-w-2xl">
       <DialogTitle>{lesson ? "Edit lesson" : "Add lesson"}</DialogTitle>
       <DialogDescription>
         {lesson
@@ -308,7 +364,6 @@ function LessonForm({
                 >
                   {aiGenerating ? "Generating…" : aiPreview ? "Regenerate" : "Generate"}
                 </Button>
-                {aiGenerating ? <Spinner label="Writing lesson…" /> : null}
               </div>
               {aiError ? <p className="text-sm text-red-600">{aiError}</p> : null}
 
@@ -386,7 +441,8 @@ function LessonForm({
             {pending ? "Saving…" : lesson ? "Save lesson" : "Add lesson"}
           </Button>
         </div>
-      </div>
-    </DialogContent>
+        </div>
+      </DialogContent>
+    </>
   );
 }

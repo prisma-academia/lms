@@ -78,7 +78,13 @@ export default async function CourseDetailPage({
       }),
       prisma.lessonProgress.groupBy({
         by: ["lessonId"],
-        where: { tenantId: actor.tenantId, lesson: { courseId: id } },
+        // completedAt filter: row presence now means "opened" — without this the
+        // per-lesson completion analytics would report every view as a finish.
+        where: {
+          tenantId: actor.tenantId,
+          lesson: { courseId: id },
+          completedAt: { not: null },
+        },
         _count: true,
       }),
       prisma.enrollment.findMany({

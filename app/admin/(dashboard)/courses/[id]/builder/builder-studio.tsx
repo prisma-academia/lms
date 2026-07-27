@@ -3,19 +3,25 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
+import { streamPost } from "@/lib/client/stream-post";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/shell";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
 import { Segmented } from "@/components/ui/segmented";
-import { Spinner } from "@/components/spinner";
+import {
+  GenerationProgressModal,
+  INITIAL_GENERATION_PROGRESS,
+  type GenerationProgressState,
+} from "@/components/generation-progress-modal";
 import { useToast } from "@/components/ui/toast";
 import { BuilderPreviewTree } from "../builder-preview-tree";
 import {
   courseTemplateSchema,
   type GeneratedCourse,
 } from "@/lib/schemas/course-builder";
+import type { CourseBuilderProgressEvent } from "@/lib/schemas/course-builder-progress";
 import {
   AUDIENCE_PRESETS,
   QUIZ_MODE_OPTIONS,
@@ -61,6 +67,7 @@ export function BuilderStudio({
   const [extraHints, setExtraHints] = useState("");
   const [sourceMaterial, setSourceMaterial] = useState("");
   const [allowPlaceholders, setAllowPlaceholders] = useState(false);
+  const [allowEssays, setAllowEssays] = useState(false);
   const [importJson, setImportJson] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -68,12 +75,38 @@ export function BuilderStudio({
   const [generating, setGenerating] = useState(false);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<GenerationProgressState>(INITIAL_GENERATION_PROGRESS);
 
   async function readImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportJson(await file.text());
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function buildGenerateBody() {
+    return mode === "import"
+      ? {
+          mode: "adapt-json" as const,
+          topic: topic.trim() || "Course from imported JSON",
+          sourceJson: importJson.trim(),
+          allowPlaceholders,
+          allowEssays,
+        }
+      : {
+          mode: "prompt" as const,
+          topic: topic.trim(),
+          audience: serializeAudience(audiencePreset, audienceCustom),
+          structureHints: serializeStructureHints({
+            modules: moduleCount,
+            lessonsPerModule,
+            quizMode,
+            extra: extraHints,
+          }),
+          sourceMaterial: sourceMaterial.trim() || null,
+          allowPlaceholders,
+          allowEssays,
+        };
   }
 
   async function generate() {
@@ -102,35 +135,75 @@ export function BuilderStudio({
     }
 
     setGenerating(true);
-    const res = await apiPost<{ course: GeneratedCourse }>(
+    setProgress({
+      open: true,
+      percent: 0,
+      label: "Starting…",
+      error: null,
+      running: true,
+    });
+
+    let gotCourse = false;
+    let streamError: string | null = null;
+
+    const { error: transportError } = await streamPost<CourseBuilderProgressEvent>(
       `/api/tenant/courses/${courseId}/builder/generate`,
-      mode === "import"
-        ? {
-            mode: "adapt-json",
-            topic: topic.trim() || "Course from imported JSON",
-            sourceJson: importJson.trim(),
-            allowPlaceholders,
-          }
-        : {
-            mode: "prompt",
-            topic: topic.trim(),
-            audience: serializeAudience(audiencePreset, audienceCustom),
-            structureHints: serializeStructureHints({
-              modules: moduleCount,
-              lessonsPerModule,
-              quizMode,
-              extra: extraHints,
-            }),
-            sourceMaterial: sourceMaterial.trim() || null,
-            allowPlaceholders,
-          }
+      buildGenerateBody(),
+      (event) => {
+        if (event.type === "progress") {
+          setProgress((prev) => ({
+            ...prev,
+            open: true,
+            running: true,
+            error: null,
+            percent: event.percent,
+            label: event.label,
+            completed: event.completed,
+            total: event.total,
+          }));
+        } else if (event.type === "error") {
+          streamError = event.message;
+          setProgress((prev) => ({
+            ...prev,
+            open: true,
+            running: false,
+            error: event.message,
+          }));
+        } else if (event.type === "done") {
+          gotCourse = true;
+          setPreview(event.course);
+          setProgress({
+            open: false,
+            percent: 100,
+            label: "Course ready",
+            error: null,
+            running: false,
+          });
+        }
+      }
     );
+
     setGenerating(false);
-    if (res.error) {
-      setError(res.error.message);
+
+    if (transportError && !gotCourse && !streamError) {
+      setProgress((prev) => ({
+        ...prev,
+        open: true,
+        running: false,
+        error: transportError,
+      }));
+      setError(transportError);
       return;
     }
-    if (res.data?.course) setPreview(res.data.course);
+    if (streamError) {
+      setError(streamError);
+      return;
+    }
+    if (!gotCourse) {
+      const msg = "Generation finished without a course — try again.";
+      setProgress((prev) => ({ ...prev, open: true, running: false, error: msg }));
+      setError(msg);
+    }
   }
 
   async function apply() {
@@ -139,6 +212,7 @@ export function BuilderStudio({
     setApplying(true);
     const res = await apiPost<ApplyResult>(`/api/tenant/courses/${courseId}/builder/apply`, {
       course: preview,
+      allowEssays,
     });
     setApplying(false);
     if (res.error) {
@@ -161,6 +235,16 @@ export function BuilderStudio({
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <GenerationProgressModal
+        title="Generating course"
+        state={progress}
+        onClose={() => setProgress(INITIAL_GENERATION_PROGRESS)}
+        onRetry={() => {
+          setProgress(INITIAL_GENERATION_PROGRESS);
+          void generate();
+        }}
+      />
+
       {/* ---- Config side panel ---- */}
       <div className="lg:sticky lg:top-4">
         <Card>
@@ -318,33 +402,35 @@ export function BuilderStudio({
               Allow video/file placeholder lessons
             </label>
 
+            <label className="flex items-start gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={allowEssays}
+                onChange={(e) => setAllowEssays(e.target.checked)}
+              />
+              <span>
+                Allow AI-graded essay questions
+                <span className="block text-[12px] font-medium text-muted-foreground">
+                  Learners must earn full marks on every rubric criterion to move on. Review each
+                  generated rubric in the preview before applying.
+                </span>
+              </span>
+            </label>
+
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
             <Button onClick={generate} disabled={generating || applying} className="w-full">
               <Icon name="sparkles" />
               {generating ? "Generating…" : preview ? "Regenerate" : "Generate course"}
             </Button>
-            {generating ? (
-              <p className="text-center text-xs text-stone-500">
-                Writing your course — this can take a couple of minutes.
-              </p>
-            ) : null}
           </div>
         </Card>
       </div>
 
       {/* ---- Preview workspace ---- */}
       <div className="min-w-0">
-        {generating ? (
-          <Card>
-            <div className="flex flex-col items-center gap-3 py-16">
-              <Spinner label="Generating course…" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Designing the outline, then writing every lesson.
-              </p>
-            </div>
-          </Card>
-        ) : preview ? (
+        {preview ? (
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-dashed border-border pb-4">
               <div>
@@ -356,17 +442,21 @@ export function BuilderStudio({
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setPreview(null)} disabled={applying}>
+                <Button variant="outline" onClick={() => setPreview(null)} disabled={applying || generating}>
                   Discard
                 </Button>
-                <Button onClick={apply} disabled={applying}>
+                <Button onClick={apply} disabled={applying || generating}>
                   <Icon name="check" />
                   {applying ? "Applying…" : "Apply to course"}
                 </Button>
               </div>
             </div>
             <div className="mt-4">
-              <BuilderPreviewTree course={preview} canEdit={!applying} onChange={setPreview} />
+              <BuilderPreviewTree
+                course={preview}
+                canEdit={!applying && !generating}
+                onChange={setPreview}
+              />
             </div>
           </Card>
         ) : (

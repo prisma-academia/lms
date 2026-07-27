@@ -4,15 +4,29 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { questionTypeSchema } from "@/lib/schemas/question";
+import { essayRubricSchema } from "@/lib/schemas/essay-grading";
 
-const CreateBody = z.object({
-  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"]),
-  prompt: z.string().min(1).max(5000),
-  options: z.array(z.string().max(1000)).max(26).optional(),
-  answer: z.array(z.union([z.number().int(), z.string()])).optional(),
-  points: z.number().int().min(0).max(1000).optional(),
-  tagIds: z.array(z.string().min(1)).max(50).optional(),
-});
+const CreateBody = z
+  .object({
+    type: questionTypeSchema,
+    prompt: z.string().min(1).max(5000),
+    options: z.array(z.string().max(1000)).max(26).optional(),
+    answer: z.array(z.union([z.number().int(), z.string()])).optional(),
+    rubric: essayRubricSchema.nullable().optional(),
+    points: z.number().int().min(0).max(1000).optional(),
+    tagIds: z.array(z.string().min(1)).max(50).optional(),
+  })
+  // An ESSAY without a rubric is ungradeable, and a rubric on any other type is
+  // dead weight that would confuse the grader later. Reject both at the edge.
+  .refine((b) => b.type !== "ESSAY" || b.rubric != null, {
+    message: "Essay questions need a rubric.",
+    path: ["rubric"],
+  })
+  .refine((b) => b.type === "ESSAY" || b.rubric == null, {
+    message: "Only essay questions take a rubric.",
+    path: ["rubric"],
+  });
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -39,6 +53,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         prompt: body.prompt,
         optionsJson: (body.options ?? []) as object,
         answerJson: (body.answer ?? []) as object,
+        rubricJson: body.type === "ESSAY" ? (body.rubric as object) : undefined,
         points: body.points ?? 1,
         tags: body.tagIds
           ? { create: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, tagId })) }

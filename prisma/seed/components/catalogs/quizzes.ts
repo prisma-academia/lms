@@ -1,5 +1,7 @@
+import type { QuestionTypeValue } from "../../../../lib/schemas/question";
+
 export type QuestionSeed = {
-  type: "SINGLE_CHOICE" | "TRUE_FALSE" | "MULTIPLE_CHOICE" | "SHORT_ANSWER";
+  type: QuestionTypeValue;
   prompt: string;
   /** Choice options (empty for SHORT_ANSWER). For TRUE_FALSE use ["True","False"]. */
   options: string[];

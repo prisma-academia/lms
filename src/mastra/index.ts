@@ -4,6 +4,7 @@ import { PostgresStore } from '@mastra/pg';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
 import { courseBuilderWorkflow } from './workflows/course-builder-workflow';
 import { courseBuilderAgent } from './agents/course-builder-agent';
+import { essayGraderAgent } from './agents/essay-grader-agent';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -30,7 +31,7 @@ function getPgStore(): PostgresStore {
 
 export const mastra = new Mastra({
   workflows: { courseBuilderWorkflow },
-  agents: { courseBuilderAgent },
+  agents: { courseBuilderAgent, essayGraderAgent },
   // Postgres covers memory, workflows, and observability (no LibSQL/DuckDB needed).
   storage: getPgStore(),
   logger: new PinoLogger({

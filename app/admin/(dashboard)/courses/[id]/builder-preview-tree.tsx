@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
 import { sanitizeHtml } from "@/lib/content/sanitize-html";
+import { withViewTransition } from "@/lib/client/view-transition";
 import { cn } from "@/lib/utils";
 import type {
   GeneratedCourse,
@@ -77,7 +78,31 @@ function QuestionPreview({
           </Button>
         ) : null}
       </div>
-      {question.type === "SHORT_ANSWER" ? (
+      {question.type === "ESSAY" ? (
+        // The rubric is shown in full on purpose. A generated essay is a hard
+        // progression gate — learners need full marks on every criterion — so
+        // this preview is the only chance a human gets to catch a vague
+        // criterion before it blocks people. Do not collapse or truncate it.
+        <div className="mt-2 flex flex-col gap-1.5">
+          <p className="text-xs font-semibold text-stone-600">
+            AI-graded rubric — learners need full marks on every criterion
+          </p>
+          <ul className="flex flex-col gap-1">
+            {(question.rubric?.criteria ?? []).map((c) => (
+              <li key={c.id} className="rounded bg-stone-50 px-2 py-1 text-xs text-stone-700">
+                <span className="font-semibold">{c.label}</span>
+                <span className="text-stone-400"> · weight {c.weight}</span>
+                {c.description ? <span className="block text-stone-600">{c.description}</span> : null}
+              </li>
+            ))}
+          </ul>
+          {question.rubric?.modelAnswer ? (
+            <p className="text-xs text-stone-600">
+              <span className="font-semibold">Model answer:</span> {question.rubric.modelAnswer}
+            </p>
+          ) : null}
+        </div>
+      ) : question.type === "SHORT_ANSWER" ? (
         <p className="mt-2 text-xs text-stone-600">
           Accepted answers:{" "}
           <span className="font-semibold text-green-700">{question.acceptedAnswers.join(", ")}</span>
@@ -114,6 +139,7 @@ function LessonPreview({
   onRemove,
   move,
   dragProps,
+  viewTransitionName,
 }: {
   lesson: GeneratedLesson;
   canEdit: boolean;
@@ -123,6 +149,7 @@ function LessonPreview({
   onRemove: () => void;
   move: { canUp: boolean; canDown: boolean; onUp: () => void; onDown: () => void } | null;
   dragProps: React.LiHTMLAttributes<HTMLLIElement>;
+  viewTransitionName?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -139,6 +166,7 @@ function LessonPreview({
         dragging && "opacity-40",
         dropTarget && "outline outline-2 outline-offset-2 outline-primary"
       )}
+      style={viewTransitionName ? { viewTransitionName } : undefined}
       {...dragProps}
     >
       <div className="flex items-center gap-2">
@@ -233,6 +261,21 @@ export function BuilderPreviewTree({
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  /** Stable ids for View Transitions — survives arrayMove (same object refs). */
+  const keyMap = useRef(new WeakMap<object, string>());
+
+  function stableKey(obj: object): string {
+    let id = keyMap.current.get(obj);
+    if (!id) {
+      id = crypto.randomUUID();
+      keyMap.current.set(obj, id);
+    }
+    return id;
+  }
+
+  function commit(next: GeneratedCourse) {
+    withViewTransition(() => onChange(next));
+  }
 
   function toggleGroup(index: number) {
     setCollapsed((prev) => {
@@ -254,13 +297,15 @@ export function BuilderPreviewTree({
 
   function moveGroup(from: number, to: number) {
     if (to < 0 || to >= course.groups.length || from === to) return;
-    onChange({ ...course, groups: arrayMove(course.groups, from, to) });
+    commit({ ...course, groups: arrayMove(course.groups, from, to) });
   }
 
   function moveLesson(gi: number, from: number, to: number) {
     const group = course.groups[gi];
     if (to < 0 || to >= group.lessons.length || from === to) return;
-    updateGroup(gi, { lessons: arrayMove(group.lessons, from, to) });
+    withViewTransition(() =>
+      updateGroup(gi, { lessons: arrayMove(group.lessons, from, to) })
+    );
   }
 
   /** Move a lesson to another position, possibly across modules. An emptied
@@ -281,7 +326,7 @@ export function BuilderPreviewTree({
       return g;
     });
     groups = groups.filter((g) => g.lessons.length > 0);
-    onChange({ ...course, groups });
+    commit({ ...course, groups });
   }
 
   function endDrag() {
@@ -296,12 +341,13 @@ export function BuilderPreviewTree({
       ) : null}
       {course.groups.map((group, gi) => (
         <div
-          key={gi}
+          key={stableKey(group)}
           className={cn(
             "rounded-[10px] border-2 border-border bg-background p-3 transition-opacity",
             drag?.kind === "group" && drag.gi === gi && "opacity-40",
             over === `g${gi}` && "outline outline-2 outline-offset-2 outline-primary"
           )}
+          style={{ viewTransitionName: `builder-module-${stableKey(group)}` }}
           draggable={false}
           onDragOver={(e) => {
             if (drag?.kind === "group") {
@@ -381,9 +427,10 @@ export function BuilderPreviewTree({
             <ul className="mt-3 flex flex-col gap-2">
               {group.lessons.map((lesson, li) => (
                 <LessonPreview
-                  key={li}
+                  key={stableKey(lesson)}
                   lesson={lesson}
                   canEdit={canEdit}
+                  viewTransitionName={`builder-lesson-${stableKey(lesson)}`}
                   dragging={drag?.kind === "lesson" && drag.gi === gi && drag.li === li}
                   dropTarget={over === `l${gi}:${li}`}
                   onChange={(next) =>

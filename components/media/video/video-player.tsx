@@ -24,10 +24,13 @@ export function VideoPlayer({
   payload,
   autoPlay,
   compact,
+  onWatchedFraction,
 }: {
   payload: MediaPayload;
   autoPlay?: boolean;
   compact?: boolean;
+  /** 0..1 of the asset watched. Optional — only the lesson gate passes it. */
+  onWatchedFraction?: (fraction: number) => void;
 }) {
   const { item, playbackUrl, posterUrl, tracks = [], progress } = payload;
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -243,6 +246,8 @@ export function VideoPlayer({
           const v = e.currentTarget;
           setTime(v.currentTime);
           report(v.currentTime, v.duration || 0);
+          const total = v.duration || item.durationSeconds || 0;
+          if (total > 0) onWatchedFraction?.(v.currentTime / total);
         }}
         onProgress={(e) => readBuffered(e.currentTarget)}
         onWaiting={() => setWaiting(true)}
@@ -255,6 +260,7 @@ export function VideoPlayer({
           setPlaying(false);
           setControlsVisible(true);
           flush({ completed: true });
+          onWatchedFraction?.(1);
         }}
       >
         {tracks.map((t) => (

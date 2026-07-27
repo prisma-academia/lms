@@ -1,4 +1,7 @@
 import { z } from "zod";
+// Sibling import, not `@/lib/schemas/question` — see the path-alias note below.
+import { questionTypeSchema } from "./question";
+import { essayRubricSchema } from "./essay-grading";
 
 /**
  * Shared contract for the AI course builder and the course JSON template.
@@ -18,7 +21,7 @@ import { z } from "zod";
 export const lessonContentTypeSchema = z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ"]);
 
 export const generatedQuestionSchema = z.object({
-  type: z.enum(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER"]),
+  type: questionTypeSchema,
   prompt: z.string().min(1),
   /** Option texts. TRUE_FALSE must be exactly ["True", "False"]; empty for SHORT_ANSWER. */
   options: z.array(z.string()).default([]),
@@ -26,6 +29,8 @@ export const generatedQuestionSchema = z.object({
   correctOptionIndexes: z.array(z.number().int().min(0)).default([]),
   /** Accepted answers for SHORT_ANSWER (matched case-insensitively). */
   acceptedAnswers: z.array(z.string()).default([]),
+  /** ESSAY only: the weighted rubric the AI grader marks against. */
+  rubric: essayRubricSchema.nullable().default(null),
   points: z.number().int().min(1).default(1),
 });
 
@@ -123,6 +128,13 @@ export const courseBuilderInputSchema = z.object({
   sourceJson: z.string().max(200_000).nullable().default(null),
   /** Allow VIDEO_URL/FILE placeholder lessons (no assets are ever invented). */
   allowPlaceholders: z.boolean().default(false),
+  /**
+   * Allow AI-authored ESSAY questions. Defaults OFF, and deliberately so: a
+   * generated essay is a hard progression gate (learners need full marks on
+   * every criterion) built from a rubric no human has read. Opt in only when
+   * someone intends to review the rubrics in the builder preview.
+   */
+  allowEssays: z.boolean().default(false),
 });
 
 /** Input for single-lesson AI generation from the lesson add/edit form.

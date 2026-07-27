@@ -13,7 +13,7 @@ Available lesson content types:
   tables, <code>/<pre> blocks. NEVER use <script>, <style>, <iframe>, <form>, inline styles,
   or event-handler attributes.
 - QUIZ: a knowledge check with questions. Question types: SINGLE_CHOICE, MULTIPLE_CHOICE,
-  TRUE_FALSE, SHORT_ANSWER.
+  TRUE_FALSE, SHORT_ANSWER, ESSAY (only when explicitly permitted — see rule 8).
 - VIDEO_URL / FILE: placeholder lessons only — an admin attaches the real video or file later.
 
 Hard rules:
@@ -31,7 +31,13 @@ Hard rules:
 6. Respect the requested audience level and any structure hints. When source material or source
    JSON is provided, stay faithful to it: preserve its structure, titles, and content where
    present; adapt rather than reinvent; only fill genuine gaps.
-7. Always answer with data that matches the requested schema exactly.`,
+7. Always answer with data that matches the requested schema exactly.
+8. ESSAY questions ONLY when the request explicitly permits them. An essay is graded by AI
+   against your rubric and the learner must earn full marks on EVERY criterion to progress, so a
+   sloppy rubric blocks people permanently. When permitted: 2-4 criteria, each objectively
+   checkable ("names all three phases of X", "explains why Y fails under load" — never "shows
+   good understanding" or "demonstrates insight"), each with an integer weight, plus a concise
+   model answer. Never make ESSAY the only question in a quiz.`,
   // Claude Sonnet 5 via OpenRouter (needs OPENROUTER_API_KEY in env).
   model: 'openrouter/anthropic/claude-sonnet-5'
 });

@@ -10,7 +10,14 @@ import { displayTitle, type MediaPayload } from "../types";
 
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
-export function AudioPlayer({ payload }: { payload: MediaPayload }) {
+export function AudioPlayer({
+  payload,
+  onWatchedFraction,
+}: {
+  payload: MediaPayload;
+  /** 0..1 of the asset listened to. Optional — only the lesson gate passes it. */
+  onWatchedFraction?: (fraction: number) => void;
+}) {
   const { item, playbackUrl, posterUrl, progress } = payload;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -89,10 +96,13 @@ export function AudioPlayer({ payload }: { payload: MediaPayload }) {
         onTimeUpdate={(e) => {
           setTime(e.currentTarget.currentTime);
           report(e.currentTarget.currentTime, e.currentTarget.duration || 0);
+          const total = e.currentTarget.duration || item.durationSeconds || 0;
+          if (total > 0) onWatchedFraction?.(e.currentTarget.currentTime / total);
         }}
         onEnded={() => {
           setPlaying(false);
           flush({ completed: true });
+          onWatchedFraction?.(1);
         }}
       />
 
