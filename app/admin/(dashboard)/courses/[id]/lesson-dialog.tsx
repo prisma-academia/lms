@@ -79,6 +79,12 @@ function LessonForm({
       ? lesson.contentJson.quizId
       : ""
   );
+  const [libraryItemId, setLibraryItemId] = useState(
+    lesson?.libraryItemId ??
+      (lesson?.contentType === "FILE" && lesson.assetKey
+        ? libraryItems.find((i) => i.key === lesson.assetKey)?.id ?? ""
+        : "")
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -92,7 +98,7 @@ function LessonForm({
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.title }));
   const quizOptions = quizzes.map((q) => ({ value: q.id, label: q.title }));
-  const libraryOptions = libraryItems.map((r) => ({ value: r.key, label: r.name }));
+  const libraryOptions = libraryItems.map((r) => ({ value: r.id, label: r.name }));
   const aiCapable = type === "TEXT" || type === "HTML";
 
   async function generateWithAi() {
@@ -133,6 +139,10 @@ function LessonForm({
       setError("Select a quiz for this lesson.");
       return;
     }
+    if (type === "FILE" && !libraryItemId) {
+      setError("Select a library file for this lesson.");
+      return;
+    }
     setError(null);
     setPending(true);
 
@@ -140,7 +150,8 @@ function LessonForm({
       title: title.trim(),
       contentType: type,
       contentJson: buildContentJson(type, body, quizId),
-      assetKey: type === "FILE" ? body || null : null,
+      assetKey: null as string | null,
+      libraryItemId: type === "FILE" ? libraryItemId || null : null,
       durationMin: duration.trim() ? parseInt(duration, 10) : null,
       groupId: groupId || null,
     };
@@ -209,6 +220,22 @@ function LessonForm({
             ) : (
               <p className="text-xs text-muted-foreground">
                 No quizzes yet — create one under Quizzes first.
+              </p>
+            )}
+          </FormField>
+        ) : type === "FILE" ? (
+          <FormField label="Library file" htmlFor="lesson-dialog-library">
+            {libraryOptions.length > 0 ? (
+              <SelectInput
+                id="lesson-dialog-library"
+                placeholder="Select a file…"
+                options={libraryOptions}
+                value={libraryItemId}
+                onChange={(e) => setLibraryItemId(e.target.value)}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No library items yet — upload one under Library first.
               </p>
             )}
           </FormField>
@@ -326,18 +353,6 @@ function LessonForm({
               ) : null}
             </div>
           </div>
-        ) : null}
-
-        {type === "FILE" && libraryOptions.length > 0 ? (
-          <FormField label="Pick from library" htmlFor="lesson-dialog-library">
-            <SelectInput
-              id="lesson-dialog-library"
-              placeholder="Select a file…"
-              options={libraryOptions}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-          </FormField>
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

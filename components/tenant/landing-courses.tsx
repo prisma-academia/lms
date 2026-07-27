@@ -16,7 +16,13 @@ export type LandingCourse = {
   lessonCount: number;
 };
 
-export function LandingCourses({ courses }: { courses: LandingCourse[] }) {
+export function LandingCourses({
+  courses,
+  title,
+}: {
+  courses: LandingCourse[];
+  title?: string;
+}) {
   if (courses.length === 0) return null;
 
   return (
@@ -24,7 +30,7 @@ export function LandingCourses({ courses }: { courses: LandingCourse[] }) {
       <div className="mx-auto max-w-5xl px-4 py-14 sm:px-6">
         <div className="text-center">
           <SectionLabel>Our courses</SectionLabel>
-          <h2 className="mt-4 font-heading text-3xl">Start learning today</h2>
+          <h2 className="mt-4 font-heading text-3xl">{title ?? "Start learning today"}</h2>
           <p className="mx-auto mt-2 max-w-2xl font-medium text-muted-foreground">
             Explore our published courses. Create a free account to enroll and
             begin your journey.

@@ -37,6 +37,7 @@ export function CourseLessonsEditor({
   const [lessonDuration, setLessonDuration] = useState("");
   const [lessonGroupId, setLessonGroupId] = useState("");
   const [lessonQuizId, setLessonQuizId] = useState("");
+  const [lessonLibraryId, setLessonLibraryId] = useState("");
   const [lessonError, setLessonError] = useState<string | null>(null);
   const [lessonPending, setLessonPending] = useState(false);
 
@@ -50,10 +51,11 @@ export function CourseLessonsEditor({
   const [editDuration, setEditDuration] = useState("");
   const [editGroupId, setEditGroupId] = useState("");
   const [editQuizId, setEditQuizId] = useState("");
+  const [editLibraryId, setEditLibraryId] = useState("");
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.title }));
   const quizOptions = quizzes.map((q) => ({ value: q.id, label: q.title }));
-  const libraryOptions = libraryItems.map((r) => ({ value: r.key, label: r.name }));
+  const libraryOptions = libraryItems.map((r) => ({ value: r.id, label: r.name }));
 
   function groupName(id: string | null): string {
     return id ? groups.find((g) => g.id === id)?.title ?? "—" : "—";
@@ -84,6 +86,11 @@ export function CourseLessonsEditor({
       setLessonPending(false);
       return;
     }
+    if (lessonType === "FILE" && !lessonLibraryId) {
+      setLessonError("Select a library file for this lesson.");
+      setLessonPending(false);
+      return;
+    }
 
     const res = await apiPost<{ lesson: LessonRow }>(
       `/api/tenant/courses/${initial.id}/lessons`,
@@ -91,7 +98,8 @@ export function CourseLessonsEditor({
         title: lessonTitle.trim(),
         contentType: lessonType,
         contentJson: buildContentJson(lessonType, lessonBody, lessonQuizId),
-        assetKey: lessonType === "FILE" ? lessonBody || null : null,
+        libraryItemId: lessonType === "FILE" ? lessonLibraryId || null : null,
+        assetKey: null,
         durationMin: lessonDuration.trim() ? parseInt(lessonDuration, 10) : null,
         groupId: lessonGroupId || null,
       }
@@ -109,6 +117,7 @@ export function CourseLessonsEditor({
       setLessonType("TEXT");
       setLessonGroupId("");
       setLessonQuizId("");
+      setLessonLibraryId("");
     }
     router.refresh();
   }
@@ -156,6 +165,12 @@ export function CourseLessonsEditor({
         ? lesson.contentJson.quizId
         : ""
     );
+    setEditLibraryId(
+      lesson.libraryItemId ??
+        (lesson.assetKey
+          ? libraryItems.find((i) => i.key === lesson.assetKey)?.id ?? ""
+          : "")
+    );
   }
 
   async function saveLessonEdit() {
@@ -168,6 +183,11 @@ export function CourseLessonsEditor({
       setLessonPending(false);
       return;
     }
+    if (editType === "FILE" && !editLibraryId) {
+      setLessonError("Select a library file for this lesson.");
+      setLessonPending(false);
+      return;
+    }
 
     const res = await apiPatch<{ lesson: LessonRow }>(
       `/api/tenant/courses/${initial.id}/lessons/${editingId}`,
@@ -175,7 +195,8 @@ export function CourseLessonsEditor({
         title: editTitle.trim(),
         contentType: editType,
         contentJson: buildContentJson(editType, editBody, editQuizId),
-        assetKey: editType === "FILE" ? editBody || null : null,
+        libraryItemId: editType === "FILE" ? editLibraryId || null : null,
+        assetKey: null,
         durationMin: editDuration.trim() ? parseInt(editDuration, 10) : null,
         groupId: editGroupId || null,
       }
@@ -295,6 +316,20 @@ export function CourseLessonsEditor({
                           <p className="text-xs text-muted-foreground">No quizzes yet — create one under Quizzes first.</p>
                         )}
                       </FormField>
+                    ) : editType === "FILE" ? (
+                      <FormField label="Library file" htmlFor={`edit-library-${lesson.id}`}>
+                        {libraryOptions.length > 0 ? (
+                          <SelectInput
+                            id={`edit-library-${lesson.id}`}
+                            placeholder="Select a file…"
+                            options={libraryOptions}
+                            value={editLibraryId}
+                            onChange={(e) => setEditLibraryId(e.target.value)}
+                          />
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No library items yet.</p>
+                        )}
+                      </FormField>
                     ) : (
                       <FormField label={bodyFieldLabel(editType)} htmlFor={`edit-body-${lesson.id}`}>
                         {editType === "TEXT" || editType === "HTML" ? (
@@ -314,17 +349,6 @@ export function CourseLessonsEditor({
                         )}
                       </FormField>
                     )}
-                    {editType === "FILE" && libraryOptions.length > 0 ? (
-                      <FormField label="Pick from library" htmlFor={`edit-library-${lesson.id}`}>
-                        <SelectInput
-                          id={`edit-library-${lesson.id}`}
-                          placeholder="Select a file…"
-                          options={libraryOptions}
-                          value={editBody}
-                          onChange={(e) => setEditBody(e.target.value)}
-                        />
-                      </FormField>
-                    ) : null}
                     <FormField label="Duration (minutes)" htmlFor={`edit-dur-${lesson.id}`}>
                       <TextInput
                         id={`edit-dur-${lesson.id}`}
@@ -419,6 +443,20 @@ export function CourseLessonsEditor({
                     <p className="text-xs text-muted-foreground">No quizzes yet — create one under Quizzes first.</p>
                   )}
                 </FormField>
+              ) : lessonType === "FILE" ? (
+                <FormField label="Library file" htmlFor="lesson-library">
+                  {libraryOptions.length > 0 ? (
+                    <SelectInput
+                      id="lesson-library"
+                      placeholder="Select a file…"
+                      options={libraryOptions}
+                      value={lessonLibraryId}
+                      onChange={(e) => setLessonLibraryId(e.target.value)}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No library items yet.</p>
+                  )}
+                </FormField>
               ) : (
                 <FormField label={bodyFieldLabel(lessonType)} htmlFor="lesson-body">
                   {lessonType === "TEXT" || lessonType === "HTML" ? (
@@ -438,17 +476,6 @@ export function CourseLessonsEditor({
                   )}
                 </FormField>
               )}
-              {lessonType === "FILE" && libraryOptions.length > 0 ? (
-                <FormField label="Pick from library" htmlFor="lesson-library">
-                  <SelectInput
-                    id="lesson-library"
-                    placeholder="Select a file…"
-                    options={libraryOptions}
-                    value={lessonBody}
-                    onChange={(e) => setLessonBody(e.target.value)}
-                  />
-                </FormField>
-              ) : null}
               <FormField label="Duration (minutes)" htmlFor="lesson-duration">
                 <TextInput
                   id="lesson-duration"

@@ -24,6 +24,8 @@ export const PERMISSIONS = {
   TENANT_TEMPLATES_WRITE: { key: "tenant.templates:write", module: "tenant.templates", description: "Modify templates" },
   TENANT_SETTINGS_READ: { key: "tenant.settings:read", module: "tenant.settings", description: "View tenant settings" },
   TENANT_SETTINGS_WRITE: { key: "tenant.settings:write", module: "tenant.settings", description: "Modify tenant settings" },
+  TENANT_SITE_READ: { key: "tenant.site:read", module: "tenant.site", description: "View landing / site pages" },
+  TENANT_SITE_WRITE: { key: "tenant.site:write", module: "tenant.site", description: "Edit landing / site pages" },
   TENANT_COURSES_READ: { key: "tenant.courses:read", module: "tenant.courses", description: "View courses" },
   TENANT_COURSES_WRITE: { key: "tenant.courses:write", module: "tenant.courses", description: "Create / modify courses" },
   TENANT_PROGRAMMES_READ: { key: "tenant.programmes:read", module: "tenant.programmes", description: "View programmes" },

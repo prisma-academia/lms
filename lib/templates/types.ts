@@ -3,6 +3,7 @@ export const TEMPLATE_TYPE_LABELS: Record<string, string> = {
   email_invite: "Email — Invite",
   email_reset: "Email — Password reset",
   email_notification: "Email — Notification",
+  site_page: "Site page",
 };
 
 export function formatTemplateType(type: string): string {

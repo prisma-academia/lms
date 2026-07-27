@@ -125,6 +125,26 @@ function handlePlatform(request: NextRequest) {
   return NextResponse.next();
 }
 
+const RESERVED_CLIENT_PREFIXES = [
+  "/auth",
+  "/dashboard",
+  "/courses",
+  "/programmes",
+  "/library",
+  "/certificates",
+  "/profile",
+  "/calendar",
+  "/grades",
+  "/notifications",
+  "/my-courses",
+  "/inbox",
+  "/assignments",
+];
+
+function isReservedClientPath(path: string): boolean {
+  return RESERVED_CLIENT_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
 function handleTenant(request: NextRequest) {
   const url = request.nextUrl;
   const path = url.pathname;
@@ -135,6 +155,16 @@ function handleTenant(request: NextRequest) {
 
   const isAdmin = path === "/admin" || path.startsWith("/admin/");
   if (isAdmin) return handleAdmin(request);
+
+  // Learner app routes (auth + dashboard)
+  if (isReservedClientPath(path)) return handleClient(request);
+
+  // Public CMS page: /about → /t/p/about
+  const slug = path.replace(/^\//, "").split("/")[0];
+  if (slug && !slug.includes(".")) {
+    return NextResponse.rewrite(new URL(`/t/p/${slug}${url.search}`, url));
+  }
+
   return handleClient(request);
 }
 

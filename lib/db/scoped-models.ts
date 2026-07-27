@@ -62,6 +62,7 @@ export const STRICT_SCOPED: ReadonlySet<string> = new Set([
   "LibraryPayment",
   "LibraryProgress",
   "ProgrammeEnrollment",
+  "SitePage",
 ]);
 
 export const NULLABLE_SCOPED: ReadonlySet<string> = new Set([

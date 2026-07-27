@@ -107,6 +107,11 @@ enum LessonContentType {
   QUIZ
 }
 
+enum SitePageStatus {
+  DRAFT
+  PUBLISHED
+}
+
 enum AssignmentType {
   TEXT
   FILE
@@ -250,6 +255,7 @@ model Tenant {
   libraryEntitlements        LibraryEntitlement[]
   libraryPayments            LibraryPayment[]
   programmeEnrollments       ProgrammeEnrollment[]
+  sitePages                  SitePage[]
 
   @@index([status])
   @@index([plan, trialEndsAt])
@@ -368,24 +374,28 @@ model Course {
 }
 
 model Lesson {
-  id          String            @id @default(cuid())
-  courseId    String
-  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  tenantId    String
-  groupId     String?
-  group       LessonGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  title       String
-  sortOrder   Int               @default(0)
-  contentType LessonContentType @default(TEXT)
-  contentJson Json              @default("{}")
-  assetKey    String?
-  durationMin Int?
-  createdAt   DateTime          @default(now())
-  progress    LessonProgress[]
+  id            String            @id @default(cuid())
+  courseId      String
+  course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tenantId      String
+  groupId       String?
+  group         LessonGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  title         String
+  sortOrder     Int               @default(0)
+  contentType   LessonContentType @default(TEXT)
+  contentJson   Json              @default("{}")
+  assetKey      String?
+  /// FK to library item for FILE lessons (preferred over assetKey alone).
+  libraryItemId String?
+  libraryItem   LibraryItem?      @relation(fields: [libraryItemId], references: [id], onDelete: SetNull)
+  durationMin   Int?
+  createdAt     DateTime          @default(now())
+  progress      LessonProgress[]
 
   @@index([courseId, sortOrder])
   @@index([tenantId])
   @@index([groupId])
+  @@index([libraryItemId])
 }
 
 /// A group/subgroup within a course to organize lessons beyond flat sortOrder.
@@ -953,6 +963,7 @@ model LibraryItem {
   payments     LibraryPayment[]
   progress     LibraryProgress[]
   upload       LibraryUpload?
+  lessons      Lesson[]
 
   // `key` is unique per tenant, not globally: a global unique lets one tenant's
   // insert fail on another tenant's key and leaks key existence across tenants.
@@ -1416,6 +1427,30 @@ model Template {
   createdAt   DateTime @default(now())
 
   @@index([tenantId, type])
+}
+
+/// Public CMS page for a tenant landing site (home + extra pages).
+model SitePage {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Empty string = home page.
+  slug           String         @default("")
+  title          String
+  status         SitePageStatus @default(DRAFT)
+  isHome         Boolean        @default(false)
+  showInNav      Boolean        @default(true)
+  navOrder       Int            @default(0)
+  seoTitle       String?
+  seoDescription String?
+  ogImageKey     String?
+  blocksJson     Json           @default("[]")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+  @@index([tenantId, isHome])
 }
 
 model PasswordHistory {

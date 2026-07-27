@@ -39,7 +39,13 @@ const CONTENT_TYPE_EXT: Record<string, string> = {
   "image/webp": "webp",
 };
 
-export type PresignKind = "logo" | "course_thumbnail" | "lesson_asset" | "library" | "submission";
+export type PresignKind =
+  | "logo"
+  | "favicon"
+  | "course_thumbnail"
+  | "lesson_asset"
+  | "library"
+  | "submission";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ...CONTENT_TYPE_EXT,
@@ -97,11 +103,15 @@ const LIBRARY_CONTENT_TYPES: Record<string, string> = {
 
 export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   logo: 2 * 1024 * 1024,
+  favicon: 512 * 1024,
   course_thumbnail: 5 * 1024 * 1024,
   lesson_asset: 100 * 1024 * 1024,
   library: 2 * 1024 * 1024 * 1024, // 2 GB — resumable multipart, see below.
   submission: 25 * 1024 * 1024,
 };
+
+/** Min shortest side for tenant logos before favicon/OG generation. */
+export const MIN_LOGO_SIDE_PX = 256;
 
 /** S3 requires every part except the last to be at least 5 MiB. */
 export const MIN_PART_BYTES = 5 * 1024 * 1024;
@@ -124,7 +134,7 @@ export function partSizeFor(totalBytes: number): number {
 export const MULTIPART_THRESHOLD_BYTES = 8 * 1024 * 1024;
 
 function contentTypeMapFor(kind: PresignKind): Record<string, string> {
-  if (kind === "logo") return CONTENT_TYPE_EXT;
+  if (kind === "logo" || kind === "favicon") return CONTENT_TYPE_EXT;
   if (kind === "library" || kind === "submission") return LIBRARY_CONTENT_TYPES;
   return ASSET_CONTENT_TYPES;
 }
@@ -200,7 +210,7 @@ export async function createPresignedUpload(input: {
   if (!ext) throw new Error("Unsupported content type.");
   const rand = randomBytes(8).toString("hex");
   let key: string;
-  if (input.kind === "logo") {
+  if (input.kind === "logo" || input.kind === "favicon") {
     key = `tenants/${input.tenantId}/branding/${input.kind}-${rand}.${ext}`;
   } else if (input.kind === "library") {
     // Objects uploaded before the resource→library rename still live under
@@ -329,6 +339,46 @@ export async function headObjectSize(key: string): Promise<number> {
 
 export async function deleteObject(key: string): Promise<void> {
   await getClient().send(new DeleteObjectCommand({ Bucket: env.S3_BUCKET!, Key: key }));
+}
+
+/** Read object bytes (for server-side logo validation / variant generation). */
+export async function getObjectBuffer(key: string): Promise<{ body: Buffer; contentType?: string }> {
+  const res = await getClient().send(
+    new GetObjectCommand({ Bucket: env.S3_BUCKET!, Key: key })
+  );
+  if (!res.Body) throw new Error("Empty S3 object body.");
+  const bytes = await res.Body.transformToByteArray();
+  return {
+    body: Buffer.from(bytes),
+    contentType: res.ContentType ?? undefined,
+  };
+}
+
+/** Server-side put (branding variant generation — not browser-presigned). */
+export async function putObjectBuffer(input: {
+  key: string;
+  body: Buffer;
+  contentType: string;
+}): Promise<void> {
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: env.S3_BUCKET!,
+      Key: input.key,
+      Body: input.body,
+      ContentType: input.contentType,
+      ContentLength: input.body.length,
+    })
+  );
+}
+
+/** Branding key helper for generated variants (icon32, apple180, og1200). */
+export function brandingVariantKey(
+  tenantId: string,
+  kind: "icon32" | "apple180" | "og1200",
+  ext = "png"
+): string {
+  const rand = randomBytes(8).toString("hex");
+  return `tenants/${tenantId}/branding/${kind}-${rand}.${ext}`;
 }
 
 export async function deleteObjects(keys: string[]): Promise<void> {

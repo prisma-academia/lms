@@ -6,7 +6,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { tenantSettingsSchema, parseTenantSettings } from "@/lib/tenant/settings";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
+import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
 
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -22,11 +22,10 @@ const PatchBody = z.object({
   settings: tenantSettingsSchema.partial().optional(),
 });
 
-function withLogoUrl(settings: ReturnType<typeof parseTenantSettings>) {
+function withBrandingUrls(settings: ReturnType<typeof parseTenantSettings>) {
   return {
     ...settings,
-    logoUrl:
-      settings.logoKey && s3Configured() ? publicUrlForKey(settings.logoKey) : null,
+    ...brandingAssetUrls(settings),
   };
 }
 
@@ -38,7 +37,7 @@ export async function GET() {
     const settings = parseTenantSettings(tenant.settingsJson);
     return ok({
       tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
-      settings: withLogoUrl(settings),
+      settings: withBrandingUrls(settings),
     });
   } catch (e) {
     return handleError(e);
@@ -92,7 +91,7 @@ export async function PATCH(request: Request) {
     });
     return ok({
       tenant: { id: updated.id, name: updated.name, slug: updated.slug },
-      settings: withLogoUrl(merged),
+      settings: withBrandingUrls(merged),
     });
   } catch (e) {
     return handleError(e);

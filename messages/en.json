@@ -27,6 +27,7 @@
     "roles": "Roles",
     "templates": "Templates",
     "activity": "Activity",
+    "sitePages": "Site pages",
     "settings": "Settings"
   },
   "auth": {

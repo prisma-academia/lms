@@ -9,6 +9,7 @@ export type LessonRow = {
   contentType: LessonContentType;
   contentJson: Record<string, unknown>;
   assetKey: string | null;
+  libraryItemId: string | null;
   durationMin: number | null;
   groupId: string | null;
 };
@@ -76,7 +77,7 @@ export const CONTENT_TYPE_OPTIONS = [
   { value: "TEXT", label: "Text" },
   { value: "HTML", label: "HTML" },
   { value: "VIDEO_URL", label: "Video URL" },
-  { value: "FILE", label: "File asset key" },
+  { value: "FILE", label: "Library file" },
   { value: "QUIZ", label: "Quiz" },
 ];
 
@@ -84,7 +85,7 @@ export function bodyFieldLabel(type: LessonContentType): string {
   if (type === "TEXT") return "Body";
   if (type === "HTML") return "HTML source";
   if (type === "VIDEO_URL") return "Video URL";
-  if (type === "FILE") return "Asset key";
+  if (type === "FILE") return "Library file";
   return "Quiz";
 }
 

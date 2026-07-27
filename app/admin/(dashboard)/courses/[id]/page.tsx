@@ -138,6 +138,7 @@ export default async function CourseDetailPage({
       contentType: l.contentType,
       contentJson: l.contentJson as Record<string, unknown>,
       assetKey: l.assetKey,
+      libraryItemId: l.libraryItemId,
       durationMin: l.durationMin,
       groupId: l.groupId,
     })),

@@ -4,11 +4,20 @@ import { apexHostname, isProd } from "@/lib/env";
 import { apexHttpOrigin } from "@/lib/url/apex";
 import { Button } from "@/components/ui/button";
 
+export type LandingNavLink = {
+  href: string;
+  label: string;
+};
+
 export function TenantLandingShell({
   orgName,
+  logoUrl,
+  navLinks = [],
   children,
 }: {
   orgName: string;
+  logoUrl?: string | null;
+  navLinks?: LandingNavLink[];
   children: ReactNode;
 }) {
   const apex = apexHostname();
@@ -18,9 +27,31 @@ export function TenantLandingShell({
     <div className="flex min-h-[100dvh] flex-col">
       <header className="sticky top-0 z-30 border-b-2 border-border bg-card text-card-foreground/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="truncate font-heading text-[15px] hover:text-muted-foreground">
-            {orgName}
-          </Link>
+          <div className="flex min-w-0 items-center gap-6">
+            <Link
+              href="/"
+              className="flex min-w-0 items-center gap-2 truncate font-heading text-[15px] hover:text-muted-foreground"
+            >
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="size-7 shrink-0 object-contain" />
+              ) : null}
+              <span className="truncate">{orgName}</span>
+            </Link>
+            {navLinks.length > 0 ? (
+              <nav className="hidden items-center gap-4 md:flex">
+                {navLinks.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button asChild variant="outline" size="sm">
               <Link href="/auth/login">Sign in</Link>

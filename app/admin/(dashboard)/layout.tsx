@@ -30,6 +30,7 @@ const NAV: Array<{ href: string; key: string; module: ModuleKey | null }> = [
   { href: "/admin/course-payments", key: "coursePayments", module: "billing" },
   { href: "/admin/role-templates", key: "roles", module: "roles" },
   { href: "/admin/templates", key: "templates", module: "templates" },
+  { href: "/admin/site/pages", key: "sitePages", module: "site" },
   { href: "/admin/activity", key: "activity", module: "activity" },
   { href: "/admin/settings", key: "settings", module: null },
 ];

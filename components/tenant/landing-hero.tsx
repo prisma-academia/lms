@@ -3,11 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icon";
 import { Decor } from "@/components/marketing/decor";
 
+type Cta = {
+  label: string;
+  href: string;
+  variant?: "primary" | "outline" | "secondary";
+};
+
 type Props = {
   name: string;
   logoUrl: string | null;
   location: string | null;
   hasCourses: boolean;
+  headline?: string;
+  subcopy?: string;
+  ctas?: Cta[];
 };
 
 export function LandingHero({
@@ -15,7 +24,15 @@ export function LandingHero({
   logoUrl,
   location,
   hasCourses,
+  headline,
+  subcopy,
+  ctas,
 }: Props) {
+  const title = headline?.trim() || name;
+  const body =
+    subcopy?.trim() ||
+    "Welcome to your learning home. Enroll in courses, track your progress, and grow with us.";
+
   return (
     <section className="relative overflow-hidden">
       <Decor preset="tenant" />
@@ -29,16 +46,12 @@ export function LandingHero({
               className="mx-auto mb-6 size-20 rounded-[14px] border-2 border-border object-contain shadow-sm"
             />
           ) : (
-            <div
-              className="mx-auto mb-6 flex size-20 -rotate-3 items-center justify-center rounded-[14px] border-2 border-foreground font-heading text-3xl text-foreground shadow-sm"
-            >
+            <div className="mx-auto mb-6 flex size-20 -rotate-3 items-center justify-center rounded-[14px] border-2 border-foreground font-heading text-3xl text-foreground shadow-sm">
               {name.charAt(0).toUpperCase()}
             </div>
           )}
 
-          <h1 className="font-heading text-4xl leading-[1.05] sm:text-5xl">
-            {name}
-          </h1>
+          <h1 className="font-heading text-4xl leading-[1.05] sm:text-5xl">{title}</h1>
 
           {location ? (
             <p className="mt-2 flex items-center justify-center gap-1.5 text-sm font-medium text-muted-foreground">
@@ -47,25 +60,50 @@ export function LandingHero({
             </p>
           ) : null}
 
-          <p className="mt-5 text-lg font-medium text-muted-foreground">
-            Welcome to your learning home. Enroll in courses, track your
-            progress, and grow with us.
-          </p>
+          <p className="mt-5 text-lg font-medium text-muted-foreground">{body}</p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button size="lg" asChild>
-              <Link href="/auth/register">
-                Enroll now <Icon name="arrow-right" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/auth/login">Sign in</Link>
-            </Button>
-            {hasCourses ? (
-              <Button size="lg" variant="secondary" asChild>
-                <a href="#courses">View courses</a>
-              </Button>
-            ) : null}
+            {ctas && ctas.length > 0 ? (
+              ctas.map((c) => (
+                <Button
+                  key={`${c.href}-${c.label}`}
+                  size="lg"
+                  variant={
+                    c.variant === "primary"
+                      ? "default"
+                      : c.variant === "outline"
+                        ? "outline"
+                        : c.variant === "secondary"
+                          ? "secondary"
+                          : "default"
+                  }
+                  asChild
+                >
+                  <Link href={c.href}>
+                    {c.label}
+                    {c.variant !== "outline" && c.variant !== "secondary" ? (
+                      <Icon name="arrow-right" />
+                    ) : null}
+                  </Link>
+                </Button>
+              ))
+            ) : (
+              <>
+                <Button size="lg" asChild>
+                  <Link href="/auth/register">
+                    Enroll now <Icon name="arrow-right" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" asChild>
+                  <Link href="/auth/login">Sign in</Link>
+                </Button>
+                {hasCourses ? (
+                  <Button size="lg" variant="secondary" asChild>
+                    <a href="#courses">View courses</a>
+                  </Button>
+                ) : null}
+              </>
+            )}
           </div>
 
           <p className="mt-4 text-[13px] font-medium text-muted-foreground">

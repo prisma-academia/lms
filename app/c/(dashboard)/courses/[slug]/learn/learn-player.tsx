@@ -14,6 +14,9 @@ import { useApiError } from "@/components/use-api-error";
 import { QuizPlayer } from "./quiz-player";
 import { cn } from "@/lib/utils";
 import { sanitizeHtml } from "@/lib/content/sanitize-html";
+import { MediaViewer } from "@/components/media/media-viewer";
+import type { MediaPayload } from "@/components/media/types";
+import type { MediaKind } from "@/lib/generated/prisma/enums";
 
 type LearnLesson = {
   id: string;
@@ -24,6 +27,20 @@ type LearnLesson = {
   assetUrl: string | null;
   durationMin: number | null;
   completed: boolean;
+  libraryItem: {
+    id: string;
+    name: string;
+    title: string | null;
+    description: string | null;
+    contentType: string;
+    mediaKind: string;
+    sizeBytes: number;
+    durationSeconds: number | null;
+    width: number | null;
+    height: number | null;
+    peaks: number[] | null;
+    posterUrl: string | null;
+  } | null;
 };
 
 type LearnPayload = {
@@ -97,6 +114,33 @@ function LessonContent({ lesson }: { lesson: LearnLesson }) {
   }
 
   if (lesson.contentType === "FILE" && lesson.assetUrl) {
+    if (lesson.libraryItem) {
+      const payload: MediaPayload = {
+        item: {
+          id: lesson.libraryItem.id,
+          name: lesson.libraryItem.name,
+          title: lesson.libraryItem.title,
+          description: lesson.libraryItem.description,
+          contentType: lesson.libraryItem.contentType,
+          mediaKind: lesson.libraryItem.mediaKind as MediaKind,
+          sizeBytes: lesson.libraryItem.sizeBytes,
+          durationSeconds: lesson.libraryItem.durationSeconds,
+          width: lesson.libraryItem.width,
+          height: lesson.libraryItem.height,
+          peaks: lesson.libraryItem.peaks,
+          tags: [],
+          folder: null,
+          isFree: true,
+          priceCents: null,
+          currency: null,
+          createdAt: new Date().toISOString(),
+        },
+        access: { state: "open", canDownload: true },
+        playbackUrl: lesson.assetUrl,
+        posterUrl: lesson.libraryItem.posterUrl,
+      };
+      return <MediaViewer payload={payload} thumbUrl={lesson.libraryItem.posterUrl} />;
+    }
     return (
       <a
         href={lesson.assetUrl}

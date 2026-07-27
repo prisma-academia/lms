@@ -25,6 +25,7 @@ export const MODULE_KEYS = [
   "activity",
   "billing",
   "fees",
+  "site",
 ] as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -36,8 +37,22 @@ const onboardingSchema = z.object({
   trialReminder1dSentAt: z.string().optional(),
 });
 
+const brandingAssetsSchema = z.object({
+  icon32: z.string().min(1).max(300).optional(),
+  apple180: z.string().min(1).max(300).optional(),
+  og1200: z.string().min(1).max(300).optional(),
+});
+
 export const tenantSettingsSchema = z.object({
   logoKey: z.string().min(1).max(300).optional(),
+  /** Optional favicon override; when set, replaces auto-generated icon32/apple. */
+  faviconKey: z.string().min(1).max(300).optional(),
+  /** Auto-generated from logo on finalize (icon32, apple180, og1200). */
+  brandingAssets: brandingAssetsSchema.optional(),
+  /** Default SEO title for public pages when a SitePage has no seoTitle. */
+  metaTitle: z.string().min(1).max(120).optional(),
+  /** Default SEO description for public pages when a SitePage has no seoDescription. */
+  metaDescription: z.string().min(1).max(320).optional(),
   primaryColor: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #1e293b")

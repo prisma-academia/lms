@@ -4,8 +4,8 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db/client";
 import { loadTenantPageContext } from "@/lib/db/page-context";
 import { env, isProd } from "@/lib/env";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { parseTenantSettings, type TenantSettings } from "@/lib/tenant/settings";
+import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
 
 export const PRODUCT_TAGLINE =
   "Deliver learning content, assess learners, keep everyone engaged, and manage your organization with built-in billing.";
@@ -29,6 +29,10 @@ export type TenantBranding = {
   name: string;
   settings: TenantSettings;
   logoUrl: string | null;
+  faviconUrl: string | null;
+  icon32Url: string | null;
+  apple180Url: string | null;
+  og1200Url: string | null;
 };
 
 /**
@@ -47,12 +51,17 @@ export const loadTenantBranding = cache(async function loadTenantBranding(): Pro
   if (!row) return null;
 
   const settings = parseTenantSettings(row.settingsJson);
-  const logoUrl =
-    settings.logoKey && s3Configured()
-      ? publicUrlForKey(settings.logoKey)
-      : null;
+  const urls = brandingAssetUrls(settings);
 
-  return { name: row.name, settings, logoUrl };
+  return {
+    name: row.name,
+    settings,
+    logoUrl: urls.logoUrl,
+    faviconUrl: urls.faviconUrl,
+    icon32Url: urls.icon32Url,
+    apple180Url: urls.apple180Url,
+    og1200Url: urls.og1200Url,
+  };
 });
 
 function openGraphImages(
@@ -119,18 +128,34 @@ const TENANT_COPY: Record<TenantMetadataContext, (name: string) => string> = {
 export function buildTenantMetadata(
   origin: URL,
   branding: TenantBranding,
-  context: TenantMetadataContext
+  context: TenantMetadataContext,
+  pageSeo?: { title?: string | null; description?: string | null; ogImageUrl?: string | null }
 ): Metadata {
-  const { name, settings, logoUrl } = branding;
-  const description = TENANT_COPY[context](name);
-  const images = logoUrl
-    ? [{ url: logoUrl, alt: name }]
+  const { name, settings } = branding;
+  const title =
+    pageSeo?.title?.trim() ||
+    settings.metaTitle?.trim() ||
+    name;
+  const description =
+    pageSeo?.description?.trim() ||
+    settings.metaDescription?.trim() ||
+    TENANT_COPY[context](name);
+
+  const ogUrl =
+    pageSeo?.ogImageUrl ||
+    branding.og1200Url ||
+    branding.logoUrl;
+  const images = ogUrl
+    ? [{ url: ogUrl, alt: title }]
     : openGraphImages(origin);
+
+  const iconUrl = branding.icon32Url ?? branding.faviconUrl ?? branding.logoUrl;
+  const appleUrl = branding.apple180Url ?? branding.faviconUrl ?? branding.logoUrl;
 
   return {
     metadataBase: origin,
     title: {
-      default: name,
+      default: title,
       template: `%s · ${name}`,
     },
     description,
@@ -141,25 +166,27 @@ export function buildTenantMetadata(
           ? { index: true, follow: true }
           : { index: false, follow: false }
         : { index: false, follow: false },
-    icons: logoUrl
+    icons: iconUrl
       ? {
-          icon: [{ url: logoUrl }],
-          apple: [{ url: logoUrl }],
+          icon: [{ url: iconUrl }],
+          apple: appleUrl ? [{ url: appleUrl }] : undefined,
         }
       : undefined,
     openGraph: {
       type: "website",
       locale: settings.locale,
       siteName: name,
-      title: name,
+      title,
       description,
       images,
     },
     twitter: {
-      card: logoUrl ? "summary" : "summary_large_image",
-      title: name,
+      card: branding.og1200Url || pageSeo?.ogImageUrl ? "summary_large_image" : iconUrl ? "summary" : "summary_large_image",
+      title,
       description,
-      images: logoUrl ? [logoUrl] : [new URL("/opengraph-image", origin).toString()],
+      images: ogUrl
+        ? [ogUrl]
+        : [new URL("/opengraph-image", origin).toString()],
     },
   };
 }

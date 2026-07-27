@@ -4,7 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { parseTenantSettings } from "@/lib/tenant/settings";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
+import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
+import { s3Configured } from "@/lib/storage/s3";
 import { env } from "@/lib/env";
 import { getCurrencyOptions } from "@/lib/geo/currencies";
 import { getLocaleOptions } from "@/lib/geo/locales";
@@ -20,8 +21,7 @@ export default async function TenantSettingsPage() {
   if (!tenant) notFound();
 
   const settings = parseTenantSettings(tenant.settingsJson);
-  const logoUrl =
-    settings.logoKey && s3Configured() ? publicUrlForKey(settings.logoKey) : null;
+  const urls = brandingAssetUrls(settings);
   const t = await getTranslations("settings");
   const timezoneOptions = getTimezoneOptions();
   const localeOptions = getLocaleOptions(env.SUPPORTED_LOCALES);
@@ -32,7 +32,15 @@ export default async function TenantSettingsPage() {
       <PageHeader title={t("title")} />
       <Card>
         <SettingsForm
-          initial={{ name: tenant.name, settings, logoUrl }}
+          initial={{
+            name: tenant.name,
+            settings,
+            logoUrl: urls.logoUrl,
+            faviconUrl: urls.faviconUrl,
+            icon32Url: urls.icon32Url,
+            apple180Url: urls.apple180Url,
+            og1200Url: urls.og1200Url,
+          }}
           storageEnabled={s3Configured()}
           timezoneOptions={timezoneOptions}
           localeOptions={localeOptions}

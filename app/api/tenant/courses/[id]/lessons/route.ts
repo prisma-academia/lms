@@ -4,6 +4,7 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
@@ -11,6 +12,7 @@ const CreateBody = z.object({
   contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ"]).optional(),
   contentJson: z.record(z.string(), z.unknown()).optional(),
   assetKey: z.string().max(300).nullable().optional(),
+  libraryItemId: z.string().min(1).nullable().optional(),
   durationMin: z.number().int().min(0).nullable().optional(),
   groupId: z.string().min(1).nullable().optional(),
 });
@@ -46,6 +48,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       if (!group) throw new DomainError(400, "invalid_group", "Lesson group not found in this course.");
     }
 
+    const contentType = body.contentType ?? "TEXT";
+    const ref = await resolveLessonLibraryRef({
+      tenantId: actor.tenantId,
+      contentType,
+      libraryItemId: body.libraryItemId,
+      assetKey: body.assetKey,
+    });
+
     const maxOrder = await prisma.lesson.aggregate({
       where: { courseId },
       _max: { sortOrder: true },
@@ -57,9 +67,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         tenantId: actor.tenantId,
         title: body.title,
         sortOrder: body.sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
-        contentType: body.contentType ?? "TEXT",
+        contentType,
         contentJson: (body.contentJson ?? {}) as object,
-        assetKey: body.assetKey ?? null,
+        assetKey: ref.assetKey,
+        libraryItemId: ref.libraryItemId,
         durationMin: body.durationMin ?? null,
         groupId: body.groupId ?? null,
       },
