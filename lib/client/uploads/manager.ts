@@ -277,7 +277,16 @@ export class UploadManager {
     const t = this.tasks.get(id);
     if (!t || !t.file) return;
     if (t.status === "done" || t.status === "uploading") return;
-    this.update(id, { status: t.sessionId ? "uploading" : "queued", error: undefined });
+    // Always "queued", even when a session already exists: pump() only schedules
+    // queued tasks, so flipping straight to "uploading" here would leave a
+    // resumed file parked in an active-looking state that nothing ever drives.
+    // runTask() recognises the existing sessionId and resumes rather than
+    // creating a second one.
+    this.update(id, {
+      status: "queued",
+      error: undefined,
+      parts: t.parts.map((p) => (p.status === "done" ? p : { ...p, attempt: 0, sent: 0, status: "pending" as const })),
+    });
     this.notify(true);
     void this.pump();
   }
@@ -476,14 +485,18 @@ export class UploadManager {
     const start = (partNumber - 1) * task.partSize;
     const blob = task.file.slice(start, start + part.size);
 
+    let lastError = "Could not get an upload URL for this file.";
+
     for (let attempt = part.attempt; attempt < MAX_ATTEMPTS; attempt++) {
       if (signal.aborted) return;
-      const url = await this.presignPart(task.sessionId, partNumber, attempt > 0);
-      if (!url) {
+      const signed = await this.presignPart(task.sessionId, partNumber, attempt > 0, task.parts.length);
+      if (!signed.url) {
+        lastError = signed.message;
         this.setPart(id, partNumber, { status: "pending", attempt: attempt + 1 });
         await sleep(delayFor(attempt), signal).catch(() => {});
         continue;
       }
+      const url = signed.url;
 
       const res = await putPart({
         url,
@@ -534,28 +547,51 @@ export class UploadManager {
       this.setPart(id, partNumber, { status: "pending", sent: 0, attempt: attempt + 1 });
       await sleep(delayFor(attempt), signal).catch(() => {});
     }
+
+    // Falling out of the loop means the presign budget is spent. The part must
+    // not be left `pending`: uploadParts would immediately re-dispatch it, this
+    // function would exit on the first loop test (attempt >= MAX_ATTEMPTS), and
+    // the two would spin in a hot loop that pins the tab and never surfaces an
+    // error to the user.
+    if (signal.aborted) return;
+    this.setPart(id, partNumber, { status: "error" });
+    this.fail(id, lastError, true);
   }
 
-  private async presignPart(sessionId: string, partNumber: number, force: boolean): Promise<string | null> {
+  private async presignPart(
+    sessionId: string,
+    partNumber: number,
+    force: boolean,
+    lastPart: number
+  ): Promise<{ url: string | null; message: string }> {
     const cacheKey = `${sessionId}:${partNumber}`;
     const hit = this.presignCache.get(cacheKey);
     // 30s of headroom so a URL cannot expire mid-flight.
-    if (!force && hit && hit.expiresAt - 30_000 > Date.now()) return hit.url;
+    if (!force && hit && hit.expiresAt - 30_000 > Date.now()) return { url: hit.url, message: "" };
 
-    // Presign a window around this part so one round trip serves several.
+    // Presign a window around this part so one round trip serves several. The
+    // window stops at the last part: the server rejects the whole batch if any
+    // number is beyond the session's part count, which would otherwise 400
+    // every upload smaller than PRESIGN_WINDOW parts — i.e. almost all of them.
+    const end = Math.min(partNumber + PRESIGN_WINDOW - 1, lastPart);
     const window: number[] = [];
-    for (let n = partNumber; n < partNumber + PRESIGN_WINDOW; n++) window.push(n);
+    for (let n = partNumber; n <= end; n++) window.push(n);
 
     const res = await apiPost<{ parts: { partNumber: number; url: string }[]; expiresInSeconds: number }>(
       `/api/tenant/library/uploads/${sessionId}/parts`,
       { partNumbers: window }
     );
-    if (res.error || !res.data) return null;
+    if (res.error || !res.data) {
+      return { url: null, message: res.error?.message ?? "Could not get an upload URL for this file." };
+    }
     const expiresAt = Date.now() + res.data.expiresInSeconds * 1000;
     for (const p of res.data.parts) {
       this.presignCache.set(`${sessionId}:${p.partNumber}`, { url: p.url, expiresAt });
     }
-    return this.presignCache.get(cacheKey)?.url ?? null;
+    const url = this.presignCache.get(cacheKey)?.url;
+    return url
+      ? { url, message: "" }
+      : { url: null, message: "The server did not return an upload URL for this part." };
   }
 
   private async complete(id: string): Promise<void> {

@@ -37,6 +37,7 @@ type DrawerProps = {
   onClose: () => void;
   onChanged: (patch: Partial<LibraryItemView>) => void;
   onDeleted: (id: string) => void;
+  onPreview: (id: string) => void;
 };
 
 /**
@@ -63,6 +64,7 @@ function DetailsBody({
   onClose,
   onChanged,
   onDeleted,
+  onPreview,
 }: Omit<DrawerProps, "item"> & { item: LibraryItemView }) {
   const [grants, setGrants] = useState<GrantView[]>([]);
   const [draft, setDraft] = useState<LibraryItemView>(item);
@@ -138,7 +140,21 @@ function DetailsBody({
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-5">
-          <MediaThumb item={draft} className="aspect-video w-full" />
+          {/* The thumbnail is the obvious thing to click to see the file, so it
+              opens the preview rather than being decoration. */}
+          <button
+            type="button"
+            onClick={() => onPreview(item.id)}
+            aria-label={`Preview ${draft.title || draft.name}`}
+            className="group relative block w-full rounded-[8px] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <MediaThumb item={draft} className="aspect-video w-full" />
+            <span className="absolute inset-0 flex items-center justify-center rounded-[8px] bg-black/0 transition-colors group-hover:bg-black/45">
+              <span className="flex items-center gap-1.5 rounded-[8px] border-2 border-border bg-card px-2.5 py-1 text-xs font-bold opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                <Icon name="eye" className="size-4" /> Preview
+              </span>
+            </span>
+          </button>
 
           {error ? <p className="text-sm font-bold text-destructive">{error}</p> : null}
 

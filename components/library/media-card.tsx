@@ -52,12 +52,15 @@ export function MediaCard({
   selectionMode,
   onToggleSelect,
   onOpen,
+  onPreview,
 }: {
   item: LibraryItemView;
   selected: boolean;
   selectionMode: boolean;
   onToggleSelect: (e: React.MouseEvent) => void;
   onOpen: () => void;
+  /** Opens the file itself. Omit on surfaces with no preview host. */
+  onPreview?: () => void;
 }) {
   const label = item.title || item.name;
   return (
@@ -79,6 +82,29 @@ export function MediaCard({
           <Checkbox checked={selected} aria-label={`Select ${label}`} />
         </span>
       </div>
+
+      {/* Same stacking trick as the checkbox: the preview control has to sit
+          above the full-card open button to receive its own click. */}
+      {onPreview ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPreview();
+          }}
+          aria-label={`Preview ${label}`}
+          title="Preview"
+          className={cn(
+            "absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-[8px] border-2 border-border bg-background shadow-sm transition-opacity",
+            "hover:bg-accent focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring",
+            selected || selectionMode
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+          )}
+        >
+          <Icon name="eye" className="size-4" />
+        </button>
+      ) : null}
 
       <button type="button" onClick={onOpen} className="flex flex-col gap-2 text-left outline-none">
         <MediaThumb item={item} className="aspect-[4/3] w-full" />

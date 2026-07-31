@@ -18,6 +18,7 @@ import { FolderTree, type FolderSelection } from "@/components/library/folder-tr
 import { MediaCard } from "@/components/library/media-card";
 import { BulkActionBar } from "@/components/library/bulk-action-bar";
 import { DetailsDrawer } from "@/components/library/details-drawer";
+import { PreviewDialog } from "@/components/library/preview-dialog";
 import { StorageMeter } from "@/components/library/storage-meter";
 import {
   NewFolderDialog,
@@ -64,6 +65,7 @@ export function LibraryClient({
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
@@ -360,23 +362,34 @@ export function LibraryClient({
                         toggleSelect(item.id, e);
                       }}
                       onOpen={() => setOpenId(item.id)}
+                      onPreview={() => setPreviewId(item.id)}
                     />
                   ))}
                 </div>
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {items.map((item) => (
-                    <li key={item.id}>
+                    <li key={item.id} className="flex items-center gap-1 rounded-[10px] border-2 border-border bg-card pr-1 hover:bg-accent">
                       <button
                         type="button"
                         onClick={() => setOpenId(item.id)}
-                        className="flex w-full items-center gap-3 rounded-[10px] border-2 border-border bg-card p-2 text-left hover:bg-accent"
+                        className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left"
                       >
                         <span className="min-w-0 flex-1 truncate text-sm font-bold">{item.title || item.name}</span>
                         <span className="num shrink-0 text-xs text-muted-foreground">
                           {MEDIA_KIND_LABEL[item.mediaKind]} · {formatBytes(item.sizeBytes)}
                         </span>
                       </button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Preview ${item.title || item.name}`}
+                        title="Preview"
+                        onClick={() => setPreviewId(item.id)}
+                      >
+                        <Icon name="eye" />
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -423,7 +436,7 @@ export function LibraryClient({
               }
             />
           ) : null}
-          <UploadQueue folders={folderOptions} tags={tags} />
+          <UploadQueue folders={folderOptions} tags={tags} onPreview={setPreviewId} />
           {upload.tasks.length === 0 ? (
             <Card>
               <EmptyState icon="upload" title="Nothing in the queue">
@@ -546,7 +559,10 @@ export function LibraryClient({
           setItems((prev) => prev.map((i) => (i.id === openId ? { ...i, ...patch } : i)))
         }
         onDeleted={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
+        onPreview={setPreviewId}
       />
+
+      <PreviewDialog itemId={previewId} onClose={() => setPreviewId(null)} />
     </div>
   );
 }

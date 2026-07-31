@@ -14,9 +14,12 @@ export type Named = { id: string; name: string };
 export function UploadQueue({
   folders,
   tags: initialTags,
+  onPreview,
 }: {
   folders: Named[];
   tags: Named[];
+  /** Opens a finished upload. Omit on surfaces with no preview host. */
+  onPreview?: (itemId: string) => void;
 }) {
   const { tasks, totalBytes, sentBytes, activeCount, rate } = useUploads();
   const manager = useUploadManager();
@@ -90,6 +93,7 @@ export function UploadQueue({
             folders={folders}
             tags={tags}
             onTagCreated={(tag) => setTags((prev) => (prev.some((x) => x.id === tag.id) ? prev : [...prev, tag]))}
+            onPreview={onPreview}
           />
         ))}
       </ul>

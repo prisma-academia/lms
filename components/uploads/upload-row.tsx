@@ -41,11 +41,14 @@ export function UploadRow({
   folders,
   tags,
   onTagCreated,
+  onPreview,
 }: {
   task: UploadTask;
   folders: Named[];
   tags: Named[];
   onTagCreated: (tag: Named) => void;
+  /** Opens the finished item. Omit on surfaces with no preview host. */
+  onPreview?: (itemId: string) => void;
 }) {
   const manager = useUploadManager();
   const [open, setOpen] = useState(false);
@@ -132,6 +135,18 @@ export function UploadRow({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {task.status === "done" && task.itemId && onPreview ? (
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={`Preview ${task.fingerprint.name}`}
+              title="Preview"
+              onClick={() => onPreview(task.itemId!)}
+            >
+              <Icon name="eye" />
+            </Button>
+          ) : null}
           {busy ? (
             <Button type="button" size="icon-sm" variant="ghost" aria-label="Pause" onClick={() => manager.pause(task.id)}>
               <Icon name="pause" />

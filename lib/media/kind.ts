@@ -44,6 +44,77 @@ export function mediaKindForContentType(contentType: string): MediaKind {
   return "OTHER";
 }
 
+/**
+ * Extension -> MediaKind, used only to repair items stored as OTHER.
+ *
+ * Uploads that arrive with a generic or missing Content-Type (S3 defaults to
+ * application/octet-stream, and some browsers send nothing for a drag-drop)
+ * land in the OTHER bucket, and OTHER renders as a download card. The filename
+ * is the last honest signal we have, so a "worksheet.pdf" still opens in the
+ * PDF viewer instead of forcing a download.
+ */
+const BY_EXTENSION: Record<string, MediaKind> = {
+  pdf: "PDF",
+  mp4: "VIDEO", webm: "VIDEO", mov: "VIDEO", m4v: "VIDEO", ogv: "VIDEO", mkv: "VIDEO",
+  mp3: "AUDIO", wav: "AUDIO", m4a: "AUDIO", aac: "AUDIO", oga: "AUDIO", flac: "AUDIO",
+  png: "IMAGE", jpg: "IMAGE", jpeg: "IMAGE", gif: "IMAGE", webp: "IMAGE", avif: "IMAGE",
+  bmp: "IMAGE", svg: "IMAGE",
+  txt: "DOC", csv: "DOC", md: "DOC", markdown: "DOC", json: "DOC", xml: "DOC",
+  yml: "DOC", yaml: "DOC", log: "DOC",
+  doc: "DOC", docx: "DOC", xls: "DOC", xlsx: "DOC", ppt: "DOC", pptx: "DOC",
+  odt: "DOC", ods: "DOC", odp: "DOC", epub: "DOC",
+  zip: "ARCHIVE", "7z": "ARCHIVE", tar: "ARCHIVE", gz: "ARCHIVE", rar: "ARCHIVE",
+};
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
+}
+
+/**
+ * The kind an item should actually render as.
+ *
+ * A stored kind is trusted whenever it is decisive. Only OTHER — the
+ * "we could not tell" bucket — is re-derived, first from the content type and
+ * then from the filename. This can promote an item into a real viewer; it can
+ * never demote one that was classified correctly at upload.
+ */
+export function resolveMediaKind(item: {
+  mediaKind: MediaKind | string;
+  contentType?: string | null;
+  name?: string | null;
+}): MediaKind {
+  const stored = item.mediaKind as MediaKind;
+  if (stored && stored !== "OTHER") return stored;
+
+  const fromType = item.contentType ? mediaKindForContentType(item.contentType) : "OTHER";
+  if (fromType !== "OTHER") return fromType;
+
+  return (item.name ? BY_EXTENSION[extensionOf(item.name)] : undefined) ?? "OTHER";
+}
+
+/** Content types this app can render as text in-page rather than download. */
+const TEXT_EXTENSIONS = new Set([
+  "txt", "csv", "md", "markdown", "json", "xml", "yml", "yaml", "log",
+]);
+
+/**
+ * True for DOC items that are plain text underneath, so they can be shown
+ * in-page. Word/Excel/PowerPoint are DOC too but need a conversion service —
+ * they stay download-only.
+ */
+export function isInlineTextDoc(item: { contentType?: string | null; name?: string | null }): boolean {
+  const ct = (item.contentType ?? "").toLowerCase().split(";")[0].trim();
+  if (ct === "application/json" || ct === "application/xml") return true;
+  if (ct.startsWith("text/") && ct !== "text/vtt" && ct !== "text/html") return true;
+  return item.name ? TEXT_EXTENSIONS.has(extensionOf(item.name)) : false;
+}
+
+/** Kinds that render in a real viewer rather than a download card. */
+export function rendersInline(kind: MediaKind): boolean {
+  return kind === "VIDEO" || kind === "AUDIO" || kind === "PDF" || kind === "IMAGE";
+}
+
 /** True when the learner gets a real player rather than a download card. */
 export function isPlayable(kind: MediaKind): boolean {
   return kind === "VIDEO" || kind === "AUDIO";

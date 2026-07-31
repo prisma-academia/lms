@@ -12,21 +12,33 @@ import {
   getTenantStorage,
 } from "@/lib/storage/quota";
 
+/**
+ * The uploader posts its whole metadata draft, and an untouched draft carries
+ * explicit nulls for the fields the user never filled in. Accepting null as
+ * "no value" keeps a plain upload from being rejected over a field nobody set.
+ */
 const Body = z.object({
   name: z.string().min(1).max(300).optional(),
-  title: z.string().min(1).max(300).optional(),
-  description: z.string().max(5000).optional(),
+  title: z.string().max(300).nullable().optional(),
+  description: z.string().max(5000).nullable().optional(),
   folderId: z.string().min(1).nullable().optional(),
-  tagIds: z.array(z.string().min(1)).max(50).optional(),
-  checksumSha256: z.string().max(128).optional(),
-  durationSeconds: z.number().int().min(0).max(24 * 3600).optional(),
-  width: z.number().int().min(0).max(100_000).optional(),
-  height: z.number().int().min(0).max(100_000).optional(),
-  isPublic: z.boolean().optional(),
-  isFree: z.boolean().optional(),
+  tagIds: z.array(z.string().min(1)).max(50).nullable().optional(),
+  checksumSha256: z.string().max(128).nullable().optional(),
+  durationSeconds: z.number().int().min(0).max(24 * 3600).nullable().optional(),
+  width: z.number().int().min(0).max(100_000).nullable().optional(),
+  height: z.number().int().min(0).max(100_000).nullable().optional(),
+  isPublic: z.boolean().nullable().optional(),
+  isFree: z.boolean().nullable().optional(),
   priceCents: z.number().int().min(0).nullable().optional(),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).nullable().optional(),
 });
+
+/** Blank strings arrive from cleared form fields; store them as "unset". */
+function trimmed(v: string | null | undefined): string | null | undefined {
+  if (v == null) return v;
+  const s = v.trim();
+  return s.length > 0 ? s : null;
+}
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -116,8 +128,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         originalFilename: session.originalFilename,
         folderId: folderId ?? null,
         createdById: actor.userId,
-        title: body.title ?? session.title,
-        description: body.description ?? session.description,
+        title: trimmed(body.title) ?? session.title,
+        description: trimmed(body.description) ?? session.description,
         checksumSha256: body.checksumSha256 ?? null,
         durationSeconds: body.durationSeconds ?? null,
         width: body.width ?? null,
@@ -126,7 +138,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         isFree: body.isFree ?? true,
         priceCents: body.priceCents ?? null,
         currency: body.currency ?? null,
-        tags: body.tagIds
+        tags: body.tagIds?.length
           ? { create: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, tagId })) }
           : undefined,
       },

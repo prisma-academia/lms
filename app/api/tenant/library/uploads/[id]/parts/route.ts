@@ -40,14 +40,21 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const { partNumbers } = PresignBody.parse(await request.json());
     const session = await loadPendingSession(actor.tenantId, id);
 
-    for (const n of partNumbers) {
-      if (n > session.totalParts) {
-        throw new DomainError(400, "bad_part", `Part ${n} is beyond this upload's part count.`);
-      }
+    // Clients presign a fixed-size window ahead of the part they need, so the
+    // tail of that window routinely runs past the last part. Trimming is the
+    // right response — rejecting the batch would fail every upload smaller than
+    // one window. Only a request with nothing usable in it is an error.
+    const wanted = [...new Set(partNumbers)].filter((n) => n <= session.totalParts);
+    if (wanted.length === 0) {
+      throw new DomainError(
+        400,
+        "bad_part",
+        `This upload has ${session.totalParts} part(s); none of the requested parts exist.`
+      );
     }
 
     const urls = await Promise.all(
-      [...new Set(partNumbers)].map(async (partNumber) => ({
+      wanted.map(async (partNumber) => ({
         partNumber,
         url: await presignUploadPart({
           key: session.key,

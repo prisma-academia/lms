@@ -38,10 +38,17 @@ type PdfPage = {
 export default function PdfViewer({
   payload,
   onPageChange,
+  onUnavailable,
 }: {
   payload: MediaPayload;
   /** Current page and total. Optional — only the lesson gate passes it. */
   onPageChange?: (page: number, total: number) => void;
+  /**
+   * The document could not be read (missing file, blocked worker, old browser).
+   * The lesson gate listens so a "read to the last page" rule can step down to
+   * dwell instead of leaving a lesson no one can ever finish.
+   */
+  onUnavailable?: () => void;
 }) {
   const { item, playbackUrl, access } = payload;
   const canDownload = access.state === "open" && access.canDownload;
@@ -57,6 +64,10 @@ export default function PdfViewer({
   const [hits, setHits] = useState<number[]>([]);
   const [searching, setSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const onUnavailableRef = useRef(onUnavailable);
+  useEffect(() => {
+    onUnavailableRef.current = onUnavailable;
+  }, [onUnavailable]);
   const textCache = useRef<Map<number, string>>(new Map());
 
   // Report reading position so a lesson gate can tell when the learner reached
@@ -98,7 +109,12 @@ export default function PdfViewer({
         setDoc(d);
         setNumPages(d.numPages);
       } catch {
-        if (!cancelled) setFailed(true);
+        if (!cancelled) {
+          setFailed(true);
+          // Through a ref: putting the callback in this effect's deps would
+          // re-download and re-parse the document on every parent render.
+          onUnavailableRef.current?.();
+        }
       }
     })();
 
