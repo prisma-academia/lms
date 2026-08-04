@@ -2,6 +2,9 @@
   "name": "prisma-lms",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate && node scripts/copy-pdf-worker.mjs && next build",
