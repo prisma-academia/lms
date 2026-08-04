@@ -2,12 +2,53 @@
 
 import { useState } from "react";
 import { apiDelete, apiPatch, apiPost } from "@/lib/client/api";
+import {
+  FAVICON_RULES,
+  LOGO_RULES,
+  precheckImage,
+  putFileToStorage,
+} from "@/lib/client/image-upload";
 import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import type { SelectOption } from "@/lib/geo/options";
 import { MODULE_KEYS, type ModuleKey, type TenantSettings } from "@/lib/tenant/settings";
 import { ThemePicker } from "./theme-picker";
 import type { ThemePresetId } from "@/lib/theme/presets";
+
+/**
+ * Which section a message belongs to. Feedback is rendered next to the control
+ * that produced it — a single shared line at the bottom of a long form both
+ * scrolls out of view and gets silently overwritten by the next action.
+ */
+type Scope = "logo" | "favicon" | "form";
+type Message = { scope: Scope; message: string };
+
+/** Renders whichever of `error` / `info` belongs to this section. */
+function Feedback({
+  scope,
+  error,
+  info,
+}: {
+  scope: Scope;
+  error: Message | null;
+  info: Message | null;
+}) {
+  if (error?.scope === scope) {
+    return (
+      <p role="alert" className="text-sm font-medium text-red-600">
+        {error.message}
+      </p>
+    );
+  }
+  if (info?.scope === scope) {
+    return (
+      <p role="status" className="text-sm font-medium text-green-700">
+        {info.message}
+      </p>
+    );
+  }
+  return null;
+}
 
 type Initial = {
   name: string;
@@ -57,10 +98,25 @@ export function SettingsForm({
   const [apple180Url, setApple180Url] = useState<string | null>(initial.apple180Url ?? null);
   const [og1200Url, setOg1200Url] = useState<string | null>(initial.og1200Url ?? null);
 
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
+  const [error, setError] = useState<Message | null>(null);
+  const [info, setInfo] = useState<Message | null>(null);
   const [pending, setPending] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<Scope | null>(null);
+
+  function clearFeedback() {
+    setError(null);
+    setInfo(null);
+  }
+
+  function fail(scope: Scope, message: string) {
+    setInfo(null);
+    setError({ scope, message });
+  }
+
+  function succeed(scope: Scope, message: string) {
+    setError(null);
+    setInfo({ scope, message });
+  }
 
   function toggleModule(key: ModuleKey) {
     setEnabled((prev) =>
@@ -87,27 +143,40 @@ export function SettingsForm({
   async function onLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(null);
-    setInfo(null);
-    setUploading(true);
+    clearFeedback();
+    setUploading("logo");
     try {
+      // Catch the obvious problems here so the user is not made to wait for a
+      // round trip (and an upload) to be told the file is the wrong shape.
+      const invalid = await precheckImage(file, LOGO_RULES);
+      if (invalid) {
+        fail("logo", invalid);
+        return;
+      }
+
       const res = await apiPost<{ url: string; key: string; publicUrl: string }>(
         "/api/tenant/settings/logo",
         { contentType: file.type, contentLength: file.size }
       );
       if (res.error || !res.data) {
-        setError(res.error?.message ?? "Upload could not be started.");
+        fail(
+          "logo",
+          res.error?.message ??
+            "The server did not return an upload link. Reload the page and try again."
+        );
         return;
       }
-      const put = await fetch(res.data.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+
+      const put = await putFileToStorage({
+        url: res.data.url,
+        file,
+        contentType: file.type,
       });
       if (!put.ok) {
-        setError("Upload failed.");
+        fail("logo", put.message);
         return;
       }
+
       const fin = await apiPost<{
         settings: {
           logoKey?: string;
@@ -119,13 +188,27 @@ export function SettingsForm({
         };
       }>("/api/tenant/settings/logo/finalize", { key: res.data.key });
       if (fin.error || !fin.data?.settings) {
-        setError(fin.error?.message ?? "Logo validation failed.");
+        fail(
+          "logo",
+          fin.error?.message ??
+            "The logo uploaded but could not be processed. Try a different image."
+        );
         return;
       }
+
       applyBrandingUrls(fin.data.settings);
-      setInfo("Logo saved. Favicon and social images were generated.");
+      succeed(
+        "logo",
+        "Logo saved. The favicon and social preview images were regenerated from it."
+      );
+    } catch (err) {
+      console.error("[settings] logo upload failed", err);
+      fail(
+        "logo",
+        "The logo upload stopped unexpectedly. Check your connection and try again."
+      );
     } finally {
-      setUploading(false);
+      setUploading(null);
       e.target.value = "";
     }
   }
@@ -133,27 +216,38 @@ export function SettingsForm({
   async function onFaviconChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(null);
-    setInfo(null);
-    setUploading(true);
+    clearFeedback();
+    setUploading("favicon");
     try {
+      const invalid = await precheckImage(file, FAVICON_RULES);
+      if (invalid) {
+        fail("favicon", invalid);
+        return;
+      }
+
       const res = await apiPost<{ url: string; key: string; publicUrl: string }>(
         "/api/tenant/settings/favicon",
         { contentType: file.type, contentLength: file.size }
       );
       if (res.error || !res.data) {
-        setError(res.error?.message ?? "Upload could not be started.");
+        fail(
+          "favicon",
+          res.error?.message ??
+            "The server did not return an upload link. Reload the page and try again."
+        );
         return;
       }
-      const put = await fetch(res.data.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+
+      const put = await putFileToStorage({
+        url: res.data.url,
+        file,
+        contentType: file.type,
       });
       if (!put.ok) {
-        setError("Upload failed.");
+        fail("favicon", put.message);
         return;
       }
+
       const fin = await apiPost<{
         settings: {
           faviconUrl?: string | null;
@@ -162,20 +256,31 @@ export function SettingsForm({
         };
       }>("/api/tenant/settings/favicon", { key: res.data.key });
       if (fin.error || !fin.data?.settings) {
-        setError(fin.error?.message ?? "Favicon validation failed.");
+        fail(
+          "favicon",
+          fin.error?.message ??
+            "The favicon uploaded but could not be processed. Try a different image."
+        );
         return;
       }
+
       applyBrandingUrls(fin.data.settings);
-      setInfo("Custom favicon saved.");
+      succeed("favicon", "Custom favicon saved.");
+    } catch (err) {
+      console.error("[settings] favicon upload failed", err);
+      fail(
+        "favicon",
+        "The favicon upload stopped unexpectedly. Check your connection and try again."
+      );
     } finally {
-      setUploading(false);
+      setUploading(null);
       e.target.value = "";
     }
   }
 
   async function clearFavicon() {
-    setError(null);
-    setUploading(true);
+    clearFeedback();
+    setUploading("favicon");
     const res = await apiDelete<{
       settings: {
         faviconUrl?: string | null;
@@ -183,13 +288,13 @@ export function SettingsForm({
         apple180Url?: string | null;
       };
     }>("/api/tenant/settings/favicon");
-    setUploading(false);
+    setUploading(null);
     if (res.error) {
-      setError(res.error.message);
+      fail("favicon", res.error.message);
       return;
     }
     if (res.data?.settings) applyBrandingUrls(res.data.settings);
-    setInfo("Favicon override cleared — using generated icons.");
+    succeed("favicon", "Favicon override cleared — using generated icons.");
   }
 
   async function submit() {
@@ -215,11 +320,13 @@ export function SettingsForm({
     });
     setPending(false);
     if (res.error) {
-      setError(res.error.message);
+      fail("form", res.error.message);
       return;
     }
-    setInfo("Saved.");
+    succeed("form", "Saved.");
   }
+
+  const busy = uploading !== null;
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
@@ -338,23 +445,34 @@ export function SettingsForm({
       <div className="flex flex-col gap-2 text-sm">
         <span className="text-stone-700">Site logo</span>
         <p className="text-xs text-stone-500">
-          PNG, JPEG, or WebP. Min 256×256, aspect between 1:3 and 3:1. Favicons
-          and social preview images are generated automatically.
+          Shown across your admin console, learner portal, sign-in screens, and
+          public pages. PNG, JPEG, or WebP up to 2 MB. Min 256×256, aspect
+          between 1:3 and 3:1. Favicons and social preview images are generated
+          automatically.
         </p>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Tenant logo" className="h-12 w-auto" />
         ) : null}
         {storageEnabled ? (
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            disabled={uploading}
-            onChange={onLogoChange}
-          />
+          <>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={busy}
+              onChange={onLogoChange}
+            />
+            {uploading === "logo" ? (
+              <p role="status" className="text-xs text-stone-500">
+                Uploading and generating icons…
+              </p>
+            ) : null}
+            <Feedback scope="logo" error={error} info={info} />
+          </>
         ) : (
           <span className="text-xs text-stone-500">
-            Object storage is not configured.
+            Object storage is not configured, so logo uploads are disabled. Ask
+            your platform administrator to configure the S3 settings.
           </span>
         )}
         {(icon32Url || apple180Url || og1200Url) && (
@@ -394,26 +512,33 @@ export function SettingsForm({
           <img src={faviconUrl} alt="Favicon" className="size-8" />
         ) : null}
         {storageEnabled ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              disabled={uploading}
-              onChange={onFaviconChange}
-            />
-            {initial.settings.faviconKey || faviconUrl ? (
-              <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={clearFavicon}>
-                Clear override
-              </Button>
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={busy}
+                onChange={onFaviconChange}
+              />
+              {initial.settings.faviconKey || faviconUrl ? (
+                <Button type="button" variant="outline" size="sm" disabled={busy} onClick={clearFavicon}>
+                  Clear override
+                </Button>
+              ) : null}
+            </div>
+            {uploading === "favicon" ? (
+              <p role="status" className="text-xs text-stone-500">
+                Uploading…
+              </p>
             ) : null}
-          </div>
+            <Feedback scope="favicon" error={error} info={info} />
+          </>
         ) : null}
       </div>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {info ? <p className="text-sm text-green-700">{info}</p> : null}
+      <Feedback scope="form" error={error} info={info} />
       <div>
-        <Button onClick={submit} disabled={pending || uploading}>
+        <Button onClick={submit} disabled={pending || busy}>
           {pending ? "Saving…" : "Save"}
         </Button>
       </div>

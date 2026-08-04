@@ -3,6 +3,7 @@ import { resolveThemeForRequest } from "@/lib/theme/resolve";
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { parseTenantSettings } from "@/lib/tenant/settings";
+import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { StudentShell } from "@/components/student-shell";
 
 export default async function ClientDashboardLayout({
@@ -23,6 +24,8 @@ export default async function ClientDashboardLayout({
   if (!client || !tenant) redirect("/auth/login");
 
   const settings = parseTenantSettings(tenant.settingsJson);
+  const logoUrl =
+    settings.logoKey && s3Configured() ? publicUrlForKey(settings.logoKey) : null;
   const profile = (client.profileJson as Record<string, unknown>) ?? {};
   const first = typeof profile.name === "string" ? profile.name.trim() : "";
   const label =
@@ -33,6 +36,7 @@ export default async function ClientDashboardLayout({
   return (
     <StudentShell
       title={tenant.name}
+      logoUrl={logoUrl}
       userLabel={label}
       themeMode={theme.mode}
     >

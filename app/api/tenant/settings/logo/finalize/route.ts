@@ -28,7 +28,11 @@ export async function POST(request: Request) {
     const { key } = Body.parse(await request.json());
 
     if (!s3Configured()) {
-      throw new DomainError(503, "storage_unconfigured", "Object storage is not configured.");
+      throw new DomainError(
+        503,
+        "storage_unconfigured",
+        "Object storage is not configured, so logo uploads are disabled. Ask your platform administrator to configure the S3 settings."
+      );
     }
 
     const tenant = await prisma.tenant.findUnique({ where: { id: actor.tenantId } });

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LogoutButton, type LogoutContext } from "./logout-button";
 import { NavLinks, type NavItem } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
+import { TenantMark } from "@/components/tenant-mark";
 import { Icon } from "@/components/icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { ThemeMode } from "@/lib/theme/cookie";
@@ -26,20 +27,7 @@ function Brand({
 }) {
   return (
     <div className="mb-6 flex items-center gap-3 px-1">
-      {logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoUrl}
-          alt=""
-          className="size-10 shrink-0 rounded-[10px] border-2 border-border object-contain"
-        />
-      ) : (
-        <div
-          className="flex size-10 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-foreground bg-primary font-heading text-lg text-primary-foreground shadow-sm"
-        >
-          {title.charAt(0).toUpperCase()}
-        </div>
-      )}
+      <TenantMark logoUrl={logoUrl} name={title} className="size-10 text-lg" />
       <div className="min-w-0">
         <div className="truncate font-heading text-[15px] leading-tight">
           {title}
@@ -101,6 +89,7 @@ export function AppShell({
 
       <MobileNav
         title={title}
+        logoUrl={logoUrl}
         nav={nav}
         userLabel={userLabel}
         logoutEndpoint={logoutEndpoint}

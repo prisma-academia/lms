@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { TenantMark } from "@/components/tenant-mark";
 import { Icon } from "@/components/icon";
 import { NavLinks, type NavItem } from "@/components/nav-links";
 import { LogoutButton, type LogoutContext } from "@/components/logout-button";
 
 export function MobileNav({
   title,
+  logoUrl,
   nav,
   userLabel,
   logoutEndpoint,
@@ -14,6 +16,7 @@ export function MobileNav({
   logoutContext,
 }: {
   title: string;
+  logoUrl?: string | null;
   nav: NavItem[];
   userLabel: string;
   logoutEndpoint: string;
@@ -33,7 +36,13 @@ export function MobileNav({
         >
           <Icon name={open ? "x" : "menu"} className="size-5" />
         </button>
-        <span className="truncate font-heading text-base">{title}</span>
+        <TenantMark
+          logoUrl={logoUrl}
+          name={title}
+          className="size-9 text-[15px]"
+          iconClassName="size-[18px]"
+        />
+        <span className="min-w-0 truncate font-heading text-base">{title}</span>
       </div>
 
       {open ? (

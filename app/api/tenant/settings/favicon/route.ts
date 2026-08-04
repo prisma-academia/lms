@@ -11,6 +11,7 @@ import {
   MAX_ASSET_BYTES,
 } from "@/lib/storage/s3";
 import { assertStorageQuota } from "@/lib/storage/quota";
+import { formatBytes } from "@/lib/tenant/plan";
 import { parseTenantSettings, tenantSettingsSchema } from "@/lib/tenant/settings";
 import {
   brandingAssetUrls,
@@ -74,11 +75,21 @@ export async function POST(request: Request) {
       throw new DomainError(503, "storage_unconfigured", "Object storage is not configured.");
     }
     if (!isAllowedImageType(contentType)) {
-      throw new DomainError(400, "bad_type", "Favicon must be a PNG, JPEG, or WebP image.");
+      throw new DomainError(
+        400,
+        "bad_type",
+        `Favicon must be a PNG, JPEG, or WebP image — the file was sent as "${contentType}". SVG is not accepted.`
+      );
     }
     const size = contentLength ?? MAX_ASSET_BYTES.favicon;
     if (size > MAX_ASSET_BYTES.favicon) {
-      throw new DomainError(400, "file_too_large", "Favicon must be 512 KB or smaller.");
+      throw new DomainError(
+        400,
+        "file_too_large",
+        `Favicon is ${formatBytes(BigInt(size))}, over the ${formatBytes(
+          BigInt(MAX_ASSET_BYTES.favicon)
+        )} limit.`
+      );
     }
     await assertStorageQuota(actor.tenantId, size);
 

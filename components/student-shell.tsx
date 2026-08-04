@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { TenantMark } from "@/components/tenant-mark";
 import { Icon, type IconName } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
@@ -50,11 +51,13 @@ function initials(label: string): string {
 
 export function StudentShell({
   title,
+  logoUrl,
   userLabel,
   themeMode,
   children,
 }: {
   title: string;
+  logoUrl?: string | null;
   userLabel: string;
   themeMode: ThemeMode;
   children: React.ReactNode;
@@ -68,11 +71,11 @@ export function StudentShell({
         {/* Desktop sidebar */}
         <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-border bg-card px-4 py-6 lg:flex">
           <div className="mb-6 flex shrink-0 items-center gap-3 px-1">
-            <span
-              className="flex size-10 -rotate-3 items-center justify-center rounded-[12px] border-2 border-foreground bg-primary text-primary-foreground shadow-sm"
-            >
-              <Icon name="cap" className="size-5" />
-            </span>
+            <TenantMark
+              logoUrl={logoUrl}
+              name={title}
+              className="size-10 rounded-[12px] text-lg"
+            />
             <div className="min-w-0">
               <div className="truncate font-heading text-[15px] leading-tight">
                 {title}
@@ -124,11 +127,12 @@ export function StudentShell({
           >
             <Icon name={menuOpen ? "x" : "menu"} className="size-[18px]" />
           </button>
-          <span
-            className="flex size-9 shrink-0 -rotate-3 items-center justify-center rounded-[10px] border-2 border-foreground bg-primary text-primary-foreground shadow-sm"
-          >
-            <Icon name="cap" className="size-[18px]" />
-          </span>
+          <TenantMark
+            logoUrl={logoUrl}
+            name={title}
+            className="size-9 text-[15px]"
+            iconClassName="size-[18px]"
+          />
           <span className="min-w-0 truncate font-heading text-base">{title}</span>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <NotificationBell />
