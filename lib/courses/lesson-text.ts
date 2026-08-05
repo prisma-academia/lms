@@ -4,7 +4,7 @@
  * Used for two things that must agree: the dwell budget in `content-gate.ts`
  * (which runs on both the client and the server) and the lesson context handed
  * to the essay grader. Deliberately regex-based rather than reusing
- * `lib/content/sanitize-html` — that pulls in isomorphic-dompurify, which has no
+ * `lib/content/sanitize-html` — that pulls in a full HTML parser, which has no
  * business in a client bundle just to count words.
  */
 
