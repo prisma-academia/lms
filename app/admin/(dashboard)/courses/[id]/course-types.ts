@@ -11,6 +11,12 @@ export type LessonRow = {
   assetKey: string | null;
   libraryItemId: string | null;
   durationMin: number | null;
+  /**
+   * Whether the learner must keep this lesson open for a computed minimum
+   * before "Mark complete" unlocks. Optional because rows fetched by older
+   * callers omit it; `undefined` reads as the schema default (true).
+   */
+  requireDwell?: boolean;
   groupId: string | null;
 };
 

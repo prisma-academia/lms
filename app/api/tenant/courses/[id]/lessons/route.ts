@@ -14,6 +14,7 @@ const CreateBody = z.object({
   assetKey: z.string().max(300).nullable().optional(),
   libraryItemId: z.string().min(1).nullable().optional(),
   durationMin: z.number().int().min(0).nullable().optional(),
+  requireDwell: z.boolean().optional(),
   groupId: z.string().min(1).nullable().optional(),
 });
 
@@ -72,6 +73,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         assetKey: ref.assetKey,
         libraryItemId: ref.libraryItemId,
         durationMin: body.durationMin ?? null,
+        requireDwell: body.requireDwell ?? true,
         groupId: body.groupId ?? null,
       },
     });

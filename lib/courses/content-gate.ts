@@ -31,6 +31,12 @@ export type GateableLesson = {
   contentType: GateContentType;
   contentJson: unknown;
   durationMin: number | null;
+  /**
+   * Author's per-lesson opt-out of the dwell timer. Optional so callers that
+   * predate the column keep compiling; `undefined` reads as "on", matching the
+   * schema default. Only an explicit `false` turns the timer off.
+   */
+  requireDwell?: boolean | null;
 };
 
 /** Fraction of a media asset that counts as "watched to the end". */
@@ -47,6 +53,10 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function requiredDwellSeconds(lesson: GateableLesson): number {
+  // The author turned the timer off for this lesson. Every other gate still
+  // applies — this drops the clock, not the requirement to consume the content.
+  if (lesson.requireDwell === false) return 0;
+
   switch (lesson.contentType) {
     case "QUIZ":
       // Scoring 100% is the gate; a timer on top would only punish fast learners.

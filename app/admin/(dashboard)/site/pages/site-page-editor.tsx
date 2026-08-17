@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiDelete, apiPatch, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
+import { Icon } from "@/components/icon";
+import { PreviewFrame } from "@/components/preview-frame";
 import {
   BLOCK_TYPE_LABELS,
   newBlockId,
@@ -78,6 +80,12 @@ export function SitePageEditor({
   const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  // Bumped on every successful save. The preview renders server-side from the
+  // stored row, so it is only ever as fresh as the last save — this is what
+  // makes it refresh at that moment instead of showing stale blocks.
+  const [previewVersion, setPreviewVersion] = useState(0);
+
   const isHome = page?.isHome ?? false;
 
   const templateOptions = useMemo(
@@ -146,8 +154,20 @@ export function SitePageEditor({
     if (res.data?.page) {
       setBlocks(res.data.page.blocks);
       setInfo("Saved.");
+      setPreviewVersion((v) => v + 1);
       router.refresh();
     }
+  }
+
+  /**
+   * Save first, then show the preview. The preview is rendered on the server
+   * from the stored page, so previewing unsaved edits is not something this can
+   * honestly offer — saving is what makes the preview mean anything, and doing
+   * it silently is better than a "Preview" button that shows yesterday's page.
+   */
+  async function saveAndPreview() {
+    await save();
+    setPreviewOpen(true);
   }
 
   async function applyTemplate() {
@@ -341,6 +361,38 @@ export function SitePageEditor({
         ) : null}
       </div>
 
+      {!isNew ? (
+        <div className="flex flex-col gap-3 rounded-[14px] border-2 border-border p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-heading text-lg">Preview</h2>
+              <p className="text-xs text-muted-foreground">
+                The page as a visitor sees it — drafts included, so you can check
+                it before publishing.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPreviewOpen((o) => !o)}
+              aria-expanded={previewOpen}
+            >
+              <Icon name={previewOpen ? "eye-off" : "eye"} />
+              {previewOpen ? "Hide preview" : "Show preview"}
+            </Button>
+          </div>
+
+          {previewOpen ? (
+            <PreviewFrame
+              src={`/admin/preview/site/${page!.id}`}
+              title={`Preview of ${title}`}
+              refreshToken={previewVersion}
+              height={640}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {info ? <p className="text-sm text-green-700">{info}</p> : null}
 
@@ -349,6 +401,12 @@ export function SitePageEditor({
           <Button type="button" onClick={save} disabled={pending}>
             {pending ? "Saving…" : isNew ? "Create page" : "Save"}
           </Button>
+          {!isNew ? (
+            <Button type="button" variant="outline" onClick={saveAndPreview} disabled={pending}>
+              <Icon name="eye" />
+              Save &amp; preview
+            </Button>
+          ) : null}
           {!isNew ? (
             <Button type="button" variant="outline" onClick={saveAsTemplate}>
               Save as template

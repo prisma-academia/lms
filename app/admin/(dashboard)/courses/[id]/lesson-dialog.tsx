@@ -10,6 +10,7 @@ import {
   type GenerationProgressState,
 } from "@/components/generation-progress-modal";
 import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/icon";
 import type { GeneratedLesson } from "@/lib/schemas/course-builder";
 import {
@@ -31,6 +32,19 @@ export function buildContentJson(type: LessonContentType, body: string, quizId: 
         : type === "QUIZ"
           ? { quizId }
           : {};
+}
+
+/**
+ * What the timer actually does for this content type, in the author's terms.
+ * The exact number is computed server-side from the lesson body (see
+ * `requiredDwellSeconds`), so this describes the rule rather than promising a
+ * duration the author would then expect to be able to edit.
+ */
+function dwellHint(type: LessonContentType): string {
+  if (type === "QUIZ") return "Quizzes are gated by scoring 100%, so no timer is applied.";
+  if (type === "TEXT" || type === "HTML")
+    return "Scaled to the length of the content, between 15 seconds and 3 minutes.";
+  return "Half the stated duration, between 15 seconds and 2 minutes.";
 }
 
 type LessonDialogProps = {
@@ -78,6 +92,9 @@ function LessonForm({
     lesson?.durationMin != null ? String(lesson.durationMin) : ""
   );
   const [groupId, setGroupId] = useState(lesson?.groupId ?? "");
+  // Defaults to on for a new lesson, and for a row loaded before the column
+  // existed — `?? true` matches the schema default rather than inventing one.
+  const [requireDwell, setRequireDwell] = useState(lesson?.requireDwell ?? true);
   const [quizId, setQuizId] = useState(
     lesson?.contentType === "QUIZ" && typeof lesson.contentJson.quizId === "string"
       ? lesson.contentJson.quizId
@@ -199,6 +216,7 @@ function LessonForm({
       assetKey: null as string | null,
       libraryItemId: type === "FILE" ? libraryItemId || null : null,
       durationMin: duration.trim() ? parseInt(duration, 10) : null,
+      requireDwell,
       groupId: groupId || null,
     };
 
@@ -409,6 +427,28 @@ function LessonForm({
             </div>
           </div>
         ) : null}
+
+        <label
+          htmlFor="lesson-dialog-dwell"
+          className="flex items-start gap-3 rounded-[10px] border-2 border-border bg-background p-3"
+        >
+          <Checkbox
+            id="lesson-dialog-dwell"
+            checked={requireDwell}
+            onCheckedChange={(v) => setRequireDwell(v === true)}
+            className="mt-0.5"
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-bold text-foreground">
+              Require minimum time on this lesson
+            </span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {requireDwell
+                ? dwellHint(type)
+                : "No timer — learners can mark this complete as soon as they have read, watched or passed it."}
+            </span>
+          </span>
+        </label>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label="Duration (minutes)" htmlFor="lesson-dialog-duration">

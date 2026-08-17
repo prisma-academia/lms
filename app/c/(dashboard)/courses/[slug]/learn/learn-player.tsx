@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sheet";
 import { QuizPlayer } from "./quiz-player";
 import { cn } from "@/lib/utils";
-import { sanitizeHtml } from "@/lib/content/sanitize-html";
+import { sanitizeHtmlWithStyles } from "@/lib/content/sanitize-html";
 import { MediaViewer, mediaRendersInline } from "@/components/media/media-viewer";
 import type { MediaPayload } from "@/components/media/types";
 import { resolveMediaKind } from "@/lib/media/kind";
@@ -172,11 +172,19 @@ function LessonContent({
         ? lesson.contentJson.html
         : null;
     if (html) {
+      // A lesson pasted from a designed page brings its own <style>. Lifting it
+      // out and scoping it keeps the lesson looking as authored without letting
+      // it restyle the player around it.
+      const scoped = sanitizeHtmlWithStyles(html, lesson.id);
       return (
-        <div
-          className="lesson-html max-w-[68ch] text-base font-medium leading-relaxed text-foreground [&_a]:font-bold [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.875em] [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:font-heading [&_h3]:text-base [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-3 [&_pre]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[10px] [&_pre]:border-2 [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:mt-3 [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
-        />
+        <>
+          {scoped.css ? <style dangerouslySetInnerHTML={{ __html: scoped.css }} /> : null}
+          <div
+            data-css-scope={scoped.scope}
+            className="lesson-html max-w-[68ch] text-base font-medium leading-relaxed text-foreground [&_a]:font-bold [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.875em] [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:font-heading [&_h3]:text-base [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-3 [&_pre]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[10px] [&_pre]:border-2 [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:mt-3 [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc"
+            dangerouslySetInnerHTML={{ __html: scoped.html }}
+          />
+        </>
       );
     }
   }

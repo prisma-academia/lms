@@ -11,6 +11,9 @@ export type IconName =
   | "sun"
   | "moon"
   | "monitor"
+  | "tablet"
+  | "smartphone"
+  | "refresh"
   | "book"
   | "clipboard"
   | "award"
@@ -293,6 +296,24 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <rect x="2" y="3" width="20" height="14" rx="2" />
       <path d="M8 21h8M12 17v4" />
+    </>
+  ),
+  tablet: (
+    <>
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </>
+  ),
+  smartphone: (
+    <>
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+      <path d="M21 3v6h-6" />
     </>
   ),
   "external-link": (

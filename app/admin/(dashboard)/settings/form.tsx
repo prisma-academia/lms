@@ -10,6 +10,7 @@ import {
 } from "@/lib/client/image-upload";
 import { Button } from "@/components/ui/button";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
+import { PreviewFrame } from "@/components/preview-frame";
 import type { SelectOption } from "@/lib/geo/options";
 import { MODULE_KEYS, type ModuleKey, type TenantSettings } from "@/lib/tenant/settings";
 import { ThemePicker } from "./theme-picker";
@@ -102,6 +103,8 @@ export function SettingsForm({
   const [info, setInfo] = useState<Message | null>(null);
   const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState<Scope | null>(null);
+  const [brandOpen, setBrandOpen] = useState(false);
+  const [brandVersion, setBrandVersion] = useState(0);
 
   function clearFeedback() {
     setError(null);
@@ -324,6 +327,10 @@ export function SettingsForm({
       return;
     }
     succeed("form", "Saved.");
+    // The preview renders the SAVED theme server-side, so it is only truthful
+    // after a save. Refreshing it here is what keeps it from quietly showing the
+    // previous colour once the admin has changed one.
+    setBrandVersion((v) => v + 1);
   }
 
   const busy = uploading !== null;
@@ -533,6 +540,35 @@ export function SettingsForm({
             ) : null}
             <Feedback scope="favicon" error={error} info={info} />
           </>
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-[14px] border-2 border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="text-sm text-stone-700">Brand preview</span>
+            <p className="text-xs text-stone-500">
+              Your logo, theme and colours on the components the platform is built
+              from. Reflects the last save.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setBrandOpen((o) => !o)}
+            aria-expanded={brandOpen}
+          >
+            {brandOpen ? "Hide preview" : "Show preview"}
+          </Button>
+        </div>
+        {brandOpen ? (
+          <PreviewFrame
+            src="/admin/preview/brand"
+            title="Brand preview"
+            refreshToken={brandVersion}
+            height={560}
+          />
         ) : null}
       </div>
 

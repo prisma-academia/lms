@@ -18,6 +18,19 @@ const Body = z.object({
 });
 
 /**
+ * This route reads the uploaded logo back out of object storage, runs five
+ * sharp passes over it and writes three derived objects back. Against a
+ * self-hosted S3 endpoint on a cold lambda that comfortably outlives the 10s
+ * platform default, and a killed function returns the host's HTML error page —
+ * which the client cannot parse as JSON, so the admin is shown a generic
+ * "Something went wrong" with nothing to act on. Every other heavy route here
+ * declares a budget; this one was missing it.
+ */
+export const maxDuration = 120;
+/** sharp is a native module — it cannot run on the edge runtime. */
+export const runtime = "nodejs";
+
+/**
  * After the client PUTs the logo to S3, call this to validate dimensions and
  * generate favicon / apple / OG variants into settingsJson.
  */

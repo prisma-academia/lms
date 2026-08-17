@@ -29,6 +29,10 @@ const FinalizeBody = z.object({
   key: z.string().min(1).max(300),
 });
 
+/** Reads the upload back and decodes it with sharp — see the logo finalize route. */
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 /** Presign a favicon override upload. */
 export async function POST(request: Request) {
   try {

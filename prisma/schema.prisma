@@ -399,6 +399,11 @@ model Lesson {
   libraryItemId String?
   libraryItem   LibraryItem?      @relation(fields: [libraryItemId], references: [id], onDelete: SetNull)
   durationMin   Int?
+  /// When false, the completion gate skips the dwell timer for this lesson — the
+  /// learner may mark it complete as soon as the content-consumed signal (scroll
+  /// / playback / quiz) is satisfied. Defaults true so lessons authored before
+  /// the toggle existed keep the timer they were written under.
+  requireDwell  Boolean           @default(true)
   createdAt     DateTime          @default(now())
   progress      LessonProgress[]
 

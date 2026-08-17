@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth/guards";
 import { fail } from "./respond";
@@ -14,8 +15,18 @@ export function handleError(err: unknown) {
   if (err instanceof DomainError) {
     return fail(err.status, err.code, err.message);
   }
-  logger.error({ err }, "unhandled_api_error");
-  return fail(500, "server_error", "Something went wrong.");
+  // An unhandled error is, by definition, one nobody wrote a message for. The
+  // reference is the only thread connecting what the user saw to the stack in
+  // the logs — without it "Something went wrong" is unreportable and therefore
+  // unfixable. The cause itself is never returned: it can carry connection
+  // strings, keys and row contents.
+  const ref = randomUUID().slice(0, 8);
+  logger.error({ err, ref }, "unhandled_api_error");
+  return fail(
+    500,
+    "server_error",
+    `Something went wrong on our side (reference ${ref}). Try again — if it keeps happening, quote that reference when reporting it.`
+  );
 }
 
 export class DomainError extends Error {

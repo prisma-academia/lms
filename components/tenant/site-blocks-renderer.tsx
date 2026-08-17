@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Icon, type IconName } from "@/components/icon";
-import { sanitizeHtml } from "@/lib/content/sanitize-html";
+import { sanitizeHtmlWithStyles } from "@/lib/content/sanitize-html";
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import type { SiteBlock } from "@/lib/site/blocks";
 import { LandingHero } from "@/components/tenant/landing-hero";
@@ -22,6 +22,37 @@ export type SiteRenderContext = {
   addressLines: string[];
   courses: LandingCourse[];
 };
+
+/**
+ * A rich-text / raw-HTML block, including whatever CSS the author pasted with it.
+ *
+ * The stylesheet is emitted next to the content rather than in <head> so it
+ * lives and dies with the block, and every rule inside it has been rewritten to
+ * match only under `data-css-scope` — one block's CSS cannot restyle the page
+ * chrome or the block after it.
+ *
+ * `prose` is dropped as soon as the author supplies their own CSS: typographic
+ * defaults that are helpful for a plain rich-text paste actively fight a
+ * stylesheet that was written against unstyled markup.
+ */
+function HtmlBlock({ id, html }: { id: string; html: string }) {
+  const scoped = sanitizeHtmlWithStyles(html, id);
+
+  return (
+    <section className="border-t-2 border-border">
+      {scoped.css ? <style dangerouslySetInnerHTML={{ __html: scoped.css }} /> : null}
+      <div
+        data-css-scope={scoped.scope}
+        className={
+          scoped.css
+            ? "mx-auto max-w-3xl px-4 py-10 sm:px-6"
+            : "prose prose-stone mx-auto max-w-3xl px-4 py-10 sm:px-6"
+        }
+        dangerouslySetInnerHTML={{ __html: scoped.html }}
+      />
+    </section>
+  );
+}
 
 function CtaButtons({
   ctas,
@@ -209,14 +240,7 @@ export function SiteBlocksRenderer({
             );
           case "richText":
           case "html":
-            return (
-              <section key={block.id} className="border-t-2 border-border">
-                <div
-                  className="prose prose-stone mx-auto max-w-3xl px-4 py-10 sm:px-6"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(block.html) }}
-                />
-              </section>
-            );
+            return <HtmlBlock key={block.id} id={block.id} html={block.html} />;
           case "image": {
             const url =
               block.imageKey && s3Configured()

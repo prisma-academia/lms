@@ -14,6 +14,7 @@ const PatchBody = z.object({
   assetKey: z.string().max(300).nullable().optional(),
   libraryItemId: z.string().min(1).nullable().optional(),
   durationMin: z.number().int().min(0).nullable().optional(),
+  requireDwell: z.boolean().optional(),
   groupId: z.string().min(1).nullable().optional(),
 });
 
@@ -64,6 +65,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
         ...(body.contentType !== undefined ? { contentType: body.contentType } : {}),
         ...(body.contentJson ? { contentJson: body.contentJson as object } : {}),
         ...(body.durationMin !== undefined ? { durationMin: body.durationMin } : {}),
+        ...(body.requireDwell !== undefined ? { requireDwell: body.requireDwell } : {}),
         ...(body.groupId !== undefined ? { groupId: body.groupId } : {}),
         ...(ref
           ? { libraryItemId: ref.libraryItemId, assetKey: ref.assetKey }

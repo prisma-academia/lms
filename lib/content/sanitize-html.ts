@@ -1,4 +1,9 @@
 import sanitize from "sanitize-html";
+import {
+  sanitizeAndScopeCss,
+  sanitizeDeclarations,
+  scopeSelectorFor,
+} from "./sanitize-css";
 
 /**
  * Sanitize lesson and site-block HTML for storage and rendering.
@@ -26,9 +31,15 @@ const ALLOWED_TAGS = [
   "details", "summary",
 ];
 
-/** No `style` attribute anywhere — inline CSS is an injection surface. */
+/**
+ * `style` is allowed, but never as written: the `*` transform below runs every
+ * declaration through `sanitizeDeclarations` first, so what reaches this filter
+ * has already had `expression()`, `behavior:` and non-http/data `url()` removed.
+ * Allowing the attribute without that transform would reopen the CSS injection
+ * surface this list used to close by dropping it outright.
+ */
 const ALLOWED_ATTRIBUTES: sanitize.IOptions["allowedAttributes"] = {
-  "*": ["class", "id", "dir", "lang", "title", "role", "aria-*", "data-*"],
+  "*": ["class", "id", "dir", "lang", "title", "role", "style", "aria-*", "data-*"],
   a: ["href", "name", "target", "rel"],
   img: ["src", "srcset", "sizes", "alt", "width", "height", "loading", "decoding"],
   source: ["src", "srcset", "sizes", "type", "media"],
@@ -55,14 +66,67 @@ const OPTIONS: sanitize.IOptions = {
   // <script> can't leave its source behind as visible text.
   nonTextTags: ["script", "style", "textarea", "noscript", "option"],
   transformTags: {
-    // External links opened in a new tab must not hand over window.opener.
-    a: (tagName, attribs) =>
-      attribs.target
-        ? { tagName, attribs: { ...attribs, rel: "noopener noreferrer" } }
-        : { tagName, attribs },
+    // One `*` handler rather than a per-tag map: sanitize-html picks exactly one
+    // transform per tag (`transformTags[name] ?? transformTags['*']`), so a
+    // separate `a` entry here would silently opt anchors out of style cleaning.
+    "*": (tagName, attribs) => {
+      const next = { ...attribs };
+
+      if (next.style) {
+        const cleaned = sanitizeDeclarations(next.style);
+        if (cleaned) next.style = cleaned;
+        else delete next.style;
+      }
+
+      // External links opened in a new tab must not hand over window.opener.
+      if (tagName === "a" && next.target) next.rel = "noopener noreferrer";
+
+      return { tagName, attribs: next };
+    },
   },
 };
 
 export function sanitizeHtml(html: string): string {
   return sanitize(html, OPTIONS);
+}
+
+/** `<style>…</style>` bodies, which the tag sanitizer strips before we see them. */
+const STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
+
+export type ScopedHtml = {
+  /** Sanitized markup, with `<style>` blocks removed. */
+  html: string;
+  /** Sanitized + scoped CSS lifted out of those blocks. Empty when there was none. */
+  css: string;
+  /** Value for the container's `data-css-scope` attribute. Always set. */
+  scope: string;
+};
+
+/**
+ * Sanitize author HTML that may carry its own `<style>` block.
+ *
+ * `sanitizeHtml` drops `<style>` entirely — correct for a fragment rendered into
+ * a shared page, but it is why a pasted landing-page block rendered as unstyled
+ * text. This lifts the CSS out instead, sanitizes it, and rewrites every
+ * selector to sit under `[data-css-scope="<id>"]`, so the block styles itself
+ * and cannot reach the nav, the admin chrome, or the block below it.
+ *
+ * The caller must put `data-css-scope={scope}` on the element wrapping `html`,
+ * and render `css` inside a `<style>` element. Rendering `html` without the
+ * attribute is not unsafe, only unstyled.
+ */
+export function sanitizeHtmlWithStyles(html: string, id: string): ScopedHtml {
+  const { attribute, selector } = scopeSelectorFor(id);
+
+  const collected: string[] = [];
+  const withoutStyles = html.replace(STYLE_BLOCK, (_match, body: string) => {
+    collected.push(body);
+    return "";
+  });
+
+  return {
+    html: sanitize(withoutStyles, OPTIONS),
+    css: collected.length > 0 ? sanitizeAndScopeCss(collected.join("\n"), selector) : "",
+    scope: attribute,
+  };
 }

@@ -247,6 +247,7 @@ type GateLesson = {
   contentType: string;
   contentJson: unknown;
   durationMin: number | null;
+  requireDwell: boolean;
   libraryItemId: string | null;
   libraryItem: { durationSeconds: number | null } | null;
 };
@@ -277,6 +278,7 @@ async function assertContentConsumed(params: {
     contentType: lesson.contentType as never,
     contentJson: lesson.contentJson,
     durationMin: lesson.durationMin,
+    requireDwell: lesson.requireDwell,
   });
   const elapsed = (Date.now() - startedAt.getTime()) / 1000;
   if (elapsed + DWELL_GRACE_SECONDS < required) {

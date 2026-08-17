@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Segmented } from "@/components/ui/segmented";
+import { PreviewFrame } from "@/components/preview-frame";
 import { CourseDetailsForm } from "./course-details-form";
 import { CourseContentTab } from "./course-content-tab";
 import { CourseAnalyticsTab } from "./course-analytics-tab";
 import { CourseEnrollmentsTab } from "./course-enrollments-tab";
 import type { CourseEditorProps } from "./course-types";
 
-type Tab = "info" | "content" | "analytics" | "enrollments";
+type Tab = "info" | "content" | "preview" | "analytics" | "enrollments";
 
 export function CourseEditor({
   initial,
@@ -26,6 +27,7 @@ export function CourseEditor({
   const tabs: { value: Tab; label: string }[] = [
     { value: "info", label: "Basic info" },
     { value: "content", label: "Content" },
+    { value: "preview", label: "Preview" },
     { value: "analytics", label: "Analytics" },
     ...(enrollments ? [{ value: "enrollments" as Tab, label: "Enrollments" }] : []),
   ];
@@ -50,6 +52,24 @@ export function CourseEditor({
           quizzes={quizzes}
           libraryItems={libraryItems}
         />
+      ) : null}
+
+      {tab === "preview" ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm font-medium text-muted-foreground">
+            The course as a learner meets it. Lessons are shown unlocked so you can
+            open any of them — a learner still has to finish the one before.
+            {/* Mounted only while the tab is open: the frame loads a full page,
+                and paying for that behind three other tabs is waste. */}
+          </p>
+          <PreviewFrame
+            src={`/admin/preview/course/${initial.id}`}
+            title={`Learner preview of ${initial.title}`}
+            refreshToken={lessonsKey}
+            height={700}
+            openLabel="Open preview"
+          />
+        </div>
       ) : null}
 
       {tab === "analytics" ? <CourseAnalyticsTab initial={initial} analytics={analytics} /> : null}

@@ -53,8 +53,16 @@ function coursesLimitFromBlocks(blocks: SiteBlock[]): number {
 
 export async function renderTenantSitePage(opts: {
   tenantId: string;
-  /** null = home */
+  /** null = home. Ignored when `pageId` is set. */
   slug: string | null;
+  /**
+   * Render one specific page by id, published or not. Only the admin preview
+   * route passes this, and only behind TENANT_SITE_READ — the public routes go
+   * through `slug`, which keeps its `status: PUBLISHED` filter. Keeping the
+   * draft escape hatch on a separate parameter is what stops a future caller
+   * from accidentally widening the public path.
+   */
+  pageId?: string;
 }) {
   const row = await prisma.tenant.findUnique({
     where: { id: opts.tenantId },
@@ -75,7 +83,13 @@ export async function renderTenantSitePage(opts: {
   if (!row) return null;
 
   let page;
-  if (opts.slug === null || opts.slug === "") {
+  if (opts.pageId) {
+    const found = await prisma.sitePage.findFirst({
+      where: { id: opts.pageId, tenantId: opts.tenantId },
+    });
+    if (!found) return null;
+    page = toRow(found);
+  } else if (opts.slug === null || opts.slug === "") {
     page = await ensureHomeSitePage(opts.tenantId);
   } else {
     const found = await prisma.sitePage.findFirst({
