@@ -55,7 +55,12 @@ const ALLOWED_ATTRIBUTES: sanitize.IOptions["allowedAttributes"] = {
   details: ["open"],
 };
 
-const OPTIONS: sanitize.IOptions = {
+/**
+ * Exported so `sanitize-site-document.ts` can reuse the exact same allowlist.
+ * A site page that sanitized differently from a lesson body would be a second
+ * security policy to keep in sync, which is how the two drift apart.
+ */
+export const SANITIZE_OPTIONS: sanitize.IOptions = {
   allowedTags: ALLOWED_TAGS,
   allowedAttributes: ALLOWED_ATTRIBUTES,
   allowedSchemes: ["http", "https", "mailto", "tel"],
@@ -87,7 +92,7 @@ const OPTIONS: sanitize.IOptions = {
 };
 
 export function sanitizeHtml(html: string): string {
-  return sanitize(html, OPTIONS);
+  return sanitize(html, SANITIZE_OPTIONS);
 }
 
 /** `<style>…</style>` bodies, which the tag sanitizer strips before we see them. */
@@ -125,7 +130,7 @@ export function sanitizeHtmlWithStyles(html: string, id: string): ScopedHtml {
   });
 
   return {
-    html: sanitize(withoutStyles, OPTIONS),
+    html: sanitize(withoutStyles, SANITIZE_OPTIONS),
     css: collected.length > 0 ? sanitizeAndScopeCss(collected.join("\n"), selector) : "",
     scope: attribute,
   };

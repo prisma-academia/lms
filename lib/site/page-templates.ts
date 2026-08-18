@@ -1,143 +1,52 @@
-import { newBlockId, type SiteBlock } from "@/lib/site/blocks";
+import {
+  ABOUT,
+  BENEFITS,
+  COURSES,
+  CTA,
+  FAQ,
+  HERO,
+  PROGRAMMES,
+  PROGRESS,
+  STEPS,
+  document,
+} from "@/lib/site/html-sections";
 
-export type PageTemplateId = "classic" | "minimal" | "catalog";
+/**
+ * Starter documents for a new site page.
+ *
+ * These used to return block arrays. They now return HTML, and they are written
+ * to double as the tutorial for the variable system — `catalog` in particular
+ * exists to show an author what `{{#each courses}}` and `{{#each programmes}}`
+ * look like in a real page, since that is not something a blank editor teaches.
+ */
+
+export type PageTemplateId = "classic" | "minimal" | "catalog" | "blank";
 
 export type PageTemplate = {
   id: PageTemplateId;
   name: string;
   description: string;
-  blocks: () => SiteBlock[];
+  html: () => string;
 };
 
-function classicBlocks(): SiteBlock[] {
-  return [
-    {
-      type: "hero",
-      id: newBlockId(),
-      headline: undefined,
-      subcopy:
-        "Welcome to your learning home. Enroll in courses, track your progress, and grow with us.",
-      showLogo: true,
-      showLocation: true,
-      ctas: [
-        { label: "Enroll now", href: "/auth/register", variant: "primary" },
-        { label: "Sign in", href: "/auth/login", variant: "outline" },
-        { label: "View courses", href: "#courses", variant: "secondary" },
-      ],
-    },
-    {
-      type: "about",
-      id: newBlockId(),
-      title: "About us",
-      showContact: true,
-    },
-    {
-      type: "benefits",
-      id: newBlockId(),
-      title: "Why learn with us",
-      items: [
-        {
-          title: "Structured courses",
-          body: "Clear lessons, quizzes, and progress tracking so you always know what’s next.",
-          icon: "book",
-        },
-        {
-          title: "Learn anywhere",
-          body: "Access your courses from any device — pick up right where you left off.",
-          icon: "globe",
-        },
-        {
-          title: "Certificates",
-          body: "Earn recognition when you complete programmes and demonstrate mastery.",
-          icon: "award",
-        },
-      ],
-    },
-    {
-      type: "courses",
-      id: newBlockId(),
-      title: "Featured courses",
-      limit: 6,
-    },
-    {
-      type: "steps",
-      id: newBlockId(),
-      title: "How it works",
-      items: [
-        { title: "Create an account", body: "Register in minutes and join our learning community." },
-        { title: "Enroll in a course", body: "Browse the catalog and start learning right away." },
-        { title: "Track your progress", body: "Complete lessons, submit work, and earn certificates." },
-      ],
-      ctaLabel: "Get started",
-      ctaHref: "/auth/register",
-    },
-  ];
+function classicHtml(): string {
+  return document([HERO, ABOUT, BENEFITS, COURSES, STEPS]);
 }
 
-function minimalBlocks(): SiteBlock[] {
-  return [
-    {
-      type: "hero",
-      id: newBlockId(),
-      subcopy: "Explore our courses and start learning today.",
-      showLogo: true,
-      showLocation: false,
-      ctas: [
-        { label: "Enroll now", href: "/auth/register", variant: "primary" },
-        { label: "Sign in", href: "/auth/login", variant: "outline" },
-      ],
-    },
-    {
-      type: "courses",
-      id: newBlockId(),
-      title: "Courses",
-      limit: 12,
-    },
-    {
-      type: "cta",
-      id: newBlockId(),
-      headline: "Ready to begin?",
-      subcopy: "Create your account and enroll in minutes.",
-      ctas: [{ label: "Enroll now", href: "/auth/register", variant: "primary" }],
-    },
-  ];
+function minimalHtml(): string {
+  return document([HERO, COURSES, CTA]);
 }
 
-function catalogBlocks(): SiteBlock[] {
-  return [
-    {
-      type: "hero",
-      id: newBlockId(),
-      subcopy: "Browse our full catalog of public courses.",
-      showLogo: true,
-      showLocation: true,
-      ctas: [
-        { label: "View courses", href: "#courses", variant: "primary" },
-        { label: "Sign in", href: "/auth/login", variant: "outline" },
-      ],
-    },
-    {
-      type: "courses",
-      id: newBlockId(),
-      title: "Course catalog",
-      limit: 24,
-    },
-    {
-      type: "faq",
-      id: newBlockId(),
-      title: "Frequently asked questions",
-      items: [
-        {
-          question: "How do I enroll?",
-          answer: "Create an account, then open any course and follow the enrollment steps.",
-        },
-        {
-          question: "Are courses free?",
-          answer: "Some courses are free; paid courses show their price on the course card.",
-        },
-      ],
-    },
-  ];
+function catalogHtml(): string {
+  return document([HERO, COURSES, PROGRAMMES, PROGRESS, FAQ]);
+}
+
+function blankHtml(): string {
+  return `<section style="padding: 4rem 1.25rem; max-width: 46rem; margin: 0 auto;">
+  <h1>{{ tenant.name }}</h1>
+  <p>Start writing. Standard HTML works, and {{ variables }} pull in live data.</p>
+</section>
+`;
 }
 
 export const PAGE_TEMPLATES: PageTemplate[] = [
@@ -145,26 +54,38 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "classic",
     name: "Classic",
     description: "Hero, about, benefits, courses, and steps — matches the default landing.",
-    blocks: classicBlocks,
+    html: classicHtml,
   },
   {
     id: "minimal",
     name: "Minimal",
-    description: "Hero, courses grid, and a closing call to action.",
-    blocks: minimalBlocks,
+    description: "Hero, course grid, and a closing call to action.",
+    html: minimalHtml,
   },
   {
     id: "catalog",
     name: "Catalog",
-    description: "Large course grid with FAQ — catalog-first presence.",
-    blocks: catalogBlocks,
+    description: "Courses, programmes, learner progress, and FAQ — shows every variable family.",
+    html: catalogHtml,
   },
+  {
+    id: "blank",
+    name: "Blank",
+    description: "An empty page with a heading. Build it yourself.",
+    html: blankHtml,
+  },
+];
+
+export const PAGE_TEMPLATE_IDS = PAGE_TEMPLATES.map((t) => t.id) as [
+  PageTemplateId,
+  ...PageTemplateId[],
 ];
 
 export function getPageTemplate(id: string): PageTemplate | undefined {
   return PAGE_TEMPLATES.find((t) => t.id === id);
 }
 
-export function classicHomeBlocks(): SiteBlock[] {
-  return classicBlocks();
+/** The document a tenant's home page is seeded with. */
+export function classicHomeHtml(): string {
+  return classicHtml();
 }

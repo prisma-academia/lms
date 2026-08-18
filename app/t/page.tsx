@@ -8,6 +8,14 @@ import {
 } from "@/lib/site/metadata";
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 
+/**
+ * A site page may render the signed-in learner's own progress via
+ * {{ progress.* }}, so its output is per-viewer and must never be cached across
+ * visitors. `renderTenantSitePage` is memoized per request, so the two calls
+ * below still cost one render.
+ */
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata() {
   const branding = await loadTenantBranding();
   const origin = await requestOrigin();
@@ -21,8 +29,8 @@ export async function generateMetadata() {
       ? publicUrlForKey(rendered.page.ogImageKey)
       : null;
   return buildTenantMetadata(origin, branding, "public", {
-    title: rendered?.page.seoTitle,
-    description: rendered?.page.seoDescription,
+    title: rendered?.page.seoTitle || rendered?.headTitle,
+    description: rendered?.page.seoDescription || rendered?.headDescription,
     ogImageUrl,
   });
 }

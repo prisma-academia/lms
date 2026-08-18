@@ -5,8 +5,8 @@ import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { siteBlocksSchema } from "@/lib/site/blocks";
-import { getPageTemplate } from "@/lib/site/page-templates";
+import { getPageTemplate, PAGE_TEMPLATE_IDS } from "@/lib/site/page-templates";
+import { analyzeSource, htmlSourceSchema } from "@/lib/site/source";
 import { isReservedSlug, slugify, toRow } from "@/lib/site/pages";
 
 const PatchBody = z.object({
@@ -18,8 +18,9 @@ const PatchBody = z.object({
   seoTitle: z.string().max(120).nullable().optional(),
   seoDescription: z.string().max(320).nullable().optional(),
   ogImageKey: z.string().max(300).nullable().optional(),
-  blocks: siteBlocksSchema.optional(),
-  applyTemplateId: z.enum(["classic", "minimal", "catalog"]).optional(),
+  htmlSource: htmlSourceSchema.optional(),
+  includeShell: z.boolean().optional(),
+  applyTemplateId: z.enum(PAGE_TEMPLATE_IDS).optional(),
   setHome: z.boolean().optional(),
 });
 
@@ -66,13 +67,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
       }
     }
 
-    let blocksJson: object[] | undefined;
+    let htmlSource: string | undefined;
     if (body.applyTemplateId) {
       const template = getPageTemplate(body.applyTemplateId);
       if (!template) throw new DomainError(400, "bad_template", "Unknown template.");
-      blocksJson = template.blocks() as object[];
-    } else if (body.blocks) {
-      blocksJson = body.blocks as object[];
+      htmlSource = template.html();
+    } else if (body.htmlSource !== undefined) {
+      htmlSource = body.htmlSource;
     }
 
     if (body.setHome) {
@@ -95,7 +96,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
           ? { seoDescription: body.seoDescription }
           : {}),
         ...(body.ogImageKey !== undefined ? { ogImageKey: body.ogImageKey } : {}),
-        ...(blocksJson !== undefined ? { blocksJson } : {}),
+        ...(htmlSource !== undefined ? { htmlSource } : {}),
+        ...(body.includeShell !== undefined ? { includeShell: body.includeShell } : {}),
         ...(body.setHome
           ? { isHome: true, slug: "", status: "PUBLISHED" as const }
           : {}),
@@ -116,7 +118,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
       userAgent: meta.userAgent,
     });
 
-    return ok({ page: toRow(page) });
+    return ok({
+      page: toRow(page),
+      ...analyzeSource(page.htmlSource, `sp-${page.id}`),
+    });
   } catch (e) {
     return handleError(e);
   }

@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import { classicHomeBlocks } from "@/lib/site/page-templates";
-import { parseSiteBlocks, type SiteBlock } from "@/lib/site/blocks";
+import { classicHomeHtml } from "@/lib/site/page-templates";
 
 export type SitePageRow = {
   id: string;
@@ -13,7 +12,9 @@ export type SitePageRow = {
   seoTitle: string | null;
   seoDescription: string | null;
   ogImageKey: string | null;
-  blocks: SiteBlock[];
+  /** The page document. Contains unresolved {{ variables }}. */
+  htmlSource: string;
+  includeShell: boolean;
 };
 
 /** Ensure a published home page exists (Classic template). Idempotent. */
@@ -43,7 +44,7 @@ export async function ensureHomeSitePage(tenantId: string): Promise<SitePageRow>
       isHome: true,
       showInNav: true,
       navOrder: 0,
-      blocksJson: classicHomeBlocks() as object[],
+      htmlSource: classicHomeHtml(),
     },
   });
   return toRow(created);
@@ -60,7 +61,8 @@ export function toRow(page: {
   seoTitle: string | null;
   seoDescription: string | null;
   ogImageKey: string | null;
-  blocksJson: unknown;
+  htmlSource: string;
+  includeShell: boolean;
 }): SitePageRow {
   return {
     id: page.id,
@@ -73,7 +75,8 @@ export function toRow(page: {
     seoTitle: page.seoTitle,
     seoDescription: page.seoDescription,
     ogImageKey: page.ogImageKey,
-    blocks: parseSiteBlocks(page.blocksJson),
+    htmlSource: page.htmlSource,
+    includeShell: page.includeShell,
   };
 }
 

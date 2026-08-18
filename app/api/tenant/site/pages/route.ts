@@ -5,8 +5,8 @@ import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { siteBlocksSchema } from "@/lib/site/blocks";
-import { getPageTemplate } from "@/lib/site/page-templates";
+import { getPageTemplate, PAGE_TEMPLATE_IDS } from "@/lib/site/page-templates";
+import { analyzeSource, htmlSourceSchema } from "@/lib/site/source";
 import {
   ensureHomeSitePage,
   isReservedSlug,
@@ -17,13 +17,14 @@ import {
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
   slug: z.string().max(80).optional(),
-  templateId: z.enum(["classic", "minimal", "catalog"]).optional(),
+  templateId: z.enum(PAGE_TEMPLATE_IDS).optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   showInNav: z.boolean().optional(),
   navOrder: z.number().int().min(0).optional(),
   seoTitle: z.string().max(120).nullable().optional(),
   seoDescription: z.string().max(320).nullable().optional(),
-  blocks: siteBlocksSchema.optional(),
+  htmlSource: htmlSourceSchema.optional(),
+  includeShell: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     const actor = await requireTenantActor(PERMISSIONS.TENANT_SITE_WRITE.key);
     const body = CreateBody.parse(await request.json());
 
-    let slug = body.slug != null ? slugify(body.slug) : slugify(body.title);
+    const slug = body.slug != null ? slugify(body.slug) : slugify(body.title);
     if (!slug) throw new DomainError(400, "bad_slug", "Slug is required for non-home pages.");
     if (isReservedSlug(slug)) {
       throw new DomainError(400, "reserved_slug", "That slug is reserved by the app.");
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     if (existing) throw new DomainError(409, "slug_taken", "A page with that slug already exists.");
 
     const template = body.templateId ? getPageTemplate(body.templateId) : undefined;
-    const blocks = body.blocks ?? template?.blocks() ?? [];
+    const htmlSource = body.htmlSource ?? template?.html() ?? "";
 
     const page = await prisma.sitePage.create({
       data: {
@@ -71,7 +72,8 @@ export async function POST(request: Request) {
         navOrder: body.navOrder ?? 0,
         seoTitle: body.seoTitle ?? null,
         seoDescription: body.seoDescription ?? null,
-        blocksJson: blocks as object[],
+        htmlSource,
+        includeShell: body.includeShell ?? true,
       },
     });
 
@@ -88,7 +90,11 @@ export async function POST(request: Request) {
       userAgent: meta.userAgent,
     });
 
-    return ok({ page: toRow(page) }, undefined, 201);
+    return ok(
+      { page: toRow(page), ...analyzeSource(htmlSource, `sp-${page.id}`) },
+      undefined,
+      201
+    );
   } catch (e) {
     return handleError(e);
   }

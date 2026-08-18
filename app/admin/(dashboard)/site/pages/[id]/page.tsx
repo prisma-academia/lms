@@ -25,7 +25,7 @@ export default async function EditSitePage({
     <div>
       <PageHeader
         title={page.title}
-        subtitle="Edit blocks, SEO, and publish status."
+        subtitle="Edit the page HTML, SEO, and publish status."
         backHref="/admin/site/pages"
         backLabel="Site pages"
       />

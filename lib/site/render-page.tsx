@@ -1,57 +1,79 @@
+import { cache } from "react";
 import { prisma } from "@/lib/db/client";
+import { headers } from "next/headers";
 import { parseTenantSettings } from "@/lib/tenant/settings";
 import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
-import {
-  formatTenantAddress,
-  formatTenantLocation,
-} from "@/lib/tenant/landing";
-import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
-import { ensureHomeSitePage, toRow } from "@/lib/site/pages";
-import { classicHomeBlocks } from "@/lib/site/page-templates";
-import type { SiteBlock } from "@/lib/site/blocks";
+import { ensureHomeSitePage, toRow, type SitePageRow } from "@/lib/site/pages";
+import { classicHomeHtml } from "@/lib/site/page-templates";
+import { renderCssTemplate, renderTemplate, usedVariables } from "@/lib/site/template";
+import { buildVariableContext } from "@/lib/site/variable-context";
+import { sanitizeSiteDocument } from "@/lib/content/sanitize-site-document";
 import { TenantLandingShell } from "@/components/tenant/landing-shell";
-import {
-  SiteBlocksRenderer,
-  type SiteRenderContext,
-} from "@/components/tenant/site-blocks-renderer";
-import type { LandingCourse } from "@/components/tenant/landing-courses";
 
-async function loadCourses(limit: number): Promise<LandingCourse[]> {
-  const courses = await prisma.course.findMany({
-    where: { status: "PUBLISHED", visibility: "PUBLIC" },
-    orderBy: { publishedAt: "desc" },
-    take: limit,
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      priceCents: true,
-      currency: true,
-      thumbnailKey: true,
-      _count: { select: { lessons: true } },
-    },
-  });
-  return courses.map((c) => ({
-    id: c.id,
-    title: c.title,
-    description: c.description,
-    priceCents: c.priceCents,
-    currency: c.currency,
-    thumbnailUrl:
-      c.thumbnailKey && s3Configured() ? publicUrlForKey(c.thumbnailKey) : null,
-    lessonCount: c._count.lessons,
-  }));
-}
+/**
+ * Render one tenant site page.
+ *
+ * A page is now a single HTML document the tenant authored, not a block tree.
+ * The pipeline is fixed and the order matters:
+ *
+ *   htmlSource -> renderTemplate (escapes data) -> sanitizeSiteDocument -> DOM
+ *
+ * Interpolating BEFORE sanitizing is deliberate. Sanitizing first would run the
+ * URL scheme checks against the literal `{{ tenant.website }}`, which is not a
+ * valid scheme, so every templated `href` would silently lose its link. Going
+ * the other way is safe because `renderTemplate` HTML-escapes every substituted
+ * value, so data can never turn into markup before the sanitizer sees it — the
+ * sanitizer's job here is the author's markup, not the data.
+ *
+ * This is the single renderer behind both the public routes and the admin
+ * preview, so what an admin previews cannot drift from what a visitor receives.
+ */
 
-function coursesLimitFromBlocks(blocks: SiteBlock[]): number {
-  let max = 6;
-  for (const b of blocks) {
-    if (b.type === "courses") max = Math.max(max, b.limit);
+export type RenderedSitePage = {
+  page: SitePageRow;
+  settings: ReturnType<typeof parseTenantSettings>;
+  urls: ReturnType<typeof brandingAssetUrls>;
+  /** SEO fallbacks lifted from the document's own <head>. */
+  headTitle: string | null;
+  headDescription: string | null;
+  element: React.ReactElement;
+};
+
+async function currentOrigin(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    if (!host) return "";
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}`;
+  } catch {
+    return "";
   }
-  return max;
 }
 
-export async function renderTenantSitePage(opts: {
+async function loadPage(opts: {
+  tenantId: string;
+  slug: string | null;
+  pageId?: string;
+}): Promise<SitePageRow | null> {
+  if (opts.pageId) {
+    const found = await prisma.sitePage.findFirst({
+      where: { id: opts.pageId, tenantId: opts.tenantId },
+    });
+    return found ? toRow(found) : null;
+  }
+
+  if (opts.slug === null || opts.slug === "") {
+    return ensureHomeSitePage(opts.tenantId);
+  }
+
+  const found = await prisma.sitePage.findFirst({
+    where: { tenantId: opts.tenantId, slug: opts.slug, status: "PUBLISHED" },
+  });
+  return found ? toRow(found) : null;
+}
+
+async function render(opts: {
   tenantId: string;
   /** null = home. Ignored when `pageId` is set. */
   slug: string | null;
@@ -63,8 +85,8 @@ export async function renderTenantSitePage(opts: {
    * from accidentally widening the public path.
    */
   pageId?: string;
-}) {
-  const row = await prisma.tenant.findUnique({
+}): Promise<RenderedSitePage | null> {
+  const tenant = await prisma.tenant.findUnique({
     where: { id: opts.tenantId },
     select: {
       name: true,
@@ -80,46 +102,32 @@ export async function renderTenantSitePage(opts: {
       settingsJson: true,
     },
   });
-  if (!row) return null;
+  if (!tenant) return null;
 
-  let page;
-  if (opts.pageId) {
-    const found = await prisma.sitePage.findFirst({
-      where: { id: opts.pageId, tenantId: opts.tenantId },
-    });
-    if (!found) return null;
-    page = toRow(found);
-  } else if (opts.slug === null || opts.slug === "") {
-    page = await ensureHomeSitePage(opts.tenantId);
-  } else {
-    const found = await prisma.sitePage.findFirst({
-      where: {
-        tenantId: opts.tenantId,
-        slug: opts.slug,
-        status: "PUBLISHED",
-      },
-    });
-    if (!found) return null;
-    page = toRow(found);
-  }
+  const page = await loadPage(opts);
+  if (!page) return null;
 
-  const blocks = page.blocks.length > 0 ? page.blocks : classicHomeBlocks();
-  const settings = parseTenantSettings(row.settingsJson);
+  // A page that has never been edited still has to render as something. The
+  // Classic starter is what `ensureHomeSitePage` seeds, so falling back to it
+  // keeps an empty page looking like a new site rather than a broken one.
+  const source = page.htmlSource.trim().length > 0 ? page.htmlSource : classicHomeHtml();
+
+  const settings = parseTenantSettings(tenant.settingsJson);
   const urls = brandingAssetUrls(settings);
-  const location = formatTenantLocation(row.city, row.country, settings.locale);
-  const addressLines = formatTenantAddress(
-    {
-      addressLine1: row.addressLine1,
-      addressLine2: row.addressLine2,
-      city: row.city,
-      region: row.region,
-      postalCode: row.postalCode,
-      country: row.country,
-    },
-    settings.locale
-  );
 
-  const courses = await loadCourses(coursesLimitFromBlocks(blocks));
+  const used = usedVariables(source);
+  const ctx = await buildVariableContext({
+    tenantId: opts.tenantId,
+    tenant,
+    page: { title: page.title, slug: page.slug },
+    origin: await currentOrigin(),
+    used,
+  });
+
+  const interpolated = renderTemplate(source, ctx);
+  const doc = sanitizeSiteDocument(interpolated, `sp-${page.id}`);
+  // Author CSS is templated too, so a stylesheet can use the brand colour.
+  const css = doc.css ? renderCssTemplate(doc.css, ctx) : "";
 
   const navPages = await prisma.sitePage.findMany({
     where: {
@@ -132,34 +140,43 @@ export async function renderTenantSitePage(opts: {
     select: { slug: true, title: true },
   });
 
-  const ctx: SiteRenderContext = {
-    orgName: row.name,
-    logoUrl: urls.logoUrl,
-    location,
-    companyEmail: row.companyEmail,
-    companyPhone: row.companyPhone,
-    website: row.website,
-    addressLines,
-    courses,
-  };
+  const body = (
+    <>
+      {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
+      <div
+        data-css-scope={doc.scope}
+        style={{ ["--sb-brand" as string]: settings.primaryColor }}
+        dangerouslySetInnerHTML={{ __html: doc.html }}
+      />
+    </>
+  );
 
   return {
     page,
     settings,
     urls,
-    element: (
+    headTitle: doc.headTitle,
+    headDescription: doc.headDescription,
+    element: page.includeShell ? (
       <TenantLandingShell
-        orgName={row.name}
+        orgName={tenant.name}
         logoUrl={urls.logoUrl}
-        navLinks={navPages.map((p) => ({
-          href: `/${p.slug}`,
-          label: p.title,
-        }))}
+        navLinks={navPages.map((p) => ({ href: `/${p.slug}`, label: p.title }))}
       >
-        <main>
-          <SiteBlocksRenderer blocks={blocks} ctx={ctx} />
-        </main>
+        <main>{body}</main>
       </TenantLandingShell>
+    ) : (
+      <main>{body}</main>
     ),
   };
 }
+
+/**
+ * Request-scoped memoization.
+ *
+ * The public routes call this twice per request — once in `generateMetadata`
+ * for the title and description, once for the page itself. That was already
+ * two full renders; now that each one runs a template engine, a sanitizer and
+ * the catalog queries, paying for it twice is no longer merely wasteful.
+ */
+export const renderTenantSitePage = cache(render);

@@ -1481,7 +1481,12 @@ model SitePage {
   seoTitle       String?
   seoDescription String?
   ogImageKey     String?
-  blocksJson     Json           @default("[]")
+  /// The page itself: one HTML document authored in the site builder. May
+  /// contain {{ variables }} resolved at render time. Sanitized on write and
+  /// again on read - never trust the stored value.
+  htmlSource     String         @default("")
+  /// When false the page renders standalone - no site header/nav/footer.
+  includeShell   Boolean        @default(true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 

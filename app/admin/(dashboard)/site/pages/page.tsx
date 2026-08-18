@@ -43,7 +43,10 @@ export default async function SitePagesAdminPage() {
                     {row.title}
                   </Link>
                   <p className="text-xs text-muted-foreground">
-                    {row.isHome ? "/" : `/${row.slug}`} · {row.blocks.length} blocks
+                    {row.isHome ? "/" : `/${row.slug}`} ·{" "}
+                    {row.htmlSource.trim()
+                      ? `${row.htmlSource.split(/\r?\n/).length} lines of HTML`
+                      : "empty"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

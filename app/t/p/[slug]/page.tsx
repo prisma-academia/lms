@@ -9,6 +9,9 @@ import {
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { isReservedSlug } from "@/lib/site/pages";
 
+/** See the note in app/t/page.tsx — pages can render per-viewer progress. */
+export const dynamic = "force-dynamic";
+
 type Params = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Params) {
@@ -28,8 +31,8 @@ export async function generateMetadata({ params }: Params) {
       ? publicUrlForKey(rendered.page.ogImageKey)
       : null;
   return buildTenantMetadata(origin, branding, "public", {
-    title: rendered.page.seoTitle || rendered.page.title,
-    description: rendered.page.seoDescription,
+    title: rendered.page.seoTitle || rendered.headTitle || rendered.page.title,
+    description: rendered.page.seoDescription || rendered.headDescription,
     ogImageUrl,
   });
 }
