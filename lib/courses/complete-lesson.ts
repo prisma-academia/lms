@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import { awardCourseCompletion } from "@/lib/certificates/award";
+import { awardCourseCompletion, syncProgrammeCompletion } from "@/lib/certificates/award";
 
 /**
  * The single write path for "this lesson is done".
@@ -53,6 +53,9 @@ export async function recordLessonCompletion(params: {
 
   if (courseDone) {
     await awardCourseCompletion(tenantId, courseId, clientId);
+    // A programme has no completion event of its own — finishing its last
+    // required course is the event, so this is the only place it can be noticed.
+    await syncProgrammeCompletion(tenantId, courseId, clientId);
   }
 
   return updated;

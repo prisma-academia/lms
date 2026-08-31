@@ -23,6 +23,7 @@ const CreateBody = z.object({
   navOrder: z.number().int().min(0).optional(),
   seoTitle: z.string().max(120).nullable().optional(),
   seoDescription: z.string().max(320).nullable().optional(),
+  ogImageKey: z.string().max(300).nullable().optional(),
   htmlSource: htmlSourceSchema.optional(),
   includeShell: z.boolean().optional(),
 });
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
         navOrder: body.navOrder ?? 0,
         seoTitle: body.seoTitle ?? null,
         seoDescription: body.seoDescription ?? null,
+        ogImageKey: body.ogImageKey ?? null,
         htmlSource,
         includeShell: body.includeShell ?? true,
       },

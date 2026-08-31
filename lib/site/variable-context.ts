@@ -218,6 +218,7 @@ export async function buildVariableContext(input: {
     tenant: {
       name: tenant.name,
       logoUrl: urls.logoUrl ?? "",
+      heroImageUrl: imageUrl(settings.heroImageKey ?? null),
       email: tenant.companyEmail ?? "",
       phone: tenant.companyPhone ?? "",
       website: tenant.website ?? "",

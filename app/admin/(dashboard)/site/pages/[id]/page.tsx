@@ -6,6 +6,7 @@ import { toRow } from "@/lib/site/pages";
 import { PAGE_TEMPLATES } from "@/lib/site/page-templates";
 import { PageHeader, Card } from "@/components/shell";
 import { SitePageEditor } from "../site-page-editor";
+import { s3Configured, publicUrlForKey } from "@/lib/storage/s3";
 
 export default async function EditSitePage({
   params,
@@ -33,6 +34,9 @@ export default async function EditSitePage({
         <SitePageEditor
           page={toRow(page)}
           canWrite={canWrite}
+          initialOgImageUrl={
+            page.ogImageKey && s3Configured() ? publicUrlForKey(page.ogImageKey) : null
+          }
           templates={PAGE_TEMPLATES.map((t) => ({
             id: t.id,
             name: t.name,

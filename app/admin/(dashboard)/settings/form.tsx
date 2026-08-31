@@ -21,7 +21,7 @@ import type { ThemePresetId } from "@/lib/theme/presets";
  * that produced it — a single shared line at the bottom of a long form both
  * scrolls out of view and gets silently overwritten by the next action.
  */
-type Scope = "logo" | "favicon" | "form";
+type Scope = "logo" | "favicon" | "hero" | "form";
 type Message = { scope: Scope; message: string };
 
 /** Renders whichever of `error` / `info` belongs to this section. */
@@ -55,6 +55,7 @@ type Initial = {
   name: string;
   settings: TenantSettings;
   logoUrl: string | null;
+  heroImageUrl?: string | null;
   faviconUrl?: string | null;
   icon32Url?: string | null;
   apple180Url?: string | null;
@@ -95,6 +96,10 @@ export function SettingsForm({
   const [faviconUrl, setFaviconUrl] = useState<string | null>(
     initial.faviconUrl ?? initial.icon32Url ?? null
   );
+  const [heroImageKey, setHeroImageKey] = useState<string | null>(
+    initial.settings.heroImageKey ?? null
+  );
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(initial.heroImageUrl ?? null);
   const [icon32Url, setIcon32Url] = useState<string | null>(initial.icon32Url ?? null);
   const [apple180Url, setApple180Url] = useState<string | null>(initial.apple180Url ?? null);
   const [og1200Url, setOg1200Url] = useState<string | null>(initial.og1200Url ?? null);
@@ -216,6 +221,52 @@ export function SettingsForm({
     }
   }
 
+  /**
+   * The hero image has no finalize step, unlike the logo.
+   *
+   * Nothing is derived from it — no favicon, no OG card, no square crop — so
+   * there is nothing for `sharp` to generate and no dimension rule to enforce
+   * beyond "it is an image". The key is held in local state and persisted by the
+   * form's own Save, which is also what lets an admin change their mind before
+   * committing.
+   */
+  async function onHeroChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    clearFeedback();
+    setUploading("hero");
+    try {
+      const res = await apiPost<{ url: string; key: string; publicUrl: string }>(
+        "/api/tenant/site/uploads/presign",
+        { contentType: file.type, contentLength: file.size }
+      );
+      if (res.error || !res.data) {
+        fail(
+          "hero",
+          res.error?.message ??
+            "The server did not return an upload link. Reload the page and try again."
+        );
+        return;
+      }
+
+      const put = await putFileToStorage({ url: res.data.url, file, contentType: file.type });
+      if (!put.ok) {
+        fail("hero", put.message);
+        return;
+      }
+
+      setHeroImageKey(res.data.key);
+      setHeroImageUrl(res.data.publicUrl);
+      succeed("hero", "Hero image uploaded. Save to apply it to your landing page.");
+    } catch (err) {
+      console.error("[settings] hero image upload failed", err);
+      fail("hero", "The upload stopped unexpectedly. Check your connection and try again.");
+    } finally {
+      setUploading(null);
+      e.target.value = "";
+    }
+  }
+
   async function onFaviconChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -315,6 +366,8 @@ export function SettingsForm({
         currency,
         enabledModules: enabled,
         ...(logoKey ? { logoKey } : {}),
+        // Always sent, and null when cleared — see the note on the schema field.
+        heroImageKey,
         ...(metaTitle.trim() ? { metaTitle: metaTitle.trim() } : { metaTitle: undefined }),
         ...(metaDescription.trim()
           ? { metaDescription: metaDescription.trim() }
@@ -507,6 +560,56 @@ export function SettingsForm({
             ) : null}
           </div>
         )}
+      </div>
+
+      <div className="flex flex-col gap-2 text-sm">
+        <span className="text-stone-700">Landing page hero image (optional)</span>
+        <p className="text-xs text-stone-500">
+          A wide photo for the top of your public pages. PNG/JPEG/WebP, max 8 MB. Available in
+          the site builder as <code>{"{{ tenant.heroImageUrl }}"}</code>; the starter hero uses
+          it automatically.
+        </p>
+        {heroImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroImageUrl}
+            alt="Landing page hero"
+            className="h-24 w-full max-w-md rounded-[10px] border-2 border-border object-cover"
+          />
+        ) : null}
+        {storageEnabled ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={busy}
+                onChange={onHeroChange}
+              />
+              {heroImageKey ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setHeroImageKey(null);
+                    setHeroImageUrl(null);
+                    succeed("hero", "Hero image cleared. Save to apply.");
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            {uploading === "hero" ? (
+              <p role="status" className="text-xs text-stone-500">
+                Uploading…
+              </p>
+            ) : null}
+            <Feedback scope="hero" error={error} info={info} />
+          </>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2 text-sm">

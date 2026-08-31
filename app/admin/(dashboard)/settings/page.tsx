@@ -5,7 +5,7 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { parseTenantSettings } from "@/lib/tenant/settings";
 import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
-import { s3Configured } from "@/lib/storage/s3";
+import { s3Configured, publicUrlForKey } from "@/lib/storage/s3";
 import { env } from "@/lib/env";
 import { getCurrencyOptions } from "@/lib/geo/currencies";
 import { getLocaleOptions } from "@/lib/geo/locales";
@@ -36,6 +36,12 @@ export default async function TenantSettingsPage() {
             name: tenant.name,
             settings,
             logoUrl: urls.logoUrl,
+            // Not part of `brandingAssetUrls` — the hero is landing-page content
+            // rather than a brand mark, and nothing is derived from it.
+            heroImageUrl:
+              settings.heroImageKey && s3Configured()
+                ? publicUrlForKey(settings.heroImageKey)
+                : null,
             faviconUrl: urls.faviconUrl,
             icon32Url: urls.icon32Url,
             apple180Url: urls.apple180Url,

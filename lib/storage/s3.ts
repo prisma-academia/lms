@@ -42,6 +42,7 @@ const CONTENT_TYPE_EXT: Record<string, string> = {
 export type PresignKind =
   | "logo"
   | "favicon"
+  | "site_asset"
   | "course_thumbnail"
   | "lesson_asset"
   | "library"
@@ -104,6 +105,10 @@ const LIBRARY_CONTENT_TYPES: Record<string, string> = {
 export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   logo: 2 * 1024 * 1024,
   favicon: 512 * 1024,
+  // Hero and inline photography for landing pages. Larger than a logo because a
+  // full-bleed hero is a photograph, not a mark — but small enough that an
+  // unoptimized 12MP camera export is rejected rather than served to visitors.
+  site_asset: 8 * 1024 * 1024,
   course_thumbnail: 5 * 1024 * 1024,
   lesson_asset: 100 * 1024 * 1024,
   library: 2 * 1024 * 1024 * 1024, // 2 GB — resumable multipart, see below.
@@ -134,7 +139,10 @@ export function partSizeFor(totalBytes: number): number {
 export const MULTIPART_THRESHOLD_BYTES = 8 * 1024 * 1024;
 
 function contentTypeMapFor(kind: PresignKind): Record<string, string> {
-  if (kind === "logo" || kind === "favicon") return CONTENT_TYPE_EXT;
+  // Images only for site assets, and the same three formats as branding. A
+  // landing page is the most public surface in the product; SVG stays out for
+  // the reason in the file header.
+  if (kind === "logo" || kind === "favicon" || kind === "site_asset") return CONTENT_TYPE_EXT;
   if (kind === "library" || kind === "submission") return LIBRARY_CONTENT_TYPES;
   return ASSET_CONTENT_TYPES;
 }
@@ -212,6 +220,8 @@ export async function createPresignedUpload(input: {
   let key: string;
   if (input.kind === "logo" || input.kind === "favicon") {
     key = `tenants/${input.tenantId}/branding/${input.kind}-${rand}.${ext}`;
+  } else if (input.kind === "site_asset") {
+    key = `tenants/${input.tenantId}/site/${rand}.${ext}`;
   } else if (input.kind === "library") {
     // Objects uploaded before the resource→library rename still live under
     // `tenants/{id}/resources/`. Those keys keep resolving — only the prefix

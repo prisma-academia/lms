@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import { apiPatch, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -139,9 +140,17 @@ function LessonAiForm({
         {generated ? (
           <div className="rounded-[14px] border-2 border-border bg-background p-4">
             <h3 className="text-sm font-semibold uppercase text-stone-500">Preview</h3>
-            <pre className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm font-medium text-foreground">
-              {generatedBody || "(empty)"}
-            </pre>
+            {/* Rendered rather than dumped as source — see lesson-dialog.tsx. */}
+            <div className="mt-2 max-h-72 overflow-y-auto">
+              {generatedBody ? (
+                <div
+                  className="lesson-prose text-sm"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(generatedBody) }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">(empty)</p>
+              )}
+            </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <p className="text-xs font-medium text-destructive">
                 Applying overwrites the lesson&rsquo;s current content.

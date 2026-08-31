@@ -27,6 +27,9 @@ import type { MediaPayload } from "@/components/media/types";
 import { resolveMediaKind } from "@/lib/media/kind";
 import type { MediaKind } from "@/lib/generated/prisma/enums";
 import { useContentGate, type ContentGate } from "@/components/lesson/use-content-gate";
+import { VideoLessonPlayer } from "@/components/lesson/video-lesson-player";
+import { parseVideoUrl } from "@/lib/media/video-embed";
+import { renderLessonText } from "@/lib/courses/render-lesson-text";
 import type { GateContentType } from "@/lib/courses/content-gate";
 
 type LearnLesson = {
@@ -83,23 +86,6 @@ function lessonBody(lesson: LearnLesson): string | null {
   return null;
 }
 
-function renderLessonBody(text: string) {
-  const parts = text.split(/(`[^`]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code
-          key={i}
-          className="rounded bg-muted px-1 py-0.5 font-mono text-[0.875em] text-foreground"
-        >
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
-
 /**
  * The kind this lesson's asset will actually render as, repairing items whose
  * stored mediaKind is OTHER because the upload had a generic Content-Type.
@@ -123,8 +109,23 @@ function hasInlineViewer(lesson: LearnLesson): boolean {
   return mediaRendersInline(lesson.libraryItem);
 }
 
+/** The VIDEO_URL lesson's parsed embed, or null when the link is unusable. */
+function videoEmbedFor(lesson: LearnLesson) {
+  if (lesson.contentType !== "VIDEO_URL") return null;
+  const url = lesson.contentJson.url;
+  return typeof url === "string" ? parseVideoUrl(url) : null;
+}
+
+/**
+ * Deliberately not "contentType === VIDEO_URL": a provider we cannot observe
+ * playback on (Vimeo), or a link that will not play at all, reports no progress
+ * — so calling it timed media leaves the learner behind a button that can never
+ * enable. Only claim a watch gate where a watch signal actually arrives.
+ */
 function isTimedMedia(lesson: LearnLesson): boolean {
-  if (lesson.contentType === "VIDEO_URL") return true;
+  if (lesson.contentType === "VIDEO_URL") {
+    return videoEmbedFor(lesson)?.hasProgressSignal ?? false;
+  }
   const kind = resolvedKind(lesson);
   return hasInlineViewer(lesson) && (kind === "VIDEO" || kind === "AUDIO");
 }
@@ -181,7 +182,7 @@ function LessonContent({
           {scoped.css ? <style dangerouslySetInnerHTML={{ __html: scoped.css }} /> : null}
           <div
             data-css-scope={scoped.scope}
-            className="lesson-html max-w-[68ch] text-base font-medium leading-relaxed text-foreground [&_a]:font-bold [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.875em] [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:font-heading [&_h3]:text-base [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-3 [&_pre]:mt-3 [&_pre]:overflow-x-auto [&_pre]:rounded-[10px] [&_pre]:border-2 [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:mt-3 [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_ul]:list-disc"
+            className="lesson-html lesson-prose"
             dangerouslySetInnerHTML={{ __html: scoped.html }}
           />
         </>
@@ -193,18 +194,7 @@ function LessonContent({
     const url = typeof lesson.contentJson.url === "string" ? lesson.contentJson.url : null;
     if (url) {
       return (
-        <video
-          src={url}
-          controls
-          playsInline
-          preload="metadata"
-          className="w-full rounded-[10px] border-2 border-border bg-black"
-          onTimeUpdate={(e) => {
-            const total = e.currentTarget.duration || 0;
-            if (total > 0) gate.reportMedia(e.currentTarget.currentTime / total);
-          }}
-          onEnded={() => gate.reportMedia(1)}
-        />
+        <VideoLessonPlayer url={url} title={lesson.title} onProgress={gate.reportMedia} />
       );
     }
   }
@@ -267,9 +257,10 @@ function LessonContent({
   const body = lessonBody(lesson);
   if (body) {
     return (
-      <div className="max-w-[68ch] whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground">
-        {renderLessonBody(body)}
-      </div>
+      // `whitespace-pre-wrap` is gone deliberately: the renderer now owns block
+      // structure, so preserving raw newlines on top of it would double every
+      // paragraph break.
+      <div className="lesson-prose">{renderLessonText(body)}</div>
     );
   }
 

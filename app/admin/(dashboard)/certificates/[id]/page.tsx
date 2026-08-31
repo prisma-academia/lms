@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { parseDesign } from "@/lib/certificates/design";
+import { certificateBranding } from "@/lib/certificates/branding";
 import { PageHeader } from "@/components/shell";
 import { CertificateEditor, type AwardRow } from "./certificate-editor";
 
@@ -36,6 +37,9 @@ export default async function CertificateDetailPage({ params }: { params: Promis
       })
     : [];
 
+  // The preview shows the author their real logo and colours, not placeholders.
+  const branding = await certificateBranding(actor.tenantId);
+
   const awards: AwardRow[] = cert.awards.map((a) => ({
     id: a.id,
     serial: a.serial,
@@ -60,6 +64,7 @@ export default async function CertificateDetailPage({ params }: { params: Promis
         awards={awards}
         clients={clients.map((c) => ({ value: c.id, label: `${clientLabel(c)} — ${c.email}` }))}
         canWrite={canWrite}
+        branding={branding}
       />
     </div>
   );

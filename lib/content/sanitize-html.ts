@@ -16,7 +16,16 @@ import {
  * CJS/ESM graph fails to load on Vercel.
  */
 
-/** Structural + text tags. No script/style/iframe/form/object/embed. */
+/**
+ * Structural + text tags. No script/style/form/object/embed.
+ *
+ * `iframe` is the one exception, and only ever for the video hosts named in
+ * `allowedIframeHostnames` below. Without it an author who pastes a YouTube
+ * embed into an HTML lesson or a site page watches it vanish on save with no
+ * explanation — and the lesson-level VIDEO_URL player cannot help them, because
+ * the video they want is in the middle of a page of prose. sanitize-html
+ * enforces the hostname list itself; any other iframe is still dropped whole.
+ */
 const ALLOWED_TAGS = [
   "p", "br", "hr", "div", "span", "section", "article", "header", "footer",
   "main", "aside", "nav",
@@ -26,7 +35,7 @@ const ALLOWED_TAGS = [
   "code", "pre", "kbd", "samp", "var",
   "ul", "ol", "li", "dl", "dt", "dd",
   "a", "img", "picture", "source", "figure", "figcaption",
-  "audio", "video", "track",
+  "audio", "video", "track", "iframe",
   "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
   "details", "summary",
 ];
@@ -46,6 +55,10 @@ const ALLOWED_ATTRIBUTES: sanitize.IOptions["allowedAttributes"] = {
   audio: ["src", "controls", "preload", "loop", "muted"],
   video: ["src", "poster", "controls", "preload", "loop", "muted", "playsinline", "width", "height"],
   track: ["src", "kind", "srclang", "label", "default"],
+  iframe: [
+    "src", "width", "height", "title", "loading", "allow", "allowfullscreen",
+    "frameborder", "referrerpolicy",
+  ],
   td: ["colspan", "rowspan", "headers"],
   th: ["colspan", "rowspan", "headers", "scope"],
   col: ["span"],
@@ -66,6 +79,16 @@ export const SANITIZE_OPTIONS: sanitize.IOptions = {
   allowedSchemes: ["http", "https", "mailto", "tel"],
   allowedSchemesByTag: { img: ["http", "https", "data"] },
   allowedSchemesAppliedToAttributes: ["href", "src", "srcset", "cite"],
+  // The only hosts an `iframe` may point at. Everything else is dropped —
+  // an embed allowlist is what keeps this from being an arbitrary-page-
+  // inclusion hole (clickjacking, credential-phishing overlays).
+  allowedIframeHostnames: [
+    "www.youtube.com",
+    "youtube.com",
+    "www.youtube-nocookie.com",
+    "youtube-nocookie.com",
+    "player.vimeo.com",
+  ],
   allowProtocolRelative: false,
   // Drop the contents of stripped tags, not just their markup, so a removed
   // <script> can't leave its source behind as visible text.

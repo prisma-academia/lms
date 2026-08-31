@@ -5,6 +5,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
+import { assertLessonContent } from "@/lib/courses/lesson-content";
 
 const PatchBody = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -38,6 +39,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     }
 
     const contentType = body.contentType ?? lesson.contentType;
+    assertLessonContent(contentType, body.contentJson);
     const needsRef =
       body.libraryItemId !== undefined ||
       body.assetKey !== undefined ||

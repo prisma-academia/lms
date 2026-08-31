@@ -5,6 +5,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
+import { assertLessonContent } from "@/lib/courses/lesson-content";
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
@@ -50,6 +51,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
 
     const contentType = body.contentType ?? "TEXT";
+    assertLessonContent(contentType, body.contentJson);
     const ref = await resolveLessonLibraryRef({
       tenantId: actor.tenantId,
       contentType,

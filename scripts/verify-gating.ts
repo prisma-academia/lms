@@ -12,6 +12,7 @@ import { orderLessons, frontierIndex, isUnlocked, frontierLesson } from "../lib/
 import { requiredDwellSeconds, mediaWatched } from "../lib/courses/content-gate";
 import { scoreAttempt, gradeObjective, type ScorableQuestion } from "../lib/assessments/scoring";
 import { rubricFraction, type EssayRubric, type EssayGrade } from "../lib/schemas/essay-grading";
+import { parseVideoUrl } from "../lib/media/video-embed";
 
 let failed = 0;
 
@@ -317,6 +318,68 @@ check(
     }
   ),
   0.75
+);
+
+/* -------------------------------------------------------------------------- */
+/* Video URL parsing                                                           */
+/* -------------------------------------------------------------------------- */
+
+// A VIDEO_URL lesson that will not play is a lesson that cannot be completed:
+// requiredDwellSeconds treats it as timed media, so an unplayable embed reports
+// no progress and the learner sits behind a permanently disabled button. That
+// makes URL parsing a gating invariant, not a formatting nicety.
+
+const VID = "dQw4w9WgXcQ";
+
+check(
+  "every YouTube URL shape resolves to the same video id",
+  [
+    `https://www.youtube.com/watch?v=${VID}&t=90s&list=PLabc`,
+    `https://youtu.be/${VID}?si=trackingparam`,
+    `https://www.youtube.com/shorts/${VID}`,
+    `https://www.youtube-nocookie.com/embed/${VID}`,
+    `https://youtube.com/live/${VID}`,
+    `https://m.youtube.com/watch?v=${VID}`,
+  ].map((u) => parseVideoUrl(u)?.id),
+  [VID, VID, VID, VID, VID, VID]
+);
+
+check(
+  "timestamps survive, in both seconds and 1h2m3s form",
+  [
+    parseVideoUrl(`https://youtu.be/${VID}?t=90`)?.startSeconds,
+    parseVideoUrl(`https://youtu.be/${VID}?t=1m30s`)?.startSeconds,
+    parseVideoUrl(`https://youtu.be/${VID}?t=1h2m3s`)?.startSeconds,
+    parseVideoUrl(`https://youtu.be/${VID}?t=garbage`)?.startSeconds,
+  ],
+  [90, 90, 3723, 0]
+);
+
+// No Vimeo player API is loaded, so nothing can observe playback. Claiming a
+// progress signal there would gate completion on an event that never arrives.
+check(
+  "only providers we can observe claim a progress signal",
+  [
+    parseVideoUrl(`https://youtu.be/${VID}`)?.hasProgressSignal,
+    parseVideoUrl("https://vimeo.com/123456789")?.hasProgressSignal,
+    parseVideoUrl("https://cdn.example.com/lesson.mp4")?.hasProgressSignal,
+  ],
+  [true, false, true]
+);
+
+// Rejection must be total: a URL that falls through to a raw <video> is exactly
+// the black box that cannot be completed which this parser exists to prevent.
+check(
+  "unplayable and unsafe URLs are rejected outright",
+  [
+    "https://example.com/watch-this",
+    "https://youtube.com/watch?v=tooshort",
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "",
+    "   ",
+  ].map((u) => parseVideoUrl(u)),
+  [null, null, null, null, null, null]
 );
 
 console.log(failed === 0 ? "\nAll gating checks passed." : `\n${failed} check(s) FAILED.`);

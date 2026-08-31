@@ -12,27 +12,21 @@ import {
 import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/icon";
+import { VideoUrlPreview } from "@/components/lesson/video-url-preview";
 import type { GeneratedLesson } from "@/lib/schemas/course-builder";
+import { RichTextEditor } from "@/components/editor/rich-text-editor";
+import { lessonTextToHtml } from "@/lib/courses/lesson-markdown";
+import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import {
   CONTENT_TYPE_OPTIONS,
+  authoringContentType,
   bodyFieldLabel,
+  buildContentJson,
   getLessonBody,
   type LessonContentType,
   type LessonGroupRow,
   type LessonRow,
 } from "./course-types";
-
-export function buildContentJson(type: LessonContentType, body: string, quizId: string) {
-  return type === "TEXT"
-    ? { body }
-    : type === "HTML"
-      ? { html: body }
-      : type === "VIDEO_URL"
-        ? { url: body }
-        : type === "QUIZ"
-          ? { quizId }
-          : {};
-}
 
 /**
  * What the timer actually does for this content type, in the author's terms.
@@ -86,7 +80,13 @@ function LessonForm({
   onSaved,
 }: Omit<LessonDialogProps, "open">) {
   const [title, setTitle] = useState(lesson?.title ?? "");
-  const [type, setType] = useState<LessonContentType>(lesson?.contentType ?? "TEXT");
+  // A stored TEXT lesson is authored — and re-saved — as HTML. The conversion
+  // is one-way and deliberate: the WYSIWYG cannot round-trip back to markdown,
+  // and keeping the row as TEXT would mean saving HTML under the `body` key,
+  // where the renderer would show it as literal tags.
+  const [type, setType] = useState<LessonContentType>(
+    authoringContentType(lesson?.contentType)
+  );
   const [body, setBody] = useState(lesson ? getLessonBody(lesson) : "");
   const [duration, setDuration] = useState(
     lesson?.durationMin != null ? String(lesson.durationMin) : ""
@@ -176,7 +176,13 @@ function LessonForm({
       return;
     }
     const gen = res.data?.lesson;
-    const content = (type === "HTML" ? gen?.html : gen?.body) ?? "";
+    // The model picks the lesson type, so an HTML lesson can still come back as
+    // a TEXT body. Convert rather than drop it: handing markdown source to the
+    // WYSIWYG would paste `## Heading` in as literal text.
+    const content =
+      type === "HTML"
+        ? gen?.html ?? (gen?.body ? lessonTextToHtml(gen.body) : "")
+        : gen?.body ?? "";
     if (!content) {
       const msg = "The AI returned no content — try again.";
       setAiProgress({ open: true, percent: 0, label: "", error: msg, running: false });
@@ -331,18 +337,19 @@ function LessonForm({
               ) : null}
             </div>
             {type === "TEXT" || type === "HTML" ? (
-              <TextArea
-                id="lesson-dialog-body"
-                rows={7}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
+              <RichTextEditor id="lesson-dialog-body" value={body} onChange={setBody} />
             ) : (
-              <TextInput
-                id="lesson-dialog-body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-              />
+              <>
+                <TextInput
+                  id="lesson-dialog-body"
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder={
+                    type === "VIDEO_URL" ? "https://www.youtube.com/watch?v=…" : undefined
+                  }
+                />
+                {type === "VIDEO_URL" ? <VideoUrlPreview url={body} /> : null}
+              </>
             )}
           </div>
         )}
@@ -414,9 +421,19 @@ function LessonForm({
                       </Button>
                     </div>
                   </div>
-                  <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words text-sm font-medium text-foreground">
-                    {aiPreview}
-                  </pre>
+                  {/*
+                    Rendered, not dumped as source. Generated lessons are designed
+                    HTML now — objectives blocks, callouts, steps — and showing an
+                    author the raw tags asks them to accept or reject a page they
+                    cannot see. Sanitized here for the same reason the learner
+                    view sanitizes: this markup has not been through the server.
+                  */}
+                  <div className="mt-2 max-h-56 overflow-y-auto">
+                    <div
+                      className="lesson-prose"
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(aiPreview) }}
+                    />
+                  </div>
                   {body.trim() ? (
                     <p className="mt-2 text-xs font-medium text-destructive">
                       &ldquo;Use this content&rdquo; replaces the current {bodyFieldLabel(type).toLowerCase()}.

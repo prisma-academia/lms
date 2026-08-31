@@ -136,7 +136,11 @@ ${group.lessons
   .join('\n')}
 
 Keep the same lesson order, titles and content types. Fill in body (TEXT), html (HTML),
-or quiz (QUIZ) as appropriate; VIDEO_URL/FILE lessons get only a placeholderNote.`;
+or quiz (QUIZ) as appropriate; VIDEO_URL/FILE lessons get only a placeholderNote.
+
+Apply the lesson design rules from your instructions to every HTML lesson: open with a
+.lesson-objectives block, and choose the structure that fits the material rather than repeating
+one shape. Lessons in the same module should not all look alike.`;
 
     const result = await agent.generate([{ role: 'user', content: prompt }], {
       structuredOutput: { schema: generatedGroupSchema, errorStrategy: 'strict' },

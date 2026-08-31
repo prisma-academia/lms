@@ -49,6 +49,19 @@ export const tenantSettingsSchema = z.object({
   faviconKey: z.string().min(1).max(300).optional(),
   /** Auto-generated from logo on finalize (icon32, apple180, og1200). */
   brandingAssets: brandingAssetsSchema.optional(),
+  /**
+   * Landing-page hero image, exposed to templates as `{{ tenant.heroImageUrl }}`.
+   * A setting rather than a `SitePage` column because the same photograph is
+   * what a tenant wants at the top of every public page, and duplicating it per
+   * page would mean re-uploading it to change it once.
+   */
+  /*
+   * Nullable, not merely optional. The settings PATCH merges `{...current,
+   * ...incoming}`, so an omitted key keeps its old value — meaning removal is
+   * impossible to express by leaving the field out. An explicit `null` is what
+   * lets "Remove" actually remove.
+   */
+  heroImageKey: z.string().min(1).max(300).nullable().optional(),
   /** Default SEO title for public pages when a SitePage has no seoTitle. */
   metaTitle: z.string().min(1).max(120).optional(),
   /** Default SEO description for public pages when a SitePage has no seoDescription. */

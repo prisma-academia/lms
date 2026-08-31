@@ -68,7 +68,10 @@ Content type: ${lesson.contentType}${lesson.durationMin ? `\nTarget duration: ~$
 ${body.instructions ? `\nInstructions from the course admin:\n${body.instructions}` : ""}
 
 Keep the exact lesson title and contentType. Fill in body (TEXT) or html (HTML) as appropriate.
-Do not generate a quiz or placeholders.`;
+Do not generate a quiz or placeholders.
+
+For an HTML lesson, apply the lesson design rules from your instructions: open with a
+.lesson-objectives block and use the structural classes that fit the material.`;
 
     // Lazy import keeps the Mastra instance (top-level await, native storage deps)
     // out of the module graph until AI generation is actually used.

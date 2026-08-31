@@ -6,14 +6,17 @@ import { apiDelete, apiPatch, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/shell";
 import { FormField, SelectInput, TextInput } from "@/components/form-field";
+import { RichTextEditor } from "@/components/editor/rich-text-editor";
 import {
   CONTENT_TYPE_OPTIONS,
+  authoringContentType,
   bodyFieldLabel,
   getLessonBody,
   type CourseInitial,
   type LessonContentType,
   type LessonGroupRow,
   type LessonRow,
+  buildContentJson,
 } from "./course-types";
 
 export function CourseLessonsEditor({
@@ -32,7 +35,7 @@ export function CourseLessonsEditor({
   const [groups, setGroups] = useState(initial.lessonGroups);
 
   const [lessonTitle, setLessonTitle] = useState("");
-  const [lessonType, setLessonType] = useState<LessonContentType>("TEXT");
+  const [lessonType, setLessonType] = useState<LessonContentType>("HTML");
   const [lessonBody, setLessonBody] = useState("");
   const [lessonDuration, setLessonDuration] = useState("");
   const [lessonGroupId, setLessonGroupId] = useState("");
@@ -46,7 +49,7 @@ export function CourseLessonsEditor({
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [editType, setEditType] = useState<LessonContentType>("TEXT");
+  const [editType, setEditType] = useState<LessonContentType>("HTML");
   const [editBody, setEditBody] = useState("");
   const [editDuration, setEditDuration] = useState("");
   const [editGroupId, setEditGroupId] = useState("");
@@ -59,18 +62,6 @@ export function CourseLessonsEditor({
 
   function groupName(id: string | null): string {
     return id ? groups.find((g) => g.id === id)?.title ?? "—" : "—";
-  }
-
-  function buildContentJson(type: LessonContentType, body: string, quizId: string) {
-    return type === "TEXT"
-      ? { body }
-      : type === "HTML"
-        ? { html: body }
-        : type === "VIDEO_URL"
-          ? { url: body }
-          : type === "QUIZ"
-            ? { quizId }
-            : {};
   }
 
   async function addLesson() {
@@ -114,7 +105,7 @@ export function CourseLessonsEditor({
       setLessonTitle("");
       setLessonBody("");
       setLessonDuration("");
-      setLessonType("TEXT");
+      setLessonType("HTML");
       setLessonGroupId("");
       setLessonQuizId("");
       setLessonLibraryId("");
@@ -156,7 +147,8 @@ export function CourseLessonsEditor({
   function startEdit(lesson: LessonRow) {
     setEditingId(lesson.id);
     setEditTitle(lesson.title);
-    setEditType(lesson.contentType);
+    // A stored TEXT lesson is authored, and re-saved, as HTML.
+    setEditType(authoringContentType(lesson.contentType));
     setEditBody(getLessonBody(lesson));
     setEditDuration(lesson.durationMin != null ? String(lesson.durationMin) : "");
     setEditGroupId(lesson.groupId ?? "");
@@ -333,12 +325,10 @@ export function CourseLessonsEditor({
                     ) : (
                       <FormField label={bodyFieldLabel(editType)} htmlFor={`edit-body-${lesson.id}`}>
                         {editType === "TEXT" || editType === "HTML" ? (
-                          <textarea
+                          <RichTextEditor
                             id={`edit-body-${lesson.id}`}
                             value={editBody}
-                            onChange={(e) => setEditBody(e.target.value)}
-                            rows={4}
-                            className="rounded border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-stone-500"
+                            onChange={setEditBody}
                           />
                         ) : (
                           <TextInput
@@ -460,12 +450,10 @@ export function CourseLessonsEditor({
               ) : (
                 <FormField label={bodyFieldLabel(lessonType)} htmlFor="lesson-body">
                   {lessonType === "TEXT" || lessonType === "HTML" ? (
-                    <textarea
+                    <RichTextEditor
                       id="lesson-body"
                       value={lessonBody}
-                      onChange={(e) => setLessonBody(e.target.value)}
-                      rows={4}
-                      className="rounded border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-stone-500"
+                      onChange={setLessonBody}
                     />
                   ) : (
                     <TextInput

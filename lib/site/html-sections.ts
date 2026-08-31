@@ -36,10 +36,42 @@ export const BASE_STYLES = `<style>
   .sb-btn-primary { background: var(--sb-brand, #0f172a); color: #fff; border-color: var(--sb-brand, #0f172a); }
   .sb-muted { opacity: .7; }
   .sb-center { text-align: center; }
+  .sb-hero { position: relative; overflow: hidden; }
+  .sb-hero-inner { position: relative; }
+  /*
+   * The overlay lives on the background layer rather than on the section, so the
+   * headline sits above it. A photograph with no scrim behind white text is the
+   * single most common way a landing page ends up unreadable.
+   */
+  .sb-hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+  }
+  .sb-hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, .72);
+  }
+  .sb-hero:has(.sb-hero-bg) { padding: 5rem 0; }
 </style>`;
 
-export const HERO = `<section class="sb-section" style="border-top: 0;">
-  <div class="sb-wrap sb-center">
+/**
+ * The hero, with an optional background photograph.
+ *
+ * The image is a `{{#if}}` branch rather than a required asset: most tenants
+ * never upload one, and a hero that collapses to a coloured band with no photo
+ * is the correct fallback — not a broken image or an empty box. The overlay is
+ * what keeps the headline legible over an arbitrary photograph the author picked
+ * without thinking about contrast, which is every photograph.
+ */
+export const HERO = `<section class="sb-section sb-hero" style="border-top: 0;">
+  {{#if tenant.heroImageUrl}}
+    <div class="sb-hero-bg" style="background-image: url('{{ tenant.heroImageUrl }}');"></div>
+  {{/if}}
+  <div class="sb-wrap sb-center sb-hero-inner">
     {{#if tenant.logoUrl}}
       <img src="{{ tenant.logoUrl }}" alt="{{ tenant.name }}" style="height: 4rem; margin: 0 auto 1rem;">
     {{/if}}

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
+import { renderLessonText } from "@/lib/courses/render-lesson-text";
 import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import { withViewTransition } from "@/lib/client/view-transition";
 import { cn } from "@/lib/utils";
@@ -213,11 +214,11 @@ function LessonPreview({
       {open ? (
         <div className="mt-3 border-t border-dashed border-stone-300 pt-3">
           {lesson.contentType === "TEXT" && lesson.body ? (
-            <div className="whitespace-pre-wrap text-sm text-stone-700">{lesson.body}</div>
+            <div className="lesson-prose text-sm">{renderLessonText(lesson.body)}</div>
           ) : null}
           {lesson.contentType === "HTML" && lesson.html ? (
             <div
-              className="text-sm text-stone-700 [&_h2]:mt-3 [&_h2]:text-base [&_h2]:font-bold [&_h3]:mt-2 [&_h3]:font-bold [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-2 [&_ul]:list-disc"
+              className="lesson-prose text-sm"
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(lesson.html) }}
             />
           ) : null}

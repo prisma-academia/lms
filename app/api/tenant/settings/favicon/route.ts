@@ -46,7 +46,15 @@ export async function POST(request: Request) {
       if (!s3Configured()) {
         throw new DomainError(503, "storage_unconfigured", "Object storage is not configured.");
       }
-      await validateFaviconOverride({ tenantId: actor.tenantId, faviconKey: key });
+      // A rejected favicon is already in the bucket; drop it rather than leave
+      // an unreferenced object against the tenant's quota. Same reasoning as
+      // the logo finalize route.
+      try {
+        await validateFaviconOverride({ tenantId: actor.tenantId, faviconKey: key });
+      } catch (e) {
+        await cleanupBrandingKeys([key]);
+        throw e;
+      }
 
       const tenant = await prisma.tenant.findUnique({ where: { id: actor.tenantId } });
       if (!tenant) throw new DomainError(404, "not_found", "Tenant not found.");

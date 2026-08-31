@@ -52,12 +52,23 @@ export async function POST(request: Request) {
     if (!tenant) throw new DomainError(404, "not_found", "Tenant not found.");
 
     const current = parseTenantSettings(tenant.settingsJson);
-    const result = await finalizeLogoBranding({
-      tenantId: actor.tenantId,
-      logoKey: key,
-      primaryColor: current.primaryColor,
-      previous: current,
-    });
+    // The bytes are already in the bucket by the time we can look at them, so a
+    // logo rejected here (too small, wrong aspect, undecodable) would otherwise
+    // sit in storage forever, counting against the tenant's quota, referenced by
+    // nothing. Nobody can delete it either — there is no UI for a key that was
+    // never saved to settings.
+    let result;
+    try {
+      result = await finalizeLogoBranding({
+        tenantId: actor.tenantId,
+        logoKey: key,
+        primaryColor: current.primaryColor,
+        previous: current,
+      });
+    } catch (e) {
+      await cleanupBrandingKeys([key]);
+      throw e;
+    }
 
     const merged = tenantSettingsSchema.parse({
       ...current,

@@ -1,4 +1,5 @@
 import type { SelectOption } from "@/lib/geo/options";
+import { lessonTextToHtml } from "@/lib/courses/lesson-markdown";
 
 export type LessonContentType = "TEXT" | "HTML" | "VIDEO_URL" | "FILE" | "QUIZ";
 
@@ -79,18 +80,34 @@ export type CourseEditorProps = {
   canManageEnrollments: boolean;
 };
 
+/**
+ * TEXT is deliberately absent as an authoring choice.
+ *
+ * TEXT and HTML were two options producing the same thing — a lesson body — and
+ * differing only in whether the author's formatting survived. Now that both are
+ * authored in the WYSIWYG, offering both would be asking an author to pick a
+ * storage format. New and edited lessons save as HTML; existing TEXT rows keep
+ * rendering, and open in the editor via `authoringContentType`.
+ */
 export const CONTENT_TYPE_OPTIONS = [
-  { value: "TEXT", label: "Text" },
-  { value: "HTML", label: "HTML" },
-  { value: "VIDEO_URL", label: "Video URL" },
+  { value: "HTML", label: "Text & rich content" },
+  { value: "VIDEO_URL", label: "Video (YouTube, Vimeo, or file)" },
   { value: "FILE", label: "Library file" },
   { value: "QUIZ", label: "Quiz" },
 ];
 
+/**
+ * The type a lesson is *edited* as. A stored TEXT lesson is authored as HTML;
+ * without this its select would sit on a value the option list no longer offers
+ * and render blank.
+ */
+export function authoringContentType(type: LessonContentType | undefined): LessonContentType {
+  return !type || type === "TEXT" ? "HTML" : type;
+}
+
 export function bodyFieldLabel(type: LessonContentType): string {
-  if (type === "TEXT") return "Body";
-  if (type === "HTML") return "HTML source";
-  if (type === "VIDEO_URL") return "Video URL";
+  if (type === "TEXT" || type === "HTML") return "Lesson content";
+  if (type === "VIDEO_URL") return "Video link";
   if (type === "FILE") return "Library file";
   return "Quiz";
 }
@@ -138,12 +155,34 @@ export function serializeStructureHints(opts: {
   return parts.length ? parts.join("; ") : null;
 }
 
+/**
+ * The inverse of `getLessonBody`: pack the single body field back into the
+ * shape this content type stores. Lives here rather than in either editor
+ * because both of them write lessons, and two copies of the mapping is two
+ * chances for a content type to be saved under the wrong key.
+ */
+export function buildContentJson(type: LessonContentType, body: string, quizId: string) {
+  return type === "TEXT"
+    ? { body }
+    : type === "HTML"
+      ? { html: body }
+      : type === "VIDEO_URL"
+        ? { url: body.trim() }
+        : type === "QUIZ"
+          ? { quizId }
+          : {};
+}
+
 export function getLessonBody(lesson: LessonRow): string {
   if (lesson.contentType === "VIDEO_URL") {
     return typeof lesson.contentJson.url === "string" ? lesson.contentJson.url : "";
   }
   if (lesson.contentType === "TEXT") {
-    return typeof lesson.contentJson.body === "string" ? lesson.contentJson.body : "";
+    // Converted, not returned raw: the body is authored in the WYSIWYG now, so
+    // handing it markdown source would show the author a literal `## Heading` —
+    // exactly what the learner's renderer was fixed to stop doing.
+    const body = typeof lesson.contentJson.body === "string" ? lesson.contentJson.body : "";
+    return body ? lessonTextToHtml(body) : "";
   }
   if (lesson.contentType === "HTML") {
     return typeof lesson.contentJson.html === "string" ? lesson.contentJson.html : "";

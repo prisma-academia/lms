@@ -62,14 +62,18 @@ function listCompletion(v: VariableDef): Completion {
 }
 
 /** Fields of the list being looped over, offered as `this.x` inside a block. */
-function fieldCompletions(source: string, upto: number): Completion[] {
+function fieldCompletions(
+  variables: VariableDef[],
+  source: string,
+  upto: number
+): Completion[] {
   // Find the innermost unclosed {{#each …}} before the cursor.
   const opens = [...source.slice(0, upto).matchAll(/\{\{\s*#each\s+([\w.]+)\s*\}\}/g)];
   const closes = (source.slice(0, upto).match(/\{\{\s*\/each\s*\}\}/g) ?? []).length;
   const open = opens[opens.length - 1 - closes];
   if (!open) return [];
 
-  const def = SITE_VARIABLES.find((v) => v.path === open[1]);
+  const def = variables.find((v) => v.path === open[1]);
   if (!def?.fields) return [];
 
   return [
@@ -99,7 +103,21 @@ const BLOCK_HELPERS: Completion[] = [
   { label: "else", type: "keyword", detail: "Fallback branch of an #if", apply: "else }}" },
 ];
 
+/** A completion source bound to a specific variable catalog. */
+export function variableCompletion(variables: VariableDef[]) {
+  return (context: CompletionContext): CompletionResult | null =>
+    completeFrom(variables, context);
+}
+
+/** The site builder's instance. */
 export function siteVariableCompletion(
+  context: CompletionContext
+): CompletionResult | null {
+  return completeFrom(SITE_VARIABLES, context);
+}
+
+function completeFrom(
+  variables: VariableDef[],
   context: CompletionContext
 ): CompletionResult | null {
   const before = context.matchBefore(OPEN_TAG);
@@ -111,8 +129,8 @@ export function siteVariableCompletion(
   const typed = before.text.replace(/^\{\{\s*/, "");
 
   const options: Completion[] = [
-    ...fieldCompletions(context.state.doc.toString(), before.from),
-    ...SITE_VARIABLES.map((v) => (v.kind === "list" ? listCompletion(v) : scalarCompletion(v))),
+    ...fieldCompletions(variables, context.state.doc.toString(), before.from),
+    ...variables.map((v) => (v.kind === "list" ? listCompletion(v) : scalarCompletion(v))),
     ...BLOCK_HELPERS,
   ];
 

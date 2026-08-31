@@ -61,6 +61,12 @@ export const SITE_VARIABLES: VariableDef[] = [
   // Organisation and branding — always available, no session needed.
   { path: "tenant.name", kind: "scalar", label: "Organisation name", sample: "Acme Academy" },
   { path: "tenant.logoUrl", kind: "scalar", label: "Logo image URL", sample: "" },
+  {
+    path: "tenant.heroImageUrl",
+    kind: "scalar",
+    label: "Hero image URL (Settings → Branding)",
+    sample: "",
+  },
   { path: "tenant.email", kind: "scalar", label: "Contact email", sample: "hello@acme.test" },
   { path: "tenant.phone", kind: "scalar", label: "Contact phone", sample: "+234 800 000 0000" },
   { path: "tenant.website", kind: "scalar", label: "Website URL", sample: "https://acme.test" },

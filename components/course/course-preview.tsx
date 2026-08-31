@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/icon";
 import { sanitizeHtmlWithStyles } from "@/lib/content/sanitize-html";
+import { VideoLessonPlayer } from "@/components/lesson/video-lesson-player";
+import { renderLessonText } from "@/lib/courses/render-lesson-text";
 import type { GateContentType } from "@/lib/courses/content-gate";
 
 /**
@@ -64,7 +66,7 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
           {scoped.css ? <style dangerouslySetInnerHTML={{ __html: scoped.css }} /> : null}
           <div
             data-css-scope={scoped.scope}
-            className="max-w-[68ch] text-base font-medium leading-relaxed text-foreground [&_a]:font-bold [&_a]:underline [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-lg [&_h3]:mt-4 [&_h3]:font-heading [&_li]:ml-5 [&_ol]:list-decimal [&_p]:mt-3 [&_ul]:list-disc"
+            className="lesson-prose"
             dangerouslySetInnerHTML={{ __html: scoped.html }}
           />
         </>
@@ -75,15 +77,9 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
   if (lesson.contentType === "VIDEO_URL") {
     const url = lesson.contentJson.url;
     if (typeof url === "string" && url.trim()) {
-      return (
-        <video
-          src={url}
-          controls
-          playsInline
-          preload="metadata"
-          className="w-full rounded-[10px] border-2 border-border bg-black"
-        />
-      );
+      // Same player the learner gets, so an admin checking a YouTube lesson
+      // sees the real embed rather than the black box a raw <video> gave them.
+      return <VideoLessonPlayer url={url} title={lesson.title} />;
     }
   }
 
@@ -146,9 +142,7 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
   const text = lessonText(lesson);
   if (text) {
     return (
-      <div className="max-w-[68ch] whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground">
-        {text}
-      </div>
+      <div className="lesson-prose">{renderLessonText(text)}</div>
     );
   }
 

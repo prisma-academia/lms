@@ -11,6 +11,8 @@ import { Icon } from "@/components/icon";
 import { PreviewFrame } from "@/components/preview-frame";
 import { SiteLivePreview } from "@/components/site-live-preview";
 import { SiteVariablePanel } from "@/components/site-variable-panel";
+import { SiteImagePanel } from "@/components/site-image-panel";
+import { uploadViaPresign } from "@/lib/client/upload";
 import { siteVariableCompletion } from "@/lib/site/variable-completion";
 import { sampleContext } from "@/lib/site/variables";
 import type { VariableContext } from "@/lib/site/template";
@@ -40,10 +42,16 @@ export function SitePageEditor({
   page,
   canWrite,
   templates,
+  initialOgImageUrl,
 }: {
   page: SitePageRow | null;
   canWrite: boolean;
   templates: { id: string; name: string; description: string }[];
+  /**
+   * Resolved server-side: turning a stored key into a public URL needs the S3
+   * config, which is not available in the browser.
+   */
+  initialOgImageUrl?: string | null;
 }) {
   const router = useRouter();
   const isNew = !page;
@@ -56,6 +64,9 @@ export function SitePageEditor({
   const [navOrder, setNavOrder] = useState(String(page?.navOrder ?? 0));
   const [seoTitle, setSeoTitle] = useState(page?.seoTitle ?? "");
   const [seoDescription, setSeoDescription] = useState(page?.seoDescription ?? "");
+  const [ogImageKey, setOgImageKey] = useState<string | null>(page?.ogImageKey ?? null);
+  const [ogImageUrl, setOgImageUrl] = useState<string | null>(initialOgImageUrl ?? null);
+  const [ogUploading, setOgUploading] = useState(false);
   const [htmlSource, setHtmlSource] = useState(page?.htmlSource ?? "");
   const [includeShell, setIncludeShell] = useState(page?.includeShell ?? true);
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "classic");
@@ -115,6 +126,9 @@ export function SitePageEditor({
       navOrder: parseInt(navOrder, 10) || 0,
       seoTitle: seoTitle.trim() || null,
       seoDescription: seoDescription.trim() || null,
+      // Always sent, including null, so removing the image actually removes it —
+      // the route writes the field only when it is present in the body.
+      ogImageKey,
       htmlSource,
       includeShell,
     };
@@ -314,11 +328,17 @@ export function SitePageEditor({
             height="30rem"
           />
           {showVariables ? (
-            <SiteVariablePanel
-              context={ctx}
-              onInsert={canWrite ? (s) => editorRef.current?.insert(s) : undefined}
-              className="max-h-[30rem] rounded-[14px] border-2 border-border p-3"
-            />
+            <div className="flex max-h-[30rem] flex-col gap-3 overflow-y-auto">
+              <SiteVariablePanel
+                context={ctx}
+                onInsert={canWrite ? (s) => editorRef.current?.insert(s) : undefined}
+                className="rounded-[14px] border-2 border-border p-3"
+              />
+              <SiteImagePanel
+                onInsert={canWrite ? (s) => editorRef.current?.insert(s) : undefined}
+                className="rounded-[14px] border-2 border-border p-3"
+              />
+            </div>
           ) : null}
         </div>
 
@@ -407,6 +427,63 @@ export function SitePageEditor({
             onChange={(e) => setSeoDescription(e.target.value)}
             disabled={!canWrite}
           />
+        </FormField>
+        <FormField
+          label="Social share image"
+          htmlFor="sp-og"
+          hint="Shown when this page is shared on social media or chat. 1200×630 works best."
+        >
+          <div className="flex flex-col gap-2">
+            {ogImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- object-storage URL, no loader configured
+              <img
+                src={ogImageUrl}
+                alt=""
+                className="h-24 w-full max-w-sm rounded-[10px] border-2 border-border object-cover"
+              />
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                id="sp-og"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={!canWrite || ogUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  setOgUploading(true);
+                  const res = await uploadViaPresign("/api/tenant/site/uploads/presign", file);
+                  setOgUploading(false);
+                  if ("error" in res) {
+                    setError(res.error);
+                    return;
+                  }
+                  setOgImageKey(res.key);
+                  setOgImageUrl(res.publicUrl);
+                }}
+              />
+              {ogImageKey ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!canWrite}
+                  onClick={() => {
+                    setOgImageKey(null);
+                    setOgImageUrl(null);
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            {ogUploading ? (
+              <p role="status" className="text-xs text-muted-foreground">
+                Uploading…
+              </p>
+            ) : null}
+          </div>
         </FormField>
       </div>
 

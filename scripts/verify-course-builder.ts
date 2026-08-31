@@ -18,6 +18,9 @@ import {
   type CourseBuilderInput,
   type GeneratedCourse,
 } from "../lib/schemas/course-builder";
+import { readFileSync } from "node:fs";
+import { LESSON_BLOCKS, lessonBlockGuide } from "../lib/content/lesson-blocks";
+import { sanitizeHtml } from "../lib/content/sanitize-html";
 
 const args = process.argv.slice(2);
 const runAi = args.includes("--ai");
@@ -103,7 +106,41 @@ async function runWorkflow(input: CourseBuilderInput): Promise<GeneratedCourse> 
   return result.result.course;
 }
 
+/**
+ * The lesson design vocabulary is a three-way contract: the prompt advertises a
+ * class, the sanitizer must let it through, and the stylesheet must style it.
+ * Break any leg and the failure is silent — the model dutifully emits markup
+ * that renders as a plain box, and nobody finds out until a learner sees a
+ * lesson that looks like the flat text this was built to replace.
+ *
+ * No database and no LLM, so it runs first and always.
+ */
+function checkLessonBlocks() {
+  const css = readFileSync("app/globals.css", "utf8");
+
+  for (const block of LESSON_BLOCKS) {
+    const sanitized = sanitizeHtml(block.example);
+    const tag = /^<(\w+)/.exec(block.example)?.[1] ?? "";
+    check(
+      `.${block.className} survives sanitizing as <${tag}>`,
+      sanitized.includes(block.className) && sanitized.startsWith(`<${tag}`),
+      `got: ${sanitized}`
+    );
+  }
+
+  // Read the classes out of the generated prompt rather than the list, so a
+  // class that only appears in an example's markup is covered too.
+  const advertised = new Set(
+    [...lessonBlockGuide().matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/))
+  );
+  for (const className of advertised) {
+    check(`.${className} is styled in globals.css`, css.includes(`.${className}`));
+  }
+}
+
 async function main() {
+  checkLessonBlocks();
+
   const tenant = wantTenantSlug
     ? await prisma.tenant.findFirst({ where: { slug: wantTenantSlug }, select: { id: true, slug: true } })
     : await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true, slug: true } });
