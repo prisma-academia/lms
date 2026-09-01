@@ -11,9 +11,24 @@ import {
 } from "@/lib/storage/s3";
 import { formatBytes } from "@/lib/tenant/plan";
 import type { TenantSettings } from "@/lib/tenant/settings";
-import sharp from "sharp";
+import type SharpFactory from "sharp";
 
-type SharpMetadata = Awaited<ReturnType<ReturnType<typeof sharp>["metadata"]>>;
+type SharpMetadata = Awaited<
+  ReturnType<ReturnType<typeof SharpFactory>["metadata"]>
+>;
+
+/**
+ * `sharp` is a native module. Importing it at module scope drags libvips into
+ * every server chunk that transitively reaches this file — and the root layout
+ * does, via `lib/site/metadata` — so a missing or unloadable linux binary takes
+ * down pages that never process an image (`/apple-icon`, `/icon`, site pages).
+ * Load it on demand so only the branding upload paths below depend on it.
+ */
+let sharpPromise: Promise<typeof SharpFactory> | null = null;
+function loadSharp(): Promise<typeof SharpFactory> {
+  sharpPromise ??= import("sharp").then((m) => m.default);
+  return sharpPromise;
+}
 
 /**
  * Read back an object the browser just PUT. Raw SDK failures here surface as a
@@ -123,6 +138,7 @@ export async function finalizeLogoBranding(input: {
     );
   }
 
+  const sharp = await loadSharp();
   let meta: SharpMetadata;
   try {
     meta = await sharp(body).metadata();
@@ -217,6 +233,7 @@ export async function validateFaviconOverride(input: {
     throw new DomainError(400, "bad_key", "Favicon key is not valid for this tenant.");
   }
   const body = await readUploadedObject(input.faviconKey, "favicon");
+  const sharp = await loadSharp();
   let meta: SharpMetadata;
   try {
     meta = await sharp(body).metadata();
