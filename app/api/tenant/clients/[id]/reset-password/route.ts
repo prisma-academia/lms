@@ -11,6 +11,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { displayName } from "@/lib/auth/display";
+import { appScheme } from "@/lib/url/scheme";
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -45,7 +46,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       userAgent: meta.userAgent,
     });
 
-    const loginUrl = `http://${tenant.slug}.${env.APP_DOMAIN}/auth/login`;
+    const loginUrl = `${appScheme()}://${tenant.slug}.${env.APP_DOMAIN}/auth/login`;
     const branding = tenantBranding(tenant);
     await sendEmail({
       to: target.email,

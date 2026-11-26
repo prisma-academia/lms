@@ -63,7 +63,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
         where: { programmeId_clientId: { programmeId: programme.id, clientId: actor.clientId } },
         create: { tenantId: actor.tenantId, programmeId: programme.id, clientId: actor.clientId },
         update: {},
-        select: { id: true },
+        // `tenantId` is here for the tenant-scope guard, which checks the row
+        // an upsert returns; selecting only `id` made it throw after the write.
+        select: { id: true, tenantId: true },
       });
       // Credit whoever sent this learner, if anyone did. Never throws, and a
       // repeat enrolment records nothing new.

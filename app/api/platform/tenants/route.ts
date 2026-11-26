@@ -23,6 +23,7 @@ import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { isValidCountryCode } from "@/lib/geo/countries";
 import { tenantCreateDefaults } from "@/lib/tenant/bootstrap";
 import { getDefaultTenantSettings } from "@/lib/tenant/defaults";
+import { appScheme } from "@/lib/url/scheme";
 
 const QUARANTINE_DAYS = 90;
 
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
 
     await recordPassword("TENANT", created.owner.id, passwordHash);
 
-    const loginUrl = `http://${body.slug}.${env.APP_DOMAIN}/admin/auth/login`;
+    const loginUrl = `${appScheme()}://${body.slug}.${env.APP_DOMAIN}/admin/auth/login`;
     const branding = await loadTenantBrandingById(created.tenant.id);
     await sendEmail({
       to: body.ownerEmail,

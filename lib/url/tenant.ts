@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
+import { appScheme } from "@/lib/url/scheme";
 
 export function tenantHttpOrigin(slug: string): string {
-  return `http://${slug}.${env.APP_DOMAIN}`;
+  return `${appScheme()}://${slug}.${env.APP_DOMAIN}`;
 }

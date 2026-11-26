@@ -6,6 +6,7 @@ import { loadTenantPageContext } from "@/lib/db/page-context";
 import { env, isProd } from "@/lib/env";
 import { parseTenantSettings, type TenantSettings } from "@/lib/tenant/settings";
 import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
+import { appScheme } from "@/lib/url/scheme";
 
 export const PRODUCT_TAGLINE =
   "Deliver learning content, assess learners, keep everyone engaged, and manage your organization with built-in billing.";
@@ -22,7 +23,7 @@ export async function requestOrigin(): Promise<URL> {
     h.get("x-forwarded-proto") ??
     (env.NODE_ENV === "production" ? "https" : "http");
   if (host) return new URL(`${proto}://${host}`);
-  return new URL(`http://${env.APP_DOMAIN}`);
+  return new URL(`${appScheme()}://${env.APP_DOMAIN}`);
 }
 
 export type TenantBranding = {

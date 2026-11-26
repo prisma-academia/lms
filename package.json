@@ -37,6 +37,7 @@
     "report:pass-marks": "tsx scripts/report-pass-marks.ts",
     "backfill:referral-permissions": "tsx scripts/backfill-referral-permissions.ts",
     "deploy": "node scripts/deploy-dokploy.mjs",
+    "e2e:lifecycle": "tsx scripts/e2e-lifecycle.ts",
     "verify:sanitizer": "tsx scripts/verify-sanitizer.ts",
     "verify:ai": "tsx scripts/verify-ai.ts",
     "verify:ai:live": "tsx scripts/verify-ai-live.ts",

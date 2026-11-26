@@ -12,6 +12,7 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { ALL_TENANT_PERMISSION_KEYS } from "@/lib/auth/permissions";
+import { appScheme } from "@/lib/url/scheme";
 
 const InviteBody = z.object({
   email: z.email(),
@@ -89,7 +90,7 @@ export async function POST(request: Request) {
       userAgent: meta.userAgent,
     });
 
-    const loginUrl = `http://${tenant.slug}.${env.APP_DOMAIN}/admin/auth/login`;
+    const loginUrl = `${appScheme()}://${tenant.slug}.${env.APP_DOMAIN}/admin/auth/login`;
     const branding = tenantBranding(tenant);
     await sendEmail({
       to: body.email,

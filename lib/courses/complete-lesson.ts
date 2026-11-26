@@ -77,7 +77,10 @@ export async function recordLessonOpen(params: {
     where: { enrollmentId_lessonId: { enrollmentId, lessonId } },
     create: { enrollmentId, lessonId, tenantId, startedAt: new Date(), completedAt: null },
     update: {},
-    select: { startedAt: true },
+    // `tenantId` is selected for the tenant-scope guard (lib/db/extension.ts),
+    // which checks the returned row. Without it the guard cannot see whose row
+    // came back and throws — after the write — so every "open" answered 500.
+    select: { startedAt: true, tenantId: true },
   });
-  return row;
+  return { startedAt: row.startedAt };
 }
