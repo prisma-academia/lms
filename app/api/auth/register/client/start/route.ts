@@ -9,6 +9,8 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { enterContext } from "@/lib/db/tenant-context";
 import { enforceRateLimit, RATE_PRESETS } from "@/lib/auth/rate-limit";
+import { normalizeReferralCode } from "@/lib/referrals/code-format";
+import { readReferralCookie } from "@/lib/referrals/cookie";
 
 const Body = z
   .object({
@@ -20,6 +22,8 @@ const Body = z
     lastName: z.string().max(100).optional(),
     otherName: z.string().max(100).optional(),
     phone: z.string().max(40).optional(),
+    /** Typed into the form, or pre-filled from the link the visitor followed. */
+    referralCode: z.string().max(64).optional(),
   })
   .refine((v) => v.password === v.confirm, {
     path: ["confirm"],
@@ -55,6 +59,19 @@ export async function POST(request: Request) {
       throw new DomainError(409, "email_taken", "An account with this email already exists. Sign in instead.");
     }
 
+    // The code is only remembered here, and only if it is shaped like one. It
+    // is checked against real codes when the account is created — and a code
+    // that turns out not to exist is dropped silently, because an old link in
+    // the form must never be what stops someone signing up.
+    //
+    // When the form sends the field at all, the form decides — including an
+    // empty value, which is someone clearing a pre-filled code on purpose. The
+    // cookie is only the fallback for a caller that has no such field.
+    const referralCode =
+      body.referralCode !== undefined
+        ? normalizeReferralCode(body.referralCode)
+        : await readReferralCookie();
+
     const passwordHash = await hashPassword(body.password);
     const profileJson = { name: body.displayName.trim() };
     const expiresAt = new Date(Date.now() + PENDING_TTL_MS);
@@ -70,6 +87,7 @@ export async function POST(request: Request) {
         otherName: body.otherName?.trim() || null,
         phone: body.phone?.trim() || null,
         profileJson,
+        referralCode,
         expiresAt,
       },
       update: {
@@ -79,6 +97,7 @@ export async function POST(request: Request) {
         otherName: body.otherName?.trim() || null,
         phone: body.phone?.trim() || null,
         profileJson,
+        referralCode,
         expiresAt,
       },
     });

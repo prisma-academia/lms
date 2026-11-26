@@ -61,6 +61,31 @@ const schema = z.object({
   FLUTTERWAVE_SECRET_KEY: z.string().min(1).optional(),
   FLUTTERWAVE_PUBLIC_KEY: z.string().min(1).optional(),
   FLUTTERWAVE_SECRET_HASH: z.string().min(1).optional(),
+  // Monnify: one of the gateways, usable whenever all three keys are present
+  // (and MONNIFY_ENABLED is not "false").
+  MONNIFY_API_KEY: z.string().min(1).optional(),
+  MONNIFY_SECRET_KEY: z.string().min(1).optional(),
+  MONNIFY_CONTRACT_CODE: z.string().min(1).optional(),
+  MONNIFY_BASE_URL: z.url().default("https://sandbox.monnify.com"),
+  /** "false" switches Monnify off without removing its keys. */
+  MONNIFY_ENABLED: z.string().optional(),
+  /** Informational: "sandbox" or "live". The URL above is what is actually called. */
+  MONNIFY_ENV: z.string().optional(),
+  /** The merchant wallet, for disbursements. Not used by collections. */
+  MONNIFY_WALLET_ACCOUNT_NUMBER: z.string().optional(),
+  /** Comma-separated addresses Monnify's webhooks may come from. Empty = any (signature still required). */
+  MONNIFY_CALLBACK_IPS: z.string().optional(),
+  /**
+   * Which gateway takes NEW checkouts: MONNIFY, PAYSTACK or FLUTTERWAVE.
+   * Unset = the first one that is configured, in that order.
+   */
+  PAYMENT_PROVIDER: z.string().optional(),
+  // AI. Optional: features report "not set up" rather than failing when absent.
+  // The model id and key lookup live in `lib/ai/config.ts`, which Mastra code
+  // imports without this module (so `mastra dev` does not need the full env).
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  AI_MODEL: z.string().min(3).optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -92,6 +117,11 @@ export function flutterwaveConfigured(): boolean {
   return Boolean(env.FLUTTERWAVE_SECRET_KEY && env.FLUTTERWAVE_PUBLIC_KEY);
 }
 
+export function monnifyConfigured(): boolean {
+  if ((env.MONNIFY_ENABLED ?? "").trim().toLowerCase() === "false") return false;
+  return Boolean(env.MONNIFY_API_KEY && env.MONNIFY_SECRET_KEY && env.MONNIFY_CONTRACT_CODE);
+}
+
 export function billingConfigured(): boolean {
-  return paystackConfigured() || flutterwaveConfigured();
+  return monnifyConfigured() || paystackConfigured() || flutterwaveConfigured();
 }

@@ -10,6 +10,8 @@ const PatchBody = z.object({
   description: z.string().max(2000).nullable().optional(),
   passingScore: z.number().int().min(0).max(100).nullable().optional(),
   timeLimitMin: z.number().int().min(1).max(600).nullable().optional(),
+  hintsEnabled: z.boolean().optional(),
+  showReviewLinks: z.boolean().optional(),
 });
 
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {

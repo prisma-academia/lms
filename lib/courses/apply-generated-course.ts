@@ -3,6 +3,7 @@ import { DomainError } from "@/lib/api/errors";
 import { sanitizeHtml } from "@/lib/content/sanitize-html";
 import type { GeneratedCourse, GeneratedQuestion } from "@/lib/schemas/course-builder";
 import { isChoiceQuestion } from "@/lib/schemas/question";
+import { findHeadingByText, lessonHeadingsOf, withHeadingIds } from "@/lib/content/lesson-headings";
 
 /**
  * Writes a generated/imported course structure into an existing course.
@@ -114,6 +115,14 @@ export async function applyGeneratedCourse({
           })
         : null;
 
+      // A question says where it was drawn from by lesson TITLE and heading TEXT
+      // (the document is written before anything has an id). These two record
+      // what is needed to turn that into a real lesson id and heading anchor
+      // once every lesson in the document exists.
+      const titleKey = (title: string) => title.trim().toLowerCase();
+      const lessonsByTitle = new Map<string, { id: string; contentType: string; contentJson: unknown }>();
+      const pendingSources: { questionId: string; source: NonNullable<GeneratedQuestion["source"]> }[] = [];
+
       for (const group of generated.groups) {
         const lessonGroup = await tx.lessonGroup.create({
           data: {
@@ -131,7 +140,9 @@ export async function applyGeneratedCourse({
             contentJson = { body: lesson.body ?? "" };
           } else if (lesson.contentType === "HTML") {
             // Sanitize on write; the learner player sanitizes again on render.
-            contentJson = { html: sanitizeHtml(lesson.html ?? "") };
+            // Heading ids go on after sanitizing, so they are what gets stored
+            // and what a question's "read up" link will point at.
+            contentJson = { html: withHeadingIds(sanitizeHtml(lesson.html ?? "")) };
           } else if (lesson.contentType === "QUIZ" && lesson.quiz && bank) {
             const quiz = await tx.quiz.create({
               data: {
@@ -161,8 +172,10 @@ export async function applyGeneratedCourse({
                       : [],
                   rubricJson: q.type === "ESSAY" ? (q.rubric as object) : undefined,
                   points: q.points,
+                  hint: q.hint?.trim() || null,
                 },
               });
+              if (q.source) pendingSources.push({ questionId: question.id, source: q.source });
               await tx.quizQuestion.create({
                 data: {
                   tenantId,
@@ -177,7 +190,7 @@ export async function applyGeneratedCourse({
           }
           // VIDEO_URL / FILE placeholders keep an empty contentJson and no assetKey.
 
-          await tx.lesson.create({
+          const createdLesson = await tx.lesson.create({
             data: {
               tenantId,
               courseId,
@@ -188,9 +201,41 @@ export async function applyGeneratedCourse({
               contentJson: contentJson as object,
               durationMin: lesson.durationMin,
             },
+            select: { id: true },
           });
           created.lessons++;
+
+          // First lesson with a given title wins: titles are what questions cite,
+          // and a later duplicate must not silently take over an earlier link.
+          if (!lessonsByTitle.has(titleKey(lesson.title))) {
+            lessonsByTitle.set(titleKey(lesson.title), {
+              id: createdLesson.id,
+              contentType: lesson.contentType,
+              contentJson,
+            });
+          }
         }
+      }
+
+      // Resolve each question's source now that every lesson exists. A source
+      // that cannot be resolved is simply dropped: no link is better than one
+      // that points at the wrong place.
+      for (const { questionId, source } of pendingSources) {
+        const lesson = lessonsByTitle.get(titleKey(source.lessonTitle));
+        if (!lesson || (lesson.contentType !== "TEXT" && lesson.contentType !== "HTML")) continue;
+
+        const heading = source.heading
+          ? findHeadingByText(lessonHeadingsOf(lesson.contentType, lesson.contentJson), source.heading)
+          : null;
+
+        await tx.question.update({
+          where: { id: questionId },
+          data: {
+            sourceLessonId: lesson.id,
+            sourceAnchor: heading?.id ?? null,
+            sourceExcerpt: source.quote?.trim() || null,
+          },
+        });
       }
     },
     { timeout: 60_000 }

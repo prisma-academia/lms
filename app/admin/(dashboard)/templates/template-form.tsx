@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { apiPost, apiPatch, apiDelete } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput, TextArea } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
+import { TEMPLATE_TYPE_LABELS } from "@/lib/templates/types";
+
+const KNOWN_TYPES = Object.entries(TEMPLATE_TYPE_LABELS);
 
 export function TemplateForm({
   mode,
@@ -18,23 +23,27 @@ export function TemplateForm({
   canWrite: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [type, setType] = useState(initial.type);
   const [name, setName] = useState(initial.name);
   const [content, setContent] = useState(initial.contentJson);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
-    setInfo(null);
-    if (!type.trim() || !name.trim()) return setError("Type and name are required.");
+    if (!type.trim() || !name.trim()) return setError("Enter both a type and a name.");
     let parsed: Record<string, unknown> = {};
     if (content.trim()) {
       try {
         parsed = JSON.parse(content);
-      } catch {
-        return setError("Content must be valid JSON.");
+      } catch (err) {
+        // Say where it went wrong: "invalid JSON" alone leaves the author hunting.
+        const detail = err instanceof Error ? ` (${err.message})` : "";
+        return setError(`The content is not valid JSON${detail}. Check for a missing quote, comma or bracket.`);
       }
     }
     setPending(true);
@@ -45,43 +54,103 @@ export function TemplateForm({
         : await apiPatch(`/api/tenant/templates/${id}`, payload);
     setPending(false);
     if (res.error) return setError(res.error.message);
-    if (mode === "create") router.push("/admin/templates");
-    else {
-      setInfo("Saved.");
+    if (mode === "create") {
+      toast("Template created");
+      router.push("/admin/templates");
+    } else {
+      toast("Template saved");
       router.refresh();
     }
   }
 
   async function onDelete() {
-    if (!confirm("Delete this template?")) return;
+    const yes = await confirm({
+      title: `Delete “${initial.name}”?`,
+      description: "The template is removed for everyone at your academy. This cannot be undone.",
+      confirmLabel: "Delete template",
+      destructive: true,
+    });
+    if (!yes) return;
+    setDeleting(true);
     const res = await apiDelete(`/api/tenant/templates/${id}`);
+    setDeleting(false);
     if (res.error) return setError(res.error.message);
+    toast("Template deleted");
     router.push("/admin/templates");
   }
 
   return (
-    <div className="grid max-w-xl gap-4">
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Type" htmlFor="t-type" hint="e.g. email, page, certificate">
-          <TextInput id="t-type" value={type} onChange={(e) => setType(e.target.value)} disabled={!canWrite} />
+    <form onSubmit={submit} className="grid max-w-xl gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Type"
+          htmlFor="t-type"
+          hint="What the template is for. Pick a suggestion or type your own."
+        >
+          <TextInput
+            id="t-type"
+            name="type"
+            list="t-type-options"
+            autoComplete="off"
+            spellCheck={false}
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            disabled={!canWrite}
+          />
+          <datalist id="t-type-options">
+            {KNOWN_TYPES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </datalist>
         </FormField>
         <FormField label="Name" htmlFor="t-name">
-          <TextInput id="t-name" value={name} onChange={(e) => setName(e.target.value)} disabled={!canWrite} />
+          <TextInput
+            id="t-name"
+            name="name"
+            autoComplete="off"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={!canWrite}
+          />
         </FormField>
       </div>
-      <FormField label="Content (JSON)" htmlFor="t-content">
-        <TextArea id="t-content" value={content} onChange={(e) => setContent(e.target.value)} className="min-h-48 font-mono text-xs" disabled={!canWrite} />
+      <FormField
+        label="Content"
+        htmlFor="t-content"
+        hint="Written as JSON — the format the app stores templates in. Leave it as {} for an empty template."
+      >
+        <TextArea
+          id="t-content"
+          name="content"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className="min-h-48 font-mono text-xs"
+          spellCheck={false}
+          autoCapitalize="none"
+          autoCorrect="off"
+          disabled={!canWrite}
+        />
       </FormField>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       {canWrite ? (
-        <div className="flex gap-3">
-          <Button type="button" onClick={submit} disabled={pending}>
-            {pending ? "Saving…" : mode === "create" ? "Create template" : "Save"}
+        // The destructive action sits apart from the primary one.
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="submit" disabled={pending || deleting}>
+            {pending ? "Saving…" : mode === "create" ? "Create template" : "Save changes"}
           </Button>
-          {mode === "edit" ? <Button type="button" variant="destructive" onClick={onDelete}>Delete</Button> : null}
+          {mode === "edit" ? (
+            <Button type="button" variant="destructive" onClick={onDelete} disabled={pending || deleting}>
+              {deleting ? "Deleting…" : "Delete template"}
+            </Button>
+          ) : null}
         </div>
       ) : null}
-    </div>
+    </form>
   );
 }

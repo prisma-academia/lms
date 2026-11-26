@@ -1,10 +1,9 @@
-import { TableSkeleton } from "@/components/spinner";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
+/**
+ * Shown while any admin page loads and has no `loading.tsx` of its own. Most
+ * admin pages are a heading over a list, so that is the shape held open.
+ */
 export default function AdminDashboardLoading() {
-  return (
-    <div className="p-8">
-      <div className="mb-4 h-6 w-40 animate-pulse rounded bg-stone-100" />
-      <TableSkeleton />
-    </div>
-  );
+  return <PageSkeleton action />;
 }

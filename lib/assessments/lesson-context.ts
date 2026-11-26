@@ -17,16 +17,27 @@ const MAX_CONTEXT_CHARS = 12_000;
  * Returns "" when there is nothing to send — the grader then falls back to the
  * rubric and model answer alone, which is degraded but still correct.
  */
-export async function buildQuizContext(quizId: string): Promise<string> {
-  // Find a QUIZ lesson that links this quiz. Any one will do: the same quiz
-  // reused across courses is testing the same material either way.
-  const quizLessons = await prisma.lesson.findMany({
-    where: { contentType: "QUIZ" },
-    select: { id: true, courseId: true, groupId: true, sortOrder: true, contentJson: true },
+export async function buildQuizContext(
+  quizId: string,
+  /**
+   * The course the learner is taking the quiz through, when known. A quiz
+   * reused in two courses is testing each course's own material, so without
+   * this the context could come from the wrong one.
+   */
+  opts: { courseId?: string } = {}
+): Promise<string> {
+  // Ask the database for the lesson that links this quiz. This used to load
+  // every QUIZ lesson the caller could see and search them in memory — a scan
+  // that grew with the tenant, on a request a learner is waiting on.
+  const quizLesson = await prisma.lesson.findFirst({
+    where: {
+      contentType: "QUIZ",
+      contentJson: { path: ["quizId"], equals: quizId },
+      ...(opts.courseId ? { courseId: opts.courseId } : {}),
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true, courseId: true, groupId: true, sortOrder: true },
   });
-  const quizLesson = quizLessons.find(
-    (l) => (l.contentJson as { quizId?: unknown } | null)?.quizId === quizId
-  );
   if (!quizLesson) return "";
 
   const siblings = await prisma.lesson.findMany({

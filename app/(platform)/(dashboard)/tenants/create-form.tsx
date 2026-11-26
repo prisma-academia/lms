@@ -11,14 +11,18 @@ import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import { getCountryOptions } from "@/lib/geo/countries";
 
 const Schema = z.object({
-  name: z.string().min(1).max(200),
-  slug: z.string().min(3).max(32).regex(/^[a-z0-9-]+$/, "Lowercase letters, digits, hyphens."),
-  ownerEmail: z.email(),
-  ownerFirstName: z.string().min(1).max(100),
-  ownerLastName: z.string().min(1).max(100),
+  name: z.string().min(1, "Enter the academy's name.").max(200),
+  slug: z
+    .string()
+    .min(3, "Use at least 3 characters.")
+    .max(32)
+    .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers and hyphens only."),
+  ownerEmail: z.email("Enter a valid email address."),
+  ownerFirstName: z.string().min(1, "Enter the owner's first name.").max(100),
+  ownerLastName: z.string().min(1, "Enter the owner's last name.").max(100),
   ownerOtherName: z.string().max(100).optional().or(z.literal("")),
   ownerPhone: z.string().max(40).optional().or(z.literal("")),
-  companyEmail: z.email().optional().or(z.literal("")),
+  companyEmail: z.email("Enter a valid email address.").optional().or(z.literal("")),
   companyPhone: z.string().max(40).optional().or(z.literal("")),
   website: z.string().max(200).optional().or(z.literal("")),
   addressLine1: z.string().max(200).optional().or(z.literal("")),
@@ -49,61 +53,88 @@ export function CreateTenantForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-2 gap-4">
-      <h2 className="col-span-2 text-sm font-semibold uppercase text-stone-500">Company</h2>
-      <FormField label="Name" htmlFor="name" error={formState.errors.name?.message}>
-        <TextInput id="name" {...register("name")} />
-      </FormField>
-      <FormField label="Slug" htmlFor="slug" error={formState.errors.slug?.message}>
-        <TextInput id="slug" placeholder="acme" {...register("slug")} />
-      </FormField>
-      <FormField label="Company email" htmlFor="cemail" error={formState.errors.companyEmail?.message}>
-        <TextInput id="cemail" type="email" {...register("companyEmail")} />
-      </FormField>
-      <FormField label="Company phone" htmlFor="cphone" error={formState.errors.companyPhone?.message}>
-        <TextInput id="cphone" type="tel" {...register("companyPhone")} />
-      </FormField>
-      <FormField label="Website" htmlFor="web" error={formState.errors.website?.message}>
-        <TextInput id="web" {...register("website")} />
-      </FormField>
-      <span />
-      <FormField label="Address" htmlFor="a1" error={formState.errors.addressLine1?.message}>
-        <TextInput id="a1" {...register("addressLine1")} />
-      </FormField>
-      <FormField label="City" htmlFor="city" error={formState.errors.city?.message}>
-        <TextInput id="city" {...register("city")} />
-      </FormField>
-      <FormField label="Region / State" htmlFor="reg" error={formState.errors.region?.message}>
-        <TextInput id="reg" {...register("region")} />
-      </FormField>
-      <FormField label="Postal code" htmlFor="pc" error={formState.errors.postalCode?.message}>
-        <TextInput id="pc" {...register("postalCode")} />
-      </FormField>
-      <FormField label="Country" htmlFor="ctry" error={formState.errors.country?.message}>
-        <SelectInput id="ctry" options={COUNTRY_OPTIONS} {...register("country")} />
-      </FormField>
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-8">
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <legend className="mb-3 font-heading text-base leading-tight">The academy</legend>
+        <FormField label="Name" htmlFor="name" error={formState.errors.name?.message}>
+          <TextInput id="name" autoComplete="organization" {...register("name")} />
+        </FormField>
+        <FormField
+          label="Web address"
+          htmlFor="slug"
+          hint="The first part of the academy's address, as in acme.example.com. It cannot be changed later."
+          error={formState.errors.slug?.message}
+        >
+          <TextInput
+            id="slug"
+            placeholder="acme"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            {...register("slug")}
+          />
+        </FormField>
+        <FormField label="Email (optional)" htmlFor="cemail" error={formState.errors.companyEmail?.message}>
+          <TextInput id="cemail" type="email" autoComplete="off" spellCheck={false} {...register("companyEmail")} />
+        </FormField>
+        <FormField label="Phone (optional)" htmlFor="cphone" error={formState.errors.companyPhone?.message}>
+          <TextInput id="cphone" type="tel" autoComplete="off" {...register("companyPhone")} />
+        </FormField>
+        <FormField
+          label="Website (optional)"
+          htmlFor="web"
+          error={formState.errors.website?.message}
+          className="sm:col-span-2"
+        >
+          <TextInput id="web" type="url" inputMode="url" autoComplete="off" placeholder="https://…" {...register("website")} />
+        </FormField>
+        <FormField label="Address (optional)" htmlFor="a1" error={formState.errors.addressLine1?.message}>
+          <TextInput id="a1" autoComplete="off" {...register("addressLine1")} />
+        </FormField>
+        <FormField label="City (optional)" htmlFor="city" error={formState.errors.city?.message}>
+          <TextInput id="city" autoComplete="off" {...register("city")} />
+        </FormField>
+        <FormField label="State or region (optional)" htmlFor="reg" error={formState.errors.region?.message}>
+          <TextInput id="reg" autoComplete="off" {...register("region")} />
+        </FormField>
+        <FormField label="Postal code (optional)" htmlFor="pc" error={formState.errors.postalCode?.message}>
+          <TextInput id="pc" autoComplete="off" {...register("postalCode")} />
+        </FormField>
+        <FormField label="Country (optional)" htmlFor="ctry" error={formState.errors.country?.message}>
+          <SelectInput id="ctry" options={COUNTRY_OPTIONS} {...register("country")} />
+        </FormField>
+      </fieldset>
 
-      <h2 className="col-span-2 mt-6 text-sm font-semibold uppercase text-stone-500">Owner</h2>
-      <FormField label="First name" htmlFor="of" error={formState.errors.ownerFirstName?.message}>
-        <TextInput id="of" {...register("ownerFirstName")} />
-      </FormField>
-      <FormField label="Last name" htmlFor="ol" error={formState.errors.ownerLastName?.message}>
-        <TextInput id="ol" {...register("ownerLastName")} />
-      </FormField>
-      <FormField label="Other name" htmlFor="oo" error={formState.errors.ownerOtherName?.message}>
-        <TextInput id="oo" {...register("ownerOtherName")} />
-      </FormField>
-      <FormField label="Phone" htmlFor="op" error={formState.errors.ownerPhone?.message}>
-        <TextInput id="op" type="tel" {...register("ownerPhone")} />
-      </FormField>
-      <FormField label="Email" htmlFor="oe" error={formState.errors.ownerEmail?.message}>
-        <TextInput id="oe" type="email" {...register("ownerEmail")} />
-      </FormField>
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <legend className="mb-1 font-heading text-base leading-tight">The owner</legend>
+        <p className="text-[13px] font-medium text-muted-foreground sm:col-span-2">
+          This person gets full access to the academy and an email inviting them to sign in.
+        </p>
+        <FormField label="First name" htmlFor="of" error={formState.errors.ownerFirstName?.message}>
+          <TextInput id="of" autoComplete="off" {...register("ownerFirstName")} />
+        </FormField>
+        <FormField label="Last name" htmlFor="ol" error={formState.errors.ownerLastName?.message}>
+          <TextInput id="ol" autoComplete="off" {...register("ownerLastName")} />
+        </FormField>
+        <FormField label="Other name (optional)" htmlFor="oo" error={formState.errors.ownerOtherName?.message}>
+          <TextInput id="oo" autoComplete="off" {...register("ownerOtherName")} />
+        </FormField>
+        <FormField label="Phone (optional)" htmlFor="op" error={formState.errors.ownerPhone?.message}>
+          <TextInput id="op" type="tel" autoComplete="off" {...register("ownerPhone")} />
+        </FormField>
+        <FormField label="Email" htmlFor="oe" error={formState.errors.ownerEmail?.message} className="sm:col-span-2">
+          <TextInput id="oe" type="email" autoComplete="off" spellCheck={false} {...register("ownerEmail")} />
+        </FormField>
+      </fieldset>
 
-      {error ? <p className="col-span-2 text-sm text-red-600">{error}</p> : null}
-      <div className="col-span-2">
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div>
         <Button type="submit" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Creating…" : "Create tenant"}
+          {formState.isSubmitting ? "Creating…" : "Create academy"}
         </Button>
       </div>
     </form>

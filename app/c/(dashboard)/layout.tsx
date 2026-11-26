@@ -5,6 +5,8 @@ import { requireClientPage } from "@/lib/auth/page-guards";
 import { parseTenantSettings } from "@/lib/tenant/settings";
 import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { StudentShell } from "@/components/student-shell";
+import { parseClientProfile } from "@/lib/schemas/client-profile";
+import { ownAvatarSrc } from "@/lib/profile/files";
 
 export default async function ClientDashboardLayout({
   children,
@@ -38,6 +40,8 @@ export default async function ClientDashboardLayout({
       title={tenant.name}
       logoUrl={logoUrl}
       userLabel={label}
+      // The learner's photo, served through a route that checks it is theirs.
+      avatarUrl={ownAvatarSrc(parseClientProfile(client.profileJson))}
       themeMode={theme.mode}
     >
       {children}

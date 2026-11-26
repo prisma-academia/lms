@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PageHeader, Card } from "@/components/shell";
+import { Badge } from "@/components/ui/badge";
 import { ALL_TENANT_PERMISSION_KEYS, PERMISSIONS } from "@/lib/auth/permissions";
+import { formatDateTime } from "@/lib/format";
 import { UserDetailActions } from "@/app/(platform)/(dashboard)/users/[id]/actions";
+import { tenantFormatContext } from "@/lib/tenant/format-context";
 
 export default async function TenantUserDetailPage({
   params,
@@ -14,36 +17,48 @@ export default async function TenantUserDetailPage({
   const actor = await requireTenantPage(PERMISSIONS.TENANT_USERS_READ.key);
   const user = await prisma.tenantUser.findUnique({ where: { id } });
   if (!user || user.tenantId !== actor.tenantId) notFound();
-  const roles = await prisma.roleTemplate.findMany({
-    where: { scope: "TENANT", tenantId: actor.tenantId },
-    orderBy: [{ isSystem: "desc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const [roles, when] = await Promise.all([
+    prisma.roleTemplate.findMany({
+      where: { scope: "TENANT", tenantId: actor.tenantId },
+      orderBy: [{ isSystem: "desc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+    tenantFormatContext(actor.tenantId),
+  ]);
+
+  const fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  const statusLabel = user.status.charAt(0) + user.status.slice(1).toLowerCase().replace(/_/g, " ");
+
+  const profile: { label: string; value: string }[] = [
+    { label: "Email", value: user.email },
+    { label: "First name", value: user.firstName ?? "—" },
+    { label: "Last name", value: user.lastName ?? "—" },
+    { label: "Other name", value: user.otherName ?? "—" },
+    { label: "Phone", value: user.phone ?? "—" },
+    { label: "Last signed in", value: formatDateTime(user.lastLoginAt, when, "Never") },
+  ];
+
   return (
     <div>
-      <PageHeader title={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email} backHref="/admin/users" backLabel="Users" />
-      <div className="grid grid-cols-2 gap-4">
+      <PageHeader title={fullName || user.email} backHref="/admin/users" backLabel="Users" />
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="text-sm font-semibold uppercase text-stone-500">Profile</h2>
-          <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-stone-500">Email</dt>
-            <dd>{user.email}</dd>
-            <dt className="text-stone-500">First name</dt>
-            <dd>{user.firstName ?? "—"}</dd>
-            <dt className="text-stone-500">Last name</dt>
-            <dd>{user.lastName ?? "—"}</dd>
-            <dt className="text-stone-500">Other name</dt>
-            <dd>{user.otherName ?? "—"}</dd>
-            <dt className="text-stone-500">Phone</dt>
-            <dd>{user.phone ?? "—"}</dd>
-            <dt className="text-stone-500">Status</dt>
-            <dd>{user.status}</dd>
-            <dt className="text-stone-500">Owner</dt>
-            <dd>{user.isOwner ? "yes" : "no"}</dd>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-heading text-lg leading-tight">Profile</h2>
+            <Badge color={user.status === "ACTIVE" ? "var(--success)" : undefined}>{statusLabel}</Badge>
+            {user.isOwner ? <Badge color="var(--primary)">Owner</Badge> : null}
+          </div>
+          <dl className="mt-4 grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
+            {profile.map((row) => (
+              <div key={row.label} className="min-w-0">
+                <dt className="text-xs font-bold text-muted-foreground">{row.label}</dt>
+                <dd className="break-words font-medium text-foreground">{row.value}</dd>
+              </div>
+            ))}
           </dl>
         </Card>
         <Card>
-          <h2 className="text-sm font-semibold uppercase text-stone-500">Permissions & actions</h2>
+          <h2 className="font-heading text-lg leading-tight">Permissions and actions</h2>
           <UserDetailActions
             userId={user.id}
             scope="tenant"

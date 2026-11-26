@@ -29,7 +29,7 @@ export function StorageMeter({
         <span className="num text-xs text-muted-foreground">{pct}%</span>
       </div>
       <div className="mt-2">
-        <ProgressBar value={pct} size="sm" color={color} aria-label="Storage used" />
+        <ProgressBar value={pct} size="sm" color={color} label="Storage used" />
       </div>
       <p className="num mt-1.5 text-xs text-muted-foreground">
         {formatBytes(committed)} of {formatBytes(quotaBytes)}

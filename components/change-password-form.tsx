@@ -6,18 +6,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
-import { FormField, TextInput } from "@/components/form-field";
+import { FormField } from "@/components/form-field";
+import { PasswordInput } from "@/components/password-input";
 import { useApiError } from "@/components/use-api-error";
 
 const Schema = z
   .object({
-    currentPassword: z.string().min(1),
-    newPassword: z.string().min(12),
-    confirm: z.string().min(12),
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: z.string().min(12, "Use at least 12 characters."),
+    confirm: z.string().min(1, "Type the new password again."),
   })
   .refine((v) => v.newPassword === v.confirm, {
     path: ["confirm"],
-    message: "Passwords do not match.",
+    message: "The two passwords don't match.",
   });
 
 type Values = z.infer<typeof Schema>;
@@ -44,19 +45,43 @@ export function ChangePasswordForm({ dialogErrors = false }: { dialogErrors?: bo
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <FormField label="Current password" htmlFor="cur" error={formState.errors.currentPassword?.message}>
-        <TextInput id="cur" type="password" autoComplete="current-password" {...register("currentPassword")} />
+        <PasswordInput
+          id="cur"
+          autoComplete="current-password"
+          aria-invalid={formState.errors.currentPassword ? true : undefined}
+          {...register("currentPassword")}
+        />
       </FormField>
-      <FormField label="New password" htmlFor="new" error={formState.errors.newPassword?.message}>
-        <TextInput id="new" type="password" autoComplete="new-password" {...register("newPassword")} />
+      <FormField
+        label="New password"
+        htmlFor="new"
+        hint="At least 12 characters, with a capital letter, a small letter, a number and a symbol."
+        error={formState.errors.newPassword?.message}
+      >
+        <PasswordInput
+          id="new"
+          autoComplete="new-password"
+          aria-invalid={formState.errors.newPassword ? true : undefined}
+          {...register("newPassword")}
+        />
       </FormField>
       <FormField label="Confirm new password" htmlFor="conf" error={formState.errors.confirm?.message}>
-        <TextInput id="conf" type="password" autoComplete="new-password" {...register("confirm")} />
+        <PasswordInput
+          id="conf"
+          autoComplete="new-password"
+          aria-invalid={formState.errors.confirm ? true : undefined}
+          {...register("confirm")}
+        />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={formState.isSubmitting}>
-        {formState.isSubmitting ? "Saving…" : "Update password"}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit" size="lg" disabled={formState.isSubmitting}>
+        {formState.isSubmitting ? "Saving…" : "Save new password"}
       </Button>
     </form>
   );

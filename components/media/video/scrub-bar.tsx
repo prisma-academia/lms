@@ -127,7 +127,7 @@ export function ScrubBar({
             onSeek(Math.min(duration, currentTime + 5));
           }
         }}
-        className="group relative flex h-5 w-full cursor-pointer touch-none items-center outline-none"
+        className="group relative flex h-5 w-full cursor-pointer touch-none items-center rounded-full outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/25">
           {duration > 0

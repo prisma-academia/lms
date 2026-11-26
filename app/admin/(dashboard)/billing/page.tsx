@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { daysUntilTrialEnd, formatBytes, storageUsagePercent } from "@/lib/tenant/plan";
+import { parseTenantSettings } from "@/lib/tenant/settings";
+import { formatDate } from "@/lib/format";
+import { activeGateway, checkoutGatewayName, gatewayLabel, payoutStatus } from "@/lib/billing/providers";
 import { PageHeader, Card } from "@/components/shell";
 import { BillingPanel } from "./billing-panel";
 
@@ -26,13 +29,21 @@ export default async function BillingPage() {
       })
     : [];
 
+  // Dates are formatted here, in the academy's own locale and time zone. The
+  // panel is a Client Component: formatting there would run once on the server
+  // and again in the browser, in two different locales.
+  const settings = parseTenantSettings(tenant?.settingsJson);
+  const when = { locale: settings.locale, timeZone: settings.timezone };
+
+  const gateway = activeGateway();
+
   const billing = tenant
     ? {
         plan: tenant.plan,
-        trialEndsAt: tenant.trialEndsAt?.toISOString() ?? null,
+        trialEndsLabel: tenant.trialEndsAt ? formatDate(tenant.trialEndsAt, when) : null,
         trialDaysLeft: daysUntilTrialEnd(tenant.trialEndsAt),
         subscriptionStatus: tenant.subscriptionStatus,
-        subscriptionEndsAt: tenant.subscriptionEndsAt?.toISOString() ?? null,
+        subscriptionEndsLabel: tenant.subscriptionEndsAt ? formatDate(tenant.subscriptionEndsAt, when) : null,
         storageUsedLabel: formatBytes(tenant.storageUsedBytes),
         storageQuotaLabel: formatBytes(tenant.storageQuotaBytes),
         storagePercent: storageUsagePercent(
@@ -71,13 +82,10 @@ export default async function BillingPage() {
         settlementAccountNumber: tenant.subaccount.settlementAccountNumber,
         settlementAccountName: tenant.subaccount.settlementAccountName,
         courseSalesEnabled: tenant.subaccount.courseSalesEnabled,
-        defaultProvider: (tenant.subaccount.defaultProvider === "PAYSTACK"
-          ? "paystack"
-          : tenant.subaccount.defaultProvider === "FLUTTERWAVE"
-            ? "flutterwave"
-            : null) as "paystack" | "flutterwave" | null,
-        paystackStatus: tenant.subaccount.paystackStatus,
-        flutterwaveStatus: tenant.subaccount.flutterwaveStatus,
+        commissionPct: tenant.subaccount.platformCommissionPct,
+        // Where the payout account stands on the gateway that takes payments
+        // today — not on one the platform used to use.
+        payoutStatus: payoutStatus(tenant.subaccount, checkoutGatewayName()),
       }
     : null;
 
@@ -86,19 +94,20 @@ export default async function BillingPage() {
     amountCents: p.amountCents,
     currency: p.currency,
     status: p.status,
-    provider: p.provider,
-    createdAt: p.createdAt.toISOString(),
+    via: gatewayLabel(p.provider),
+    dateLabel: formatDate(p.createdAt, when),
   }));
 
   return (
     <div>
-      <PageHeader title="Billing" />
+      <PageHeader title="Billing" subtitle="Your plan, your storage, and how you are paid for course sales." />
       <Card>
         <BillingPanel
           billing={billing}
           plans={planRows}
           subaccount={subaccount}
           payments={paymentRows}
+          paymentsAvailable={gateway !== null}
         />
       </Card>
     </div>

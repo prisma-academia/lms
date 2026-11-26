@@ -19,19 +19,26 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 
 import { clientProfileIncomplete } from "@/lib/auth/client-profile";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { isTenantBillingBlocked } from "@/lib/tenant/plan";
 
 const Body = z.object({
   email: z.email(),
   password: z.string().min(1),
   surface: z.enum(["tenant_admin", "tenant_client"]).optional(),
+  /**
+   * Learner sign-in only: where the visitor was heading. Accepted as any
+   * string and reduced to a same-site learner path by `safeNextPath` — a
+   * value that fails that check is ignored, never an error.
+   */
+  next: z.string().max(2048).optional(),
 });
 
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
     const json = await request.json();
-    const { email, password, surface } = Body.parse(json);
+    const { email, password, surface, next } = Body.parse(json);
     const meta = requestMeta(request);
     await enforceRateLimit(RATE_PRESETS.LOGIN, [meta.ip, email.toLowerCase()]);
 
@@ -50,7 +57,7 @@ export async function POST(request: Request) {
         const result = await loginTenant(ctx.slug, email, password, meta);
         return ok(result);
       }
-      const result = await loginClient(ctx.slug, email, password, meta);
+      const result = await loginClient(ctx.slug, email, password, meta, next);
       return ok(result);
     }
     throw new DomainError(404, "not_found", "Unknown context.");
@@ -175,7 +182,8 @@ async function loginClient(
   slug: string,
   email: string,
   password: string,
-  meta: { ip: string | null; userAgent: string | null }
+  meta: { ip: string | null; userAgent: string | null },
+  next?: string
 ) {
   const tenant = await prisma.tenant.findUnique({ where: { slug } });
   if (!tenant) throw new DomainError(404, "not_found", "Unknown tenant.");
@@ -244,10 +252,11 @@ async function loginClient(
   });
 
   const profileIncomplete = clientProfileIncomplete(user.profileJson);
+  // A forced password change always comes first. After that, somewhere the
+  // learner was already heading (a shared course link) beats the default
+  // landing page — the profile prompt will still be there afterwards.
   const redirect = user.mustChangePassword
     ? "/auth/change-password"
-    : profileIncomplete
-      ? "/profile"
-      : "/dashboard";
+    : (safeNextPath(next) ?? (profileIncomplete ? "/profile" : "/dashboard"));
   return { mustChangePassword: user.mustChangePassword, redirect };
 }

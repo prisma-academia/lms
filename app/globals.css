@@ -275,11 +275,13 @@
    * arrive at runtime, so Tailwind cannot know which utilities to emit for them.
    */
   .lesson-prose {
-    max-width: 68ch;
-    font-size: 1rem;
+    /* A reading measure, not a page width: about 70 characters of body text. */
+    max-width: 44rem;
+    font-size: 1.0625rem;
     font-weight: 500;
     line-height: 1.7;
     color: var(--foreground);
+    overflow-wrap: break-word;
   }
   .lesson-prose > :first-child {
     margin-top: 0;
@@ -287,35 +289,99 @@
   .lesson-prose p,
   .lesson-prose ul,
   .lesson-prose ol,
+  .lesson-prose dl,
   .lesson-prose pre,
   .lesson-prose table,
   .lesson-prose blockquote,
-  .lesson-prose figure {
-    margin-top: 0.75rem;
+  .lesson-prose figure,
+  .lesson-prose details {
+    margin-top: 1rem;
   }
+
+  /*
+   * Headings. Three clearly different sizes, with more space above than below,
+   * so a heading reads as the start of what follows rather than the end of
+   * what came before. The lesson title above the body is the page's h1; body
+   * headings start at h2.
+   */
   .lesson-prose h2,
   .lesson-prose h3,
   .lesson-prose h4,
   .lesson-prose h5 {
     font-family: var(--font-heading, inherit);
     line-height: 1.25;
+    text-wrap: balance;
   }
   .lesson-prose h2 {
-    margin-top: 1.5rem;
-    font-size: 1.125rem;
+    margin-top: 2.5rem;
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
   }
   .lesson-prose h3 {
-    margin-top: 1rem;
-    font-size: 1rem;
+    margin-top: 1.875rem;
+    font-size: 1.1875rem;
   }
   .lesson-prose h4,
   .lesson-prose h5 {
-    margin-top: 0.875rem;
-    font-size: 0.9375rem;
+    margin-top: 1.5rem;
+    font-size: 1.0625rem;
+    font-weight: 800;
   }
+  .lesson-prose h2 + *,
+  .lesson-prose h3 + *,
+  .lesson-prose h4 + * {
+    margin-top: 0.625rem;
+  }
+
+  /*
+   * Where a quiz's "read up" link has brought the learner. The mark stays for
+   * as long as they are on the lesson, so the passage can still be found after
+   * scrolling away from it; it is a tint, never the only signal — focus is
+   * moved to the same element. scroll-margin keeps it clear of the "Back to quiz"
+   * bar, which is sticky and wraps to two lines on a narrow screen.
+   */
+  .lesson-prose [id],
+  .lesson-prose [data-review-target] {
+    scroll-margin-top: 7.5rem;
+  }
+  .lesson-prose [data-review-target] {
+    border-radius: 6px;
+    background-color: color-mix(in oklab, var(--warning) 32%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--warning) 32%, transparent);
+  }
+  .lesson-prose [data-review-target]:focus {
+    outline: none;
+  }
+  .lesson-prose [data-review-target]:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 8px;
+  }
+
   .lesson-prose a {
     font-weight: 700;
     text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .lesson-prose a:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .lesson-prose strong,
+  .lesson-prose b {
+    font-weight: 800;
+  }
+  .lesson-prose mark {
+    border-radius: 3px;
+    background: color-mix(in oklab, var(--warning) 45%, transparent);
+    padding: 0 0.15em;
+    color: inherit;
+  }
+  .lesson-prose hr {
+    margin: 2rem 0;
+    border: 0;
+    border-top: 2px dashed var(--border);
   }
   .lesson-prose ul {
     list-style: disc;
@@ -324,52 +390,106 @@
     list-style: decimal;
   }
   .lesson-prose li {
-    margin-left: 1.25rem;
+    margin-left: 1.375rem;
+    padding-left: 0.125rem;
+  }
+  .lesson-prose li + li {
+    margin-top: 0.375rem;
+  }
+  .lesson-prose li > ul,
+  .lesson-prose li > ol {
+    margin-top: 0.375rem;
+  }
+  .lesson-prose li::marker {
+    font-weight: 800;
+    color: var(--muted-foreground);
   }
   .lesson-prose blockquote {
-    border-left: 3px solid var(--border);
-    padding-left: 0.875rem;
+    border-left: 4px solid var(--border);
+    padding-left: 1rem;
     color: var(--muted-foreground);
     font-style: italic;
   }
-  .lesson-prose code {
+  .lesson-prose code,
+  .lesson-prose kbd,
+  .lesson-prose samp {
     border-radius: 0.25rem;
     background: var(--muted);
-    padding: 0.125rem 0.25rem;
+    padding: 0.125rem 0.3rem;
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.875em;
+  }
+  .lesson-prose kbd {
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
   }
   .lesson-prose pre {
     overflow-x: auto;
     border: 2px solid var(--border);
     border-radius: 10px;
     background: var(--muted);
-    padding: 0.75rem;
+    padding: 0.875rem 1rem;
+    line-height: 1.55;
+    tab-size: 2;
   }
   .lesson-prose pre code {
     background: none;
     padding: 0;
   }
-  .lesson-prose img {
+  .lesson-prose img,
+  .lesson-prose video {
     max-width: 100%;
     height: auto;
     border-radius: 10px;
   }
-  /* Wide tables scroll inside themselves rather than widening the lesson. */
-  .lesson-prose table {
+  /* A drawing inherits the text colour, so `currentColor` follows the theme. */
+  .lesson-prose svg {
     display: block;
-    overflow-x: auto;
+    max-width: 100%;
+    height: auto;
+    margin-inline: auto;
+    overflow: hidden;
+    color: var(--foreground);
+  }
+  .lesson-prose figure > figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  /*
+   * Tables. A plain table gets a header band and row lines, enough to read
+   * across a row without ruling off every cell. It is a real table at reading
+   * widths, so it fills the column and is announced as one; on a phone it
+   * becomes a block that scrolls sideways inside itself rather than widening
+   * the lesson (see the narrow-screen rule at the end of this section).
+   */
+  .lesson-prose table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 0.9375rem;
+    line-height: 1.5;
   }
   .lesson-prose th,
   .lesson-prose td {
-    border: 1px solid var(--border);
-    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0.75rem;
     text-align: left;
+    vertical-align: top;
   }
   .lesson-prose th {
-    font-weight: 700;
+    font-weight: 800;
+  }
+  .lesson-prose thead th {
+    border-bottom-width: 2px;
+    background: var(--muted);
+    white-space: nowrap;
+  }
+  .lesson-prose caption {
+    padding-bottom: 0.5rem;
+    text-align: left;
+    font-weight: 800;
   }
   .lesson-prose iframe {
     aspect-ratio: 16 / 9;
@@ -390,11 +510,17 @@
    * still legible — a hard-coded pale-yellow warning box is the classic way a
    * "designed" lesson becomes unreadable the moment someone flips the theme.
    */
+  .lesson-prose .lesson-lead {
+    font-size: 1.25rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
   .lesson-prose .lesson-objectives,
   .lesson-prose .lesson-keypoints,
   .lesson-prose .lesson-callout,
   .lesson-prose .lesson-example {
-    margin-top: 1.25rem;
+    margin-top: 1.5rem;
     border: 2px solid var(--border);
     border-radius: 12px;
     padding: 1rem 1.125rem;
@@ -409,11 +535,9 @@
   .lesson-prose .lesson-objectives h3,
   .lesson-prose .lesson-keypoints h3 {
     margin: 0 0 0.5rem;
-    font-size: 0.75rem;
+    font-size: 0.9375rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--foreground);
   }
   /* The objectives box opens the lesson, so it leads with the brand edge. */
   .lesson-prose .lesson-objectives {
@@ -440,15 +564,14 @@
   }
 
   .lesson-prose .lesson-steps {
-    margin-top: 1rem;
+    margin-top: 1.25rem;
     counter-reset: lesson-step;
     list-style: none;
   }
   .lesson-prose .lesson-steps > li {
     position: relative;
-    margin-left: 0;
-    padding-left: 2.5rem;
-    padding-bottom: 0.875rem;
+    margin: 0;
+    padding: 0 0 1rem 2.75rem;
   }
   .lesson-prose .lesson-steps > li::before {
     counter-increment: lesson-step;
@@ -459,8 +582,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.875rem;
+    height: 1.875rem;
     border: 2px solid var(--border);
     border-radius: 999px;
     background: var(--card);
@@ -471,23 +594,88 @@
   .lesson-prose .lesson-steps > li:not(:last-child)::after {
     content: "";
     position: absolute;
-    left: 0.8125rem;
-    top: 1.75rem;
+    left: 0.875rem;
+    top: 1.875rem;
     bottom: 0;
     border-left: 2px solid var(--border);
   }
 
+  /*
+   * Timeline: the same rail as steps, but a dot instead of a number — the
+   * order here is time, not an instruction to follow — and the date or stage
+   * name set on its own line above what happened.
+   */
+  .lesson-prose .lesson-timeline {
+    margin-top: 1.25rem;
+    list-style: none;
+  }
+  .lesson-prose .lesson-timeline > li {
+    position: relative;
+    margin: 0;
+    padding: 0 0 1.125rem 1.75rem;
+  }
+  .lesson-prose .lesson-timeline > li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 999px;
+    background: var(--primary);
+  }
+  .lesson-prose .lesson-timeline > li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 0.3125rem;
+    top: 1.375rem;
+    bottom: -0.375rem;
+    border-left: 2px solid var(--border);
+  }
+  .lesson-prose .lesson-timeline > li > strong:first-child {
+    display: block;
+    font-family: var(--font-heading, inherit);
+    font-size: 1.0625rem;
+  }
+
+  /* Cards: parallel ideas side by side; one column on a phone. */
+  .lesson-prose .lesson-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: 0.875rem;
+    margin-top: 1.5rem;
+  }
+  .lesson-prose .lesson-card {
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 0.875rem 1rem;
+    background: var(--background);
+    box-shadow: 3px 3px 0 0 var(--border);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+  .lesson-prose .lesson-card > :first-child {
+    margin-top: 0;
+  }
+  .lesson-prose .lesson-card h4,
+  .lesson-prose .lesson-card h3 {
+    margin: 0 0 0.375rem;
+    font-size: 1.0625rem;
+  }
+  .lesson-prose .lesson-card p {
+    margin-top: 0.375rem;
+  }
+
   .lesson-prose .lesson-example figcaption {
-    margin-bottom: 0.5rem;
-    font-size: 0.75rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.9375rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted-foreground);
+    color: var(--foreground);
   }
 
   .lesson-prose .lesson-term {
-    margin-top: 1rem;
+    margin-top: 1.25rem;
   }
   .lesson-prose .lesson-term dt {
     font-weight: 800;
@@ -497,6 +685,263 @@
     padding-left: 0.875rem;
     border-left: 2px solid var(--border);
     color: var(--muted-foreground);
+  }
+
+  /* Pull quote: the one sentence to remember, larger than the prose around it. */
+  .lesson-prose .lesson-quote {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    border-left: 6px solid var(--primary);
+    padding: 0.25rem 0 0.25rem 1.25rem;
+    color: var(--foreground);
+    font-style: normal;
+  }
+  .lesson-prose .lesson-quote p {
+    margin: 0;
+    font-family: var(--font-heading, inherit);
+    font-size: 1.375rem;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .lesson-prose .lesson-quote cite {
+    display: block;
+    margin-top: 0.625rem;
+    font-size: 0.9375rem;
+    font-style: normal;
+    font-weight: 700;
+    color: var(--muted-foreground);
+  }
+  .lesson-prose .lesson-quote cite::before {
+    content: "— ";
+  }
+
+  /*
+   * Reveal: a native <details>, so it works with the keyboard and a screen
+   * reader with no script. The summary is the question; the +/− on the right
+   * says whether it is open, alongside the browser's own state.
+   */
+  .lesson-prose .lesson-accordion {
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+  }
+  .lesson-prose .lesson-accordion + .lesson-accordion {
+    margin-top: 0.5rem;
+  }
+  .lesson-prose .lesson-accordion > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 1rem;
+    border-radius: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+  }
+  .lesson-prose .lesson-accordion > summary::-webkit-details-marker {
+    display: none;
+  }
+  .lesson-prose .lesson-accordion > summary::after {
+    content: "+";
+    flex: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--muted-foreground);
+  }
+  .lesson-prose .lesson-accordion[open] > summary::after {
+    content: "−";
+  }
+  .lesson-prose .lesson-accordion > summary:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .lesson-prose .lesson-accordion > :not(summary) {
+    margin: 0;
+    padding: 0 1rem 0.875rem;
+  }
+  .lesson-prose .lesson-accordion > :not(summary) + :not(summary) {
+    margin-top: -0.25rem;
+  }
+
+  /*
+   * Key figures: a row of headline numbers. Written label-then-value so it
+   * reads correctly unstyled and to a screen reader; shown value-first, since
+   * the number is what the eye should land on.
+   */
+  .lesson-prose .lesson-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+    gap: 0.875rem;
+    margin-top: 1.5rem;
+  }
+  .lesson-prose .lesson-stats > div {
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 0.875rem 1rem;
+    background: var(--background);
+  }
+  .lesson-prose .lesson-stats dt {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+  .lesson-prose .lesson-stats dd {
+    margin: 0;
+    font-family: var(--font-heading, inherit);
+    font-size: 2rem;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Bar chart — a real table, drawn as bars.
+   *
+   * Each row is a label and one cell; the cell's text is the number and its
+   * `--value` (0–100) is the bar's length. One hue, because the bars are one
+   * series: colour is not doing any work a second colour could add to. The
+   * number sits at the tip of its bar in the text colour, so the chart never
+   * depends on the bar's contrast to be read, and with the stylesheet gone it
+   * is still a table of labels and numbers.
+   *
+   * Bars are thin (1rem), square at the baseline and rounded at the data end,
+   * and the table keeps `display: table` so it is still announced as one.
+   */
+  .lesson-prose .lesson-chart {
+    display: table;
+    table-layout: fixed;
+    overflow: visible;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    border-collapse: separate;
+    border-spacing: 0 0.5rem;
+    padding: 0.625rem 1.125rem;
+    background: var(--background);
+  }
+  .lesson-prose .lesson-chart caption {
+    caption-side: top;
+    padding: 0 0 0.375rem;
+    font-size: 0.9375rem;
+  }
+  .lesson-prose .lesson-chart th,
+  .lesson-prose .lesson-chart td {
+    border: 0;
+    padding: 0;
+    background: none;
+    vertical-align: middle;
+    white-space: normal;
+  }
+  .lesson-prose .lesson-chart th {
+    width: 34%;
+    padding-right: 0.875rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .lesson-prose .lesson-chart td {
+    --value: 0;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .lesson-prose .lesson-chart td::before {
+    content: "";
+    display: inline-block;
+    /* 4.5rem is kept back for the number, so a full bar never pushes it out. */
+    width: calc((100% - 4.5rem) * clamp(0, var(--value), 100) / 100);
+    min-width: 2px;
+    height: 1rem;
+    margin-right: 0.5rem;
+    vertical-align: -0.125rem;
+    /* Transparent until forced-colours mode, where it is what draws the bar. */
+    border: 1px solid transparent;
+    border-radius: 0 4px 4px 0;
+    background: var(--primary);
+  }
+
+  /* Comparison table: things across the top, attributes down the side. */
+  .lesson-prose .lesson-compare {
+    /* `separate` is what lets a table have rounded corners at all. */
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+  }
+  .lesson-prose .lesson-compare tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  .lesson-prose .lesson-compare tbody th {
+    background: color-mix(in oklab, var(--muted) 55%, transparent);
+    white-space: nowrap;
+  }
+  .lesson-prose .lesson-compare thead th {
+    white-space: normal;
+  }
+
+  /* Diagram: a framed drawing and the sentence that says what it shows. */
+  .lesson-prose .lesson-figure {
+    margin-top: 1.5rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    background: var(--background);
+  }
+  .lesson-prose .lesson-figure > svg,
+  .lesson-prose .lesson-figure > img {
+    width: 100%;
+    max-height: 22rem;
+  }
+  .lesson-prose .lesson-figure > figcaption {
+    margin-top: 0.75rem;
+    text-align: center;
+  }
+
+  /* Phones: a wide table scrolls inside itself. The chart is exempt — it is
+     two columns by construction and has to stay a table to draw its bars. */
+  @media (max-width: 40rem) {
+    .lesson-prose table:not(.lesson-chart) {
+      display: block;
+      overflow-x: auto;
+    }
+    .lesson-prose .lesson-compare td,
+    .lesson-prose .lesson-compare th {
+      min-width: 7.5rem;
+    }
+    .lesson-prose .lesson-chart th {
+      width: 40%;
+    }
+  }
+
+  @media print {
+    .lesson-prose .lesson-accordion > :not(summary) {
+      display: block;
+    }
+  }
+
+  /*
+   * In the lesson editor only. A designed block the visual editor carries but
+   * cannot edit (a chart, a diagram, an accordion) is shown as it will look;
+   * selecting it draws a ring, so it is clear the whole block is one object
+   * that can be moved or deleted, and that its contents are not a text field.
+   */
+  .ProseMirror.lesson-prose [contenteditable="false"] {
+    cursor: default;
+  }
+  .ProseMirror.lesson-prose .ProseMirror-selectednode {
+    outline: 3px solid var(--ring);
+    outline-offset: 4px;
+    border-radius: 10px;
+  }
+  /* An open <details> could not be closed again inside the editor: keep it shut. */
+  .ProseMirror.lesson-prose details > :not(summary) {
+    pointer-events: none;
   }
 }
 
@@ -596,4 +1041,14 @@
     animation-duration: 220ms;
     animation-timing-function: ease-out;
   }
+}
+
+/*
+ * A page that needs more room than the shell's reading width asks for it by
+ * putting `data-wide-page` on its root. The lesson player does: it lays out a
+ * lesson list, the lesson and an outline side by side. Unlayered on purpose:
+ * it has to win over the shell's own max-width utility.
+ */
+main > div:has([data-wide-page]) {
+  max-width: 78rem;
 }

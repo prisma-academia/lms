@@ -51,6 +51,10 @@ export const PERMISSIONS = {
   TENANT_BILLING_WRITE: { key: "tenant.billing:write", module: "tenant.billing", description: "Manage billing and settlement details" },
   TENANT_FEES_READ: { key: "tenant.fees:read", module: "tenant.fees", description: "View fees and payment tracking" },
   TENANT_FEES_WRITE: { key: "tenant.fees:write", module: "tenant.fees", description: "Create fees and record payments" },
+  // Every staff member can have a referral code and see their own results
+  // without either of these. These two are about everyone else's.
+  TENANT_REFERRALS_READ: { key: "tenant.referrals:read", module: "tenant.referrals", description: "View every staff member's referral code and results" },
+  TENANT_REFERRALS_WRITE: { key: "tenant.referrals:write", module: "tenant.referrals", description: "Switch staff referral codes on and off" },
   CLIENT_COURSES_READ: { key: "client.courses:read", module: "client.courses", description: "View course catalog" },
   CLIENT_PROGRESS_WRITE: { key: "client.progress:write", module: "client.progress", description: "Track lesson progress" },
   CLIENT_ASSIGNMENTS_READ: { key: "client.assignments:read", module: "client.assignments", description: "View assignments and grades" },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/client/api";
@@ -19,9 +19,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { QuizPlayer } from "./quiz-player";
+import { QuizPlayer, type QuizSession, type QuizSessionStore } from "./quiz-player";
 import { cn } from "@/lib/utils";
-import { sanitizeHtmlWithStyles } from "@/lib/content/sanitize-html";
 import { MediaViewer, mediaRendersInline } from "@/components/media/media-viewer";
 import type { MediaPayload } from "@/components/media/types";
 import { resolveMediaKind } from "@/lib/media/kind";
@@ -31,6 +30,13 @@ import { VideoLessonPlayer } from "@/components/lesson/video-lesson-player";
 import { parseVideoUrl } from "@/lib/media/video-embed";
 import { renderLessonText } from "@/lib/courses/render-lesson-text";
 import type { GateContentType } from "@/lib/courses/content-gate";
+import {
+  findReviewTarget,
+  goToLessonElement,
+  revealReviewTarget,
+} from "@/components/lesson/review-target";
+import type { OutlineEntry, RenderedLesson } from "@/lib/content/render-lesson";
+import type { ReviewSource } from "@/lib/assessments/review-links";
 
 type LearnLesson = {
   id: string;
@@ -38,6 +44,12 @@ type LearnLesson = {
   sortOrder: number;
   contentType: GateContentType;
   contentJson: Record<string, unknown>;
+  /** HTML lessons arrive sanitized, scoped and anchored from the server. */
+  rendered: RenderedLesson | null;
+  /** Section headings of a reading lesson, for "On this page". */
+  outline: OutlineEntry[];
+  /** The module this lesson belongs to, if the course has modules. */
+  groupId: string | null;
   assetUrl: string | null;
   durationMin: number | null;
   completed: boolean;
@@ -65,8 +77,13 @@ type LearnLesson = {
 type LearnPayload = {
   course: { id: string; title: string; slug: string };
   enrollment: { progressPercent: number; completedAt: string | null };
+  /** Module titles, in course order. Empty for a course without modules. */
+  groups: { id: string; title: string }[];
   lessons: LearnLesson[];
 };
+
+/** Fewer headings than this and an outline is longer than the scroll it saves. */
+const OUTLINE_MIN_ENTRIES = 3;
 
 /** Icon + human label per content type, so a lesson's shape is legible before opening it. */
 const TYPE_META: Record<GateContentType, { icon: IconName; label: string }> = {
@@ -152,41 +169,87 @@ function metaLine(lesson: LearnLesson): string {
     .join(" · ");
 }
 
+/**
+ * The body of an HTML lesson.
+ *
+ * Memoised, and the reason is not speed. React writes `innerHTML` again
+ * whenever the object given to `dangerouslySetInnerHTML` is a new one, even
+ * when the HTML inside it is the same — and the player re-renders once a second
+ * while a lesson's timer runs. Unmemoised, that rebuilt the whole lesson every
+ * second: a learner's text selection vanished mid-drag, an opened disclosure
+ * snapped shut, and the mark a "read up" link puts on a passage was wiped
+ * before it could be seen. Rendering only when the lesson itself changes keeps
+ * the DOM the learner is reading in place.
+ */
+const HtmlLesson = memo(function HtmlLesson({
+  html,
+  css,
+  scope,
+}: {
+  /** Already sanitized, with heading anchors — see lib/content/render-lesson.ts. */
+  html: string;
+  /** The lesson's own styles, already sanitized and scoped to `scope`. */
+  css: string;
+  scope: string;
+}) {
+  // Keyed on the strings, not on the object they arrived in: the course is
+  // re-fetched when a lesson is completed, and an unchanged lesson must not be
+  // rebuilt because its payload object is new.
+  const body = useMemo(() => ({ __html: html }), [html]);
+  const styles = useMemo(() => (css ? { __html: css } : null), [css]);
+
+  return (
+    <>
+      {styles ? <style dangerouslySetInnerHTML={styles} /> : null}
+      <div data-css-scope={scope} className="lesson-html lesson-prose" dangerouslySetInnerHTML={body} />
+    </>
+  );
+});
+
+/** The body of a plain-text lesson. Memoised so it is parsed once, not once a second. */
+const TextLesson = memo(function TextLesson({ body }: { body: string }) {
+  // `whitespace-pre-wrap` is gone deliberately: the renderer owns block
+  // structure, so preserving raw newlines on top of it would double every
+  // paragraph break.
+  return <div className="lesson-prose">{renderLessonText(body)}</div>;
+});
+
 function LessonContent({
   lesson,
   gate,
   onViewerUnavailable,
+  quizSessions,
+  onReview,
 }: {
   lesson: LearnLesson;
   gate: ContentGate;
   onViewerUnavailable: () => void;
+  quizSessions: QuizSessionStore;
+  onReview: (source: ReviewSource) => void;
 }) {
   if (lesson.contentType === "QUIZ") {
     const quizId = typeof lesson.contentJson.quizId === "string" ? lesson.contentJson.quizId : null;
-    if (quizId) return <QuizPlayer quizId={quizId} onPerfect={gate.reportQuizPerfect} />;
+    // Keyed by quiz: two quiz lessons in a row render in the same slot, and
+    // without a key React keeps one player's state — so the second quiz opened
+    // showing the first quiz's score and "Passed".
+    if (quizId) {
+      return (
+        <QuizPlayer
+          key={quizId}
+          quizId={quizId}
+          onPassed={gate.reportQuizPassed}
+          sessions={quizSessions}
+          onReview={onReview}
+        />
+      );
+    }
     return <p className="text-sm font-medium text-muted-foreground">This quiz is not configured yet.</p>;
   }
 
   if (lesson.contentType === "HTML") {
-    const html =
-      typeof lesson.contentJson.html === "string" && lesson.contentJson.html.trim()
-        ? lesson.contentJson.html
-        : null;
-    if (html) {
-      // A lesson pasted from a designed page brings its own <style>. Lifting it
-      // out and scoping it keeps the lesson looking as authored without letting
-      // it restyle the player around it.
-      const scoped = sanitizeHtmlWithStyles(html, lesson.id);
-      return (
-        <>
-          {scoped.css ? <style dangerouslySetInnerHTML={{ __html: scoped.css }} /> : null}
-          <div
-            data-css-scope={scoped.scope}
-            className="lesson-html lesson-prose"
-            dangerouslySetInnerHTML={{ __html: scoped.html }}
-          />
-        </>
-      );
+    if (lesson.rendered?.html.trim()) {
+      const { html, css, scope } = lesson.rendered;
+      return <HtmlLesson html={html} css={css} scope={scope} />;
     }
   }
 
@@ -255,35 +318,64 @@ function LessonContent({
   }
 
   const body = lessonBody(lesson);
-  if (body) {
-    return (
-      // `whitespace-pre-wrap` is gone deliberately: the renderer now owns block
-      // structure, so preserving raw newlines on top of it would double every
-      // paragraph break.
-      <div className="lesson-prose">{renderLessonText(body)}</div>
-    );
-  }
+  if (body) return <TextLesson body={body} />;
 
   return <p className="text-sm font-medium text-muted-foreground">No content for this lesson.</p>;
 }
 
+/**
+ * The lessons in the order they unlock, cut into runs that share a module.
+ *
+ * Runs, not "all lessons of a module": the unlock order is what the learner
+ * must follow, and the list must never suggest a different one. A module whose
+ * lessons an author has interleaved with another's simply appears twice.
+ */
+function lessonSegments(lessons: LearnLesson[], groups: { id: string; title: string }[]) {
+  const titles = new Map(groups.map((g) => [g.id, g.title] as const));
+  const segments: {
+    key: string;
+    groupId: string | null;
+    title: string | null;
+    items: { lesson: LearnLesson; index: number }[];
+  }[] = [];
+  lessons.forEach((lesson, index) => {
+    const last = segments[segments.length - 1];
+    if (!last || last.groupId !== lesson.groupId) {
+      segments.push({
+        key: `${lesson.groupId ?? "none"}-${index}`,
+        groupId: lesson.groupId,
+        title: lesson.groupId ? (titles.get(lesson.groupId) ?? null) : null,
+        items: [],
+      });
+    }
+    segments[segments.length - 1].items.push({ lesson, index });
+  });
+  return segments;
+}
+
 function LessonList({
   lessons,
+  groups,
   selectedId,
   onPick,
   idPrefix,
 }: {
   lessons: LearnLesson[];
+  groups: { id: string; title: string }[];
   selectedId: string | null;
   onPick: (lesson: LearnLesson) => void;
   idPrefix: string;
 }) {
-  const listRef = useRef<HTMLOListElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const segments = lessonSegments(lessons, groups);
+  // Module headings only when they tell the learner something: more than one
+  // run, and at least one of them actually named.
+  const showModules = segments.length > 1 && segments.some((s) => s.title);
 
   // Up/Down walks the list without 8 tab stops to get to lesson 8. Home/End
   // jump to the ends. Every row stays tabbable, so this only adds a shortcut —
   // it never takes the standard Tab path away.
-  function onKeyDown(e: React.KeyboardEvent<HTMLOListElement>) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
     if (!keys.includes(e.key)) return;
     const items = Array.from(
@@ -305,8 +397,23 @@ function LessonList({
   }
 
   return (
-    <ol ref={listRef} onKeyDown={onKeyDown} className="flex flex-col">
-      {lessons.map((lesson, i) => {
+    <div ref={listRef} onKeyDown={onKeyDown} className="flex flex-col">
+      {segments.map((segment) => {
+        const done = segment.items.filter((item) => item.lesson.completed).length;
+        return (
+          <section key={segment.key} aria-label={showModules ? (segment.title ?? "Other lessons") : undefined}>
+            {showModules ? (
+              <h3 className="flex items-baseline justify-between gap-2 border-b-2 border-border bg-muted px-3 py-2 text-[13px] font-bold leading-snug text-foreground">
+                <span className="min-w-0">{segment.title ?? "Other lessons"}</span>
+                <span className="num shrink-0 text-[11px] font-bold text-muted-foreground">
+                  {done}/{segment.items.length}
+                </span>
+              </h3>
+            ) : null}
+            {/* `start` keeps the numbering continuous across modules for anyone
+                reading the list as a list. */}
+            <ol start={segment.items[0].index + 1} className="flex flex-col">
+              {segment.items.map(({ lesson, index: i }, row) => {
         const active = selectedId === lesson.id;
         const meta = metaLine(lesson);
         return (
@@ -324,7 +431,7 @@ function LessonList({
               className={cn(
                 "group/row flex w-full min-h-[56px] items-center gap-3 px-3 py-3 text-left outline-none [touch-action:manipulation] transition-colors",
                 "focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-ring",
-                i > 0 && "border-t-2 border-dashed border-border",
+                row > 0 && "border-t-2 border-dashed border-border",
                 lesson.locked
                   ? "cursor-not-allowed text-muted-foreground"
                   : active
@@ -379,8 +486,127 @@ function LessonList({
             </button>
           </li>
         );
+              })}
+            </ol>
+          </section>
+        );
       })}
+    </div>
+  );
+}
+
+/**
+ * "On this page": the lesson's section headings as a way to jump around it.
+ * One list, shown two ways — a column beside the lesson where there is room,
+ * and a closed disclosure above it where there is not.
+ */
+function LessonOutline({
+  entries,
+  onJump,
+  layout,
+}: {
+  entries: OutlineEntry[];
+  onJump: (id: string) => void;
+  layout: "side" | "top";
+}) {
+  const list = (
+    <ol className="flex flex-col gap-0.5">
+      {entries.map((entry) => (
+        <li key={entry.id}>
+          <a
+            href={`#${entry.id}`}
+            onClick={(e) => {
+              // The page is one view with the lesson in its query string; a bare
+              // hash jump would not move focus, and would fight the sticky bars.
+              e.preventDefault();
+              onJump(entry.id);
+            }}
+            className={cn(
+              "block rounded-[8px] px-2 py-1.5 text-[13px] font-medium leading-snug text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-ring",
+              entry.level > 2 && "pl-5"
+            )}
+          >
+            {entry.text}
+          </a>
+        </li>
+      ))}
     </ol>
+  );
+
+  if (layout === "side") {
+    return (
+      <nav
+        aria-label="On this page"
+        className="sticky top-[calc(var(--shell-sticky-top,0px)+1.5rem)] hidden max-h-[calc(100dvh-3rem)] self-start overflow-y-auto border-l-2 border-dashed border-border pl-3 @3xl:block"
+      >
+        <p className="px-2 pb-1 text-[13px] font-bold text-foreground">On this page</p>
+        {list}
+      </nav>
+    );
+  }
+
+  return (
+    <details className="rounded-[10px] border-2 border-border bg-background @3xl:hidden">
+      <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-[8px] px-3 py-2 text-[13px] font-bold outline-none [touch-action:manipulation] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring">
+        On this page
+        <span className="num font-medium text-muted-foreground">{entries.length} sections</span>
+      </summary>
+      <nav aria-label="On this page" className="px-1 pb-2">
+        {list}
+      </nav>
+    </details>
+  );
+}
+
+/**
+ * How far through the lesson the learner has read, as a thin bar along the top
+ * of the window. Written straight to the element's style from a scroll
+ * listener: at up to sixty updates a second this must not re-render the page.
+ * Decorative — the lesson's own gate is what says whether it can be completed.
+ */
+function ReadingProgress({
+  target,
+  lessonId,
+}: {
+  target: React.RefObject<HTMLDivElement | null>;
+  lessonId: string;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const el = target.current;
+      const bar = barRef.current;
+      if (!el || !bar) return;
+      const rect = el.getBoundingClientRect();
+      const viewport = window.innerHeight;
+      // A lesson that fits on the screen has nothing to track.
+      const worthShowing = rect.height > viewport * 1.25;
+      const read = Math.min(1, Math.max(0, (viewport - rect.top) / rect.height));
+      bar.style.transform = `scaleX(${worthShowing ? read : 0})`;
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+    };
+  }, [target, lessonId]);
+
+  return (
+    <div
+      ref={barRef}
+      aria-hidden
+      className="pointer-events-none fixed inset-x-0 top-0 z-40 h-1 origin-left bg-primary"
+      style={{ transform: "scaleX(0)" }}
+    />
   );
 }
 
@@ -408,6 +634,27 @@ export function LearnPlayer({ slug }: { slug: string }) {
 
   const headingRef = useRef<HTMLHeadingElement>(null);
   const liveRef = useRef<HTMLParagraphElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * In-progress quiz state, kept here rather than in the quiz player: following
+   * a "read up" link replaces the quiz with a lesson, and the learner's answers
+   * and result must still be there when they come back. A ref, not state —
+   * nothing on this page renders from it.
+   */
+  const quizSessionsRef = useRef(new Map<string, QuizSession>());
+  const quizSessions = useMemo<QuizSessionStore>(
+    () => ({
+      read: (quizId) => quizSessionsRef.current.get(quizId),
+      write: (quizId, session) => void quizSessionsRef.current.set(quizId, session),
+    }),
+    []
+  );
+
+  /** The passage a "read up" link is pointing at, while the learner is reading it. */
+  const [review, setReview] = useState<(ReviewSource & { nonce: number }) | null>(null);
+  /** The quiz the learner left to read up, so one press takes them back. */
+  const [returnTo, setReturnTo] = useState<{ lessonId: string; title: string } | null>(null);
 
   // Deep link (?lesson=) is honoured once, on first load. After that the URL
   // follows the selection rather than driving it.
@@ -528,6 +775,20 @@ export function LearnPlayer({ slug }: { slug: string }) {
     headingRef.current?.focus();
   }, [currentLessonId]);
 
+  // A "read up" link lands on the passage, not just the lesson. Declared after
+  // the focus effect above on purpose: both run when the lesson changes, and
+  // this one must have the last word on where focus and the viewport end up.
+  useEffect(() => {
+    if (!review || review.lessonId !== currentLessonId) return;
+    const container = contentRef.current;
+    if (!container) return;
+    const target = findReviewTarget(container, review);
+    // Heading renamed and passage rewritten since the question was linked: the
+    // learner is still in the right lesson, at the top, which is the fallback.
+    if (!target) return;
+    return revealReviewTarget(target);
+  }, [review, currentLessonId]);
+
   // Announce only the *transition* to unlocked, never the per-second countdown.
   const wasSatisfied = useRef(true);
   useEffect(() => {
@@ -551,9 +812,40 @@ export function LearnPlayer({ slug }: { slug: string }) {
       }
       setSelectedId(lesson.id);
       setListOpen(false);
+      // Choosing a lesson by hand ends the "read up" trip: the highlight belongs
+      // to the lesson the link opened, and going back to the quiz needs no banner.
+      setReview(null);
+      if (returnTo && lesson.id === returnTo.lessonId) setReturnTo(null);
     },
-    [announce, toast]
+    [announce, toast, returnTo]
   );
+
+  /** Open the lesson a quiz question was drawn from, at the passage it cites. */
+  function openReview(source: ReviewSource) {
+    const target = lessons.find((l) => l.id === source.lessonId);
+    // The server only sends links to unlocked lessons; this covers the course
+    // having changed underneath an open page.
+    if (!target || target.locked) {
+      const message = "That lesson isn't available right now.";
+      announce(message);
+      toast(message);
+      return;
+    }
+    if (selected?.contentType === "QUIZ") {
+      setReturnTo({ lessonId: selected.id, title: selected.title });
+    }
+    // The nonce makes a second press on the same link scroll again.
+    setReview({ ...source, nonce: Date.now() });
+    setSelectedId(target.id);
+    setListOpen(false);
+  }
+
+  function backToQuiz() {
+    if (!returnTo) return;
+    setSelectedId(returnTo.lessonId);
+    setReturnTo(null);
+    setReview(null);
+  }
 
   /**
    * Complete the lesson and, when there is somewhere to go, move on in the same
@@ -650,9 +942,21 @@ export function LearnPlayer({ slug }: { slug: string }) {
     };
   })();
 
+  /** Jump to a section of the lesson from "On this page". */
+  function jumpToHeading(id: string) {
+    const container = contentRef.current;
+    const target = container ? findReviewTarget(container, { anchor: id, excerpt: null }) : null;
+    if (target) goToLessonElement(target);
+  }
+
+  const isReading = selected?.contentType === "TEXT" || selected?.contentType === "HTML";
+  const outline =
+    selected && isReading && selected.outline.length >= OUTLINE_MIN_ENTRIES ? selected.outline : null;
+
   const lessonList = (
     <LessonList
       lessons={lessons}
+      groups={data.groups ?? []}
       selectedId={selected?.id ?? null}
       onPick={pick}
       idPrefix={uid}
@@ -660,7 +964,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div data-wide-page className="flex flex-col gap-4">
       {/* Polite live region: transitions only, never the ticking countdown. */}
       <p ref={liveRef} aria-live="polite" aria-atomic="true" className="sr-only" />
 
@@ -673,9 +977,9 @@ export function LearnPlayer({ slug }: { slug: string }) {
           <Icon name="arrow-left" className="size-4" aria-hidden /> Course overview
         </Link>
 
-        <h1 className="mt-1.5 font-heading text-xl leading-tight sm:text-2xl">
-          {data.course.title}
-        </h1>
+        {/* The lesson title below is the page's h1; this names the course it
+            belongs to, so it is a label here, not a second top-level heading. */}
+        <p className="mt-1.5 font-heading text-lg leading-tight sm:text-xl">{data.course.title}</p>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <ProgressBar
@@ -726,7 +1030,7 @@ export function LearnPlayer({ slug }: { slug: string }) {
         </SheetContent>
       </Sheet>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
         {/* --- Desktop lesson rail --------------------------------------- */}
         <nav
           aria-label="Course lessons"
@@ -739,7 +1043,9 @@ export function LearnPlayer({ slug }: { slug: string }) {
         </nav>
 
         {/* --- Lesson pane ------------------------------------------------ */}
-        <article className="min-w-0 rounded-[14px] border-2 border-border bg-card p-4 shadow-md sm:p-5">
+        {/* A container, so the outline moves beside the lesson when THIS pane
+            is wide enough for both — whatever the window or the shell is doing. */}
+        <article className="@container min-w-0 rounded-[14px] border-2 border-border bg-card p-4 shadow-md sm:p-6 lg:p-8">
           {selected ? (
             <div className="flex flex-col gap-4">
               <header>
@@ -768,14 +1074,14 @@ export function LearnPlayer({ slug }: { slug: string }) {
                 </p>
 
                 {/* tabIndex -1: focus target when the lesson changes. */}
-                <h2
+                <h1
                   ref={headingRef}
                   tabIndex={-1}
                   aria-describedby={positionId}
-                  className="mt-1 font-heading text-lg leading-tight outline-none focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-xl"
+                  className="mt-1 text-balance font-heading text-2xl leading-tight outline-none focus-visible:outline-[3px] focus-visible:outline-offset-4 focus-visible:outline-ring sm:text-[1.75rem]"
                 >
                   {selected.title}
-                </h2>
+                </h1>
 
                 {selected.completed ? (
                   <p className="mt-2 inline-flex items-center gap-1.5 rounded-[8px] border-2 border-border bg-success px-2.5 py-1 text-[12px] font-bold text-success-foreground">
@@ -784,16 +1090,52 @@ export function LearnPlayer({ slug }: { slug: string }) {
                 ) : null}
               </header>
 
-              <div className="min-w-0">
+              {/* Shown while reading up for a quiz: the way back, and the
+                  reassurance that the attempt is still there. Sticky, because
+                  the link usually lands well down the lesson — a way back that
+                  has scrolled off the top is not much of a way back. */}
+              {returnTo && returnTo.lessonId !== selected.id ? (
+                <div
+                  role="region"
+                  aria-label="Quiz review"
+                  className="sticky top-[calc(var(--shell-sticky-top,0px)+0.5rem)] z-10 flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-muted px-3 py-2.5 shadow-md"
+                >
+                  {/* No flex-wrap: the sentence wraps inside its own column so
+                      the button keeps its place at the right on any width. */}
+                  <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-foreground">
+                    Reading up for <span className="font-bold">{returnTo.title}</span>. Your
+                    answers are saved.
+                  </p>
+                  <Button type="button" size="sm" className="shrink-0" onClick={backToQuiz}>
+                    <Icon name="arrow-left" aria-hidden />
+                    Back to quiz
+                  </Button>
+                </div>
+              ) : null}
+
+              {isReading ? <ReadingProgress target={contentRef} lessonId={selected.id} /> : null}
+              {outline ? <LessonOutline entries={outline} onJump={jumpToHeading} layout="top" /> : null}
+
+              <div
+                className={cn(
+                  "min-w-0",
+                  outline && "@3xl:grid @3xl:grid-cols-[minmax(0,1fr)_13rem] @3xl:items-start @3xl:gap-10"
+                )}
+              >
+              <div ref={contentRef} className="min-w-0">
                 <LessonContent
                   lesson={selected}
                   gate={gate}
+                  quizSessions={quizSessions}
+                  onReview={openReview}
                   onViewerUnavailable={() =>
                     setUnreadableLessons((prev) =>
                       prev.has(selected.id) ? prev : new Set(prev).add(selected.id)
                     )
                   }
                 />
+              </div>
+              {outline ? <LessonOutline entries={outline} onJump={jumpToHeading} layout="side" /> : null}
               </div>
 
               {/* Zero-height scroll sentinel: reaching it means the learner got

@@ -1,0 +1,36 @@
+# Never send secrets or local state into an image build.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.claude
+.vercel
+.vscode
+.idea
+
+node_modules
+.next
+out
+build
+coverage
+.playwright-mcp
+
+# Generated at build time by `prisma generate`.
+lib/generated/prisma
+
+# Local Mastra state.
+.mastra
+*.db
+*.db-*
+*.duckdb
+*.duckdb.wal
+*.sqlite
+*.sqlite-*
+
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+Dockerfile
+.dockerignore

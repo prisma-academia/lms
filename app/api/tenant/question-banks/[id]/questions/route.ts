@@ -16,6 +16,8 @@ const CreateBody = z
     rubric: essayRubricSchema.nullable().optional(),
     points: z.number().int().min(0).max(1000).optional(),
     tagIds: z.array(z.string().min(1)).max(50).optional(),
+    /** A nudge shown on request while answering. */
+    hint: z.string().max(500).nullable().optional(),
   })
   // An ESSAY without a rubric is ungradeable, and a rubric on any other type is
   // dead weight that would confuse the grader later. Reject both at the edge.
@@ -55,6 +57,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         answerJson: (body.answer ?? []) as object,
         rubricJson: body.type === "ESSAY" ? (body.rubric as object) : undefined,
         points: body.points ?? 1,
+        hint: body.hint?.trim() || null,
         tags: body.tagIds
           ? { create: [...new Set(body.tagIds)].map((tagId) => ({ tenantId: actor.tenantId, tagId })) }
           : undefined,

@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPatch, apiPost, apiDelete } from "@/lib/client/api";
+import { useSavedSnapshot, useUnsavedGuard } from "@/components/use-unsaved-guard";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FormField, TextInput, TextArea } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 
 export type GroupCandidate = { id: string; label: string; email: string };
 
@@ -35,14 +39,21 @@ export function GroupEditor({
   memberNoun: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  const uid = useId();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription ?? "");
   const [selected, setSelected] = useState<Set<string>>(new Set(memberIds));
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Closing or reloading the tab over unsaved changes asks first. Members are
+  // compared as a sorted list, so ticking one and unticking it again is clean.
+  const saved = useSavedSnapshot({ name, description, members: [...selected].sort() });
+  useUnsavedGuard(saved.dirty);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,7 +74,10 @@ export function GroupEditor({
 
   async function onSave() {
     setError(null);
-    setInfo(null);
+    if (!name.trim()) {
+      setError("Give the group a name.");
+      return;
+    }
     setSaving(true);
     try {
       const detailsRes = await apiPatch(`${apiBase}/${id}`, {
@@ -81,7 +95,8 @@ export function GroupEditor({
         setError(membersRes.error.message);
         return;
       }
-      setInfo("Saved.");
+      saved.markSaved();
+      toast("Group saved.");
       router.refresh();
     } finally {
       setSaving(false);
@@ -89,7 +104,13 @@ export function GroupEditor({
   }
 
   async function onDelete() {
-    if (!confirm("Delete this group? Members are not deleted, only the grouping.")) return;
+    const ok = await confirm({
+      title: `Delete “${initialName}”?`,
+      description: `The group is removed. Its ${memberNoun}s are not deleted, and this cannot be undone.`,
+      confirmLabel: "Delete group",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     setDeleting(true);
     const res = await apiDelete(`${apiBase}/${id}`);
@@ -98,67 +119,92 @@ export function GroupEditor({
       setDeleting(false);
       return;
     }
+    toast("Group deleted.");
     router.push(listHref);
   }
 
   return (
-    <div className="grid gap-5">
-      <FormField label="Name" htmlFor="name">
-        <TextInput id="name" value={name} onChange={(e) => setName(e.target.value)} />
+    <div className="grid max-w-2xl gap-5">
+      <FormField label="Name" htmlFor={`${uid}-name`}>
+        <TextInput
+          id={`${uid}-name`}
+          autoComplete="off"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </FormField>
-      <FormField label="Description (optional)" htmlFor="description">
+      <FormField label="Description (optional)" htmlFor={`${uid}-description`}>
         <TextArea
-          id="description"
+          id={`${uid}-description`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
       </FormField>
 
-      <div>
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <span className="text-[13px] font-bold text-foreground">
-            Members ({selected.size})
+      <div role="group" aria-labelledby={`${uid}-members`}>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <span id={`${uid}-members`} className="text-[13px] font-bold text-foreground">
+            Members <span className="num font-medium text-muted-foreground">({selected.size} chosen)</span>
           </span>
+          <label htmlFor={`${uid}-search`} className="sr-only">
+            Search {memberNoun}s
+          </label>
           <input
+            id={`${uid}-search`}
+            type="search"
+            autoComplete="off"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${memberNoun}s…`}
-            className="rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-sm outline-none"
+            className="w-full rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-sm text-card-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-ring sm:w-64"
           />
         </div>
         <div className="max-h-80 overflow-y-auto rounded-[10px] border-2 border-border">
-          {filtered.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">No {memberNoun}s found.</p>
+          {candidates.length === 0 ? (
+            <p className="p-3 text-sm font-medium text-muted-foreground">
+              There are no {memberNoun}s to add yet.
+            </p>
+          ) : filtered.length === 0 ? (
+            <p className="p-3 text-sm font-medium text-muted-foreground">
+              No {memberNoun}s match “{query.trim()}”.
+            </p>
           ) : (
-            filtered.map((c) => (
-              <label
-                key={c.id}
-                className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 last:border-b-0 hover:bg-accent"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(c.id)}
-                  onChange={() => toggle(c.id)}
-                  className="size-4"
-                />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-card-foreground">{c.label}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
-                </span>
-              </label>
-            ))
+            filtered.map((c) => {
+              const boxId = `${uid}-m-${c.id}`;
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-3 border-b border-border px-3 last:border-b-0 hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Checkbox
+                    id={boxId}
+                    checked={selected.has(c.id)}
+                    onCheckedChange={() => toggle(c.id)}
+                  />
+                  {/* The label fills the row, so the whole row is the target. */}
+                  <label htmlFor={boxId} className="min-w-0 flex-1 cursor-pointer py-2.5">
+                    <span className="block truncate text-sm font-bold">{c.label}</span>
+                    <span className="block truncate text-xs font-medium opacity-80">{c.email}</span>
+                  </label>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
 
-      <div className="flex items-center gap-3">
-        <Button type="button" onClick={onSave} disabled={saving}>
+      {/* The destructive action sits apart from Save, at the far end. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button type="button" onClick={onSave} disabled={saving || deleting}>
           {saving ? "Saving…" : "Save changes"}
         </Button>
-        <Button type="button" variant="destructive" onClick={onDelete} disabled={deleting}>
+        <Button type="button" variant="destructive" onClick={onDelete} disabled={deleting || saving}>
           {deleting ? "Deleting…" : "Delete group"}
         </Button>
       </div>

@@ -4,6 +4,7 @@ import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { PageHeader, Card } from "@/components/shell";
 import { StatCard } from "@/components/ui/stat-card";
+import { formatWholeAmount } from "../format";
 
 export default async function PlatformAnalyticsPage() {
   await requirePlatformPage(PERMISSIONS.PLATFORM_TENANTS_READ.key);
@@ -27,31 +28,32 @@ export default async function PlatformAnalyticsPage() {
 
   const totalTenants = byStatus.reduce((s, r) => s + r._count, 0);
   const activeTenants = byStatus.find((r) => r.status === "ACTIVE")?._count ?? 0;
-  const money = (cents: number | null | undefined) =>
-    `${((cents ?? 0) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  // Amounts are summed across academies and may mix currencies, so they are
+  // shown as plain numbers rather than dressed up with one currency's symbol.
+  const money = formatWholeAmount;
 
   return (
     <div>
-      <PageHeader title="Analytics" subtitle="Cross-tenant reporting across the whole platform." />
+      <PageHeader title="Analytics" subtitle="Totals across every academy on the platform." />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon="layers" label="Tenants" value={String(totalTenants)} />
-        <StatCard icon="check-circle" label="Active tenants" value={String(activeTenants)} />
-        <StatCard icon="users" label="Tenant users" value={String(tenantUsers)} />
-        <StatCard icon="user" label="Clients" value={String(clients)} />
+        <StatCard icon="layers" label="Academies" value={String(totalTenants)} />
+        <StatCard icon="check-circle" label="Active academies" value={String(activeTenants)} />
+        <StatCard icon="users" label="Staff accounts" value={String(tenantUsers)} />
+        <StatCard icon="user" label="Learners" value={String(clients)} />
         <StatCard icon="book" label="Courses" value={String(courses)} />
         <StatCard icon="chart" label="Enrollments" value={String(enrollments)} />
-        <StatCard icon="credit-card" label="Course revenue" value={money(coursePaid._sum.amountCents)} />
-        <StatCard icon="trending-up" label="Platform revenue" value={money(platformPaid._sum.amountCents)} />
+        <StatCard icon="credit-card" label="Course sales (all currencies)" value={money(coursePaid._sum.amountCents)} />
+        <StatCard icon="trending-up" label="Subscription income (all currencies)" value={money(platformPaid._sum.amountCents)} />
       </div>
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold uppercase text-stone-500">Top tenants by clients</h2>
+        <h2 className="mb-3 font-heading text-base leading-tight">Largest academies by learners</h2>
         {/* Capped viewport with a stuck header, like every other table in the app. */}
         <div className="max-h-[24rem] overflow-auto rounded-[10px] border-2 border-border [scrollbar-gutter:stable]">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                {["Tenant", "Status", "Clients", "Courses"].map((h) => (
+                {["Academy", "Status", "Learners", "Courses"].map((h) => (
                   <th
                     key={h}
                     scope="col"
@@ -66,14 +68,17 @@ export default async function PlatformAnalyticsPage() {
               {topTenants.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-6 text-center font-medium text-muted-foreground">
-                    No tenants yet.
+                    No academies yet.
                   </td>
                 </tr>
               ) : (
                 topTenants.map((t) => (
                   <tr key={t.id} className="border-t-2 border-dashed border-border">
                     <td className="px-3 py-2 font-semibold">
-                      <Link href={`/tenants/${t.id}`} className="hover:underline">
+                      <Link
+                        href={`/tenants/${t.id}`}
+                        className="rounded-[4px] underline-offset-4 outline-none hover:underline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
                         {t.name}
                       </Link>
                     </td>

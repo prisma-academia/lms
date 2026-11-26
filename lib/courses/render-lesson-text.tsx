@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from "react";
 import { parseLessonText, type Inline } from "./lesson-markdown";
+import { createHeadingIdAllocator } from "@/lib/content/lesson-headings";
 
 /**
  * Render a plain-text lesson body as React nodes.
@@ -28,12 +29,24 @@ function renderInline(content: Inline[], keyPrefix: string): ReactNode[] {
 }
 
 export function renderLessonText(text: string): ReactNode {
+  // Same allocator, same order, as `textHeadings` in lesson-headings.ts — that
+  // is what makes a "read up" link to one of these headings land on it.
+  const headingId = createHeadingIdAllocator();
   return parseLessonText(text).map((block, index) => {
     const key = `b${index}`;
     switch (block.kind) {
       case "heading": {
         const Tag = `h${block.level}` as "h2" | "h3" | "h4" | "h5";
-        return <Tag key={key}>{renderInline(block.content, key)}</Tag>;
+        const label = block.content
+          .map((part) => part.text)
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+        return (
+          <Tag key={key} id={headingId(label)}>
+            {renderInline(block.content, key)}
+          </Tag>
+        );
       }
       case "paragraph":
         return <p key={key}>{renderInline(block.content, key)}</p>;

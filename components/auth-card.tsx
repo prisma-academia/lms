@@ -38,7 +38,7 @@ export async function AuthCard({
   const org = orgName !== undefined ? orgName : (branding?.name ?? null);
 
   return (
-    <main className="flex min-h-[100dvh] flex-1 items-center justify-center p-5">
+    <main className="flex min-h-[100dvh] flex-1 items-center justify-center px-4 py-6 sm:p-5">
       <div className={`w-full ${wide ? "max-w-3xl" : "max-w-sm"}`}>
         <div className="mb-5 flex flex-col items-center gap-2">
           <TenantMark
@@ -59,8 +59,8 @@ export async function AuthCard({
             </span>
           ) : null}
         </div>
-        <div className="rounded-[14px] border-2 border-border bg-card p-6 shadow-md">
-          <h1 className="font-heading text-xl leading-tight">{title}</h1>
+        <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md sm:p-6">
+          <h1 className="text-balance font-heading text-xl leading-tight">{title}</h1>
           {subtitle ? (
             <p className="mt-1 text-sm font-medium text-muted-foreground">
               {subtitle}

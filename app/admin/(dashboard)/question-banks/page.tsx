@@ -1,5 +1,5 @@
 import { requireTenantPage } from "@/lib/auth/page-guards";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db/client";
 import { accessibleBankWhere } from "@/lib/assessments/bank-access";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
@@ -7,6 +7,7 @@ import { QuestionBanksTable } from "./table";
 
 export default async function QuestionBanksPage() {
   const actor = await requireTenantPage(PERMISSIONS.TENANT_QUIZZES_READ.key);
+  const canWrite = hasPermission(actor, PERMISSIONS.TENANT_QUIZZES_WRITE.key);
   const access = await accessibleBankWhere(actor);
   const banks = await prisma.questionBank.findMany({
     where: { AND: [{ tenantId: actor.tenantId }, access] },
@@ -25,11 +26,11 @@ export default async function QuestionBanksPage() {
     <div>
       <DataTableToolbar
         title="Question banks"
-        description="Reusable questions with tags. Build quizzes from these."
-        createHref="/admin/question-banks/new"
+        description="Collections of reusable questions. Quizzes are built from these."
+        createHref={canWrite ? "/admin/question-banks/new" : undefined}
         createLabel="New bank"
       />
-      <QuestionBanksTable data={rows} />
+      <QuestionBanksTable data={rows} canCreate={canWrite} />
     </div>
   );
 }

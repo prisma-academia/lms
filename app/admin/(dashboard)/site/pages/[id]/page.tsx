@@ -3,7 +3,9 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db/client";
 import { toRow } from "@/lib/site/pages";
-import { PAGE_TEMPLATES } from "@/lib/site/page-templates";
+import { findPageKind } from "@/lib/site/site-api";
+import { SAVED_TEMPLATE_TYPE, toSavedTemplate } from "@/lib/site/saved-templates";
+import { aiStatus } from "@/lib/ai/config";
 import { PageHeader, Card } from "@/components/shell";
 import { SitePageEditor } from "../site-page-editor";
 import { s3Configured, publicUrlForKey } from "@/lib/storage/s3";
@@ -20,13 +22,24 @@ export default async function EditSitePage({
   });
   if (!page) notFound();
 
+  const savedRows = await prisma.template.findMany({
+    where: { tenantId: actor.tenantId, type: SAVED_TEMPLATE_TYPE },
+    orderBy: { createdAt: "desc" },
+    take: 60,
+  });
+
   const canWrite = hasPermission(actor, PERMISSIONS.TENANT_SITE_WRITE.key);
+  const kind = findPageKind(page.kind);
 
   return (
     <div>
       <PageHeader
         title={page.title}
-        subtitle="Edit the page HTML, SEO, and publish status."
+        subtitle={
+          kind.kind === "PAGE"
+            ? "Edit this page's content, address and search details."
+            : `Your own design for the ${kind.label.toLowerCase()}.`
+        }
         backHref="/admin/site/pages"
         backLabel="Site pages"
       />
@@ -34,14 +47,11 @@ export default async function EditSitePage({
         <SitePageEditor
           page={toRow(page)}
           canWrite={canWrite}
+          aiConfigured={aiStatus().configured}
+          saved={savedRows.map(toSavedTemplate).filter((row) => row.htmlSource.trim())}
           initialOgImageUrl={
             page.ogImageKey && s3Configured() ? publicUrlForKey(page.ogImageKey) : null
           }
-          templates={PAGE_TEMPLATES.map((t) => ({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-          }))}
         />
       </Card>
     </div>

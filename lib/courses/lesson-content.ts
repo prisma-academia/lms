@@ -1,5 +1,23 @@
 import { DomainError } from "@/lib/api/errors";
 import { parseVideoUrl, VIDEO_URL_HELP } from "@/lib/media/video-embed";
+import { withHeadingIds } from "@/lib/content/lesson-headings";
+
+/**
+ * Give every heading in an HTML lesson a stable `id` before it is stored.
+ *
+ * Quiz questions link to headings by id, so the ids have to be in the saved
+ * lesson rather than invented each time it is shown. Existing ids are never
+ * changed, so saving a lesson again cannot break a link that already points
+ * into it. Nothing else about the content is touched — in particular the HTML
+ * is NOT sanitized here; that stays where it is, at render.
+ */
+export function withLessonAnchors(
+  contentType: string,
+  contentJson: Record<string, unknown>
+): Record<string, unknown> {
+  if (contentType !== "HTML" || typeof contentJson.html !== "string") return contentJson;
+  return { ...contentJson, html: withHeadingIds(contentJson.html) };
+}
 
 /**
  * Server-side validation of a lesson's `contentJson`.

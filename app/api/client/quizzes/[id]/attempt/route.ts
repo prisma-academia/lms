@@ -4,77 +4,55 @@ import { requireClientActor } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { scoreAttempt, type Response, type ScorableQuestion } from "@/lib/assessments/scoring";
-import { isUnlocked } from "@/lib/courses/gating";
-import { collectEssays, gradeEssays } from "@/lib/assessments/essay-grader";
-import { buildQuizContext } from "@/lib/assessments/lesson-context";
+import type { Response } from "@/lib/assessments/scoring";
+import { MAX_ESSAY_CHARS } from "@/lib/assessments/essay-grader";
+import {
+  evaluateAnswers,
+  gradedAttemptData,
+  learnerAttemptPayload,
+  loadQuizForGrading,
+  ungradedStatus,
+} from "@/lib/assessments/attempts";
+import { findQuizCourse, type QuizCourse } from "@/lib/assessments/quiz-access";
+import { effectivePassMark, passingAttemptWhere } from "@/lib/assessments/pass-mark";
 import { enforceRateLimit, RATE_PRESETS } from "@/lib/auth/rate-limit";
-import { parseRubric, type EssayGrade } from "@/lib/schemas/essay-grading";
+import { parseRubric } from "@/lib/schemas/essay-grading";
 
 /**
- * A quiz containing essays makes one LLM call on submit. 120s gives ~6x headroom
- * over a typical batched grade and matches the envelope of the other AI routes.
+ * A quiz containing essays makes one LLM call on submit. 120s gives ample
+ * headroom over a typical batched grade and matches the other AI routes.
  */
 export const maxDuration = 120;
 
 /** DB-backed spend cap, because the Upstash limiter fails open when unconfigured. */
 const MAX_GRADED_ATTEMPTS_PER_HOUR = 20;
 
+/**
+ * How fast one quiz may be resubmitted.
+ *
+ * A failed attempt can say which questions were wrong. With unlimited instant
+ * retakes that is a search procedure: change one answer, resubmit, watch the
+ * list. A short cool-down keeps retakes unlimited while making that slower than
+ * simply reading the lesson the review link points at.
+ */
+const MAX_ATTEMPTS_PER_QUIZ = 5;
+const QUIZ_WINDOW_MS = 10 * 60 * 1000;
+
 const SubmitBody = z.object({
-  answers: z.record(z.string(), z.union([z.array(z.number().int()), z.string()])),
+  answers: z.record(
+    z.string(),
+    // Text answers are capped: an essay is sent to a model, and an unbounded
+    // string is an unbounded bill. Far above any real answer.
+    z.union([z.array(z.number().int()).max(50), z.string().max(MAX_ESSAY_CHARS)])
+  ),
 });
 
-/**
- * A learner may attempt a quiz only through a QUIZ lesson that is both in a
- * course they're enrolled in AND currently unlocked for them.
- *
- * The enrolment check alone is not enough: without the unlock check, a quizId
- * lifted from an earlier course (or guessed) would hand over the questions for
- * a lesson the learner hasn't reached yet — a side door around the gate in
- * app/api/client/courses/[slug]/learn/route.ts.
- */
-async function ensureQuizReachable(clientId: string, quizId: string): Promise<void> {
-  const enrollments = await prisma.enrollment.findMany({
-    where: { clientId },
-    select: {
-      id: true,
-      courseId: true,
-      lessonProgress: {
-        where: { completedAt: { not: null } },
-        select: { lessonId: true },
-      },
-    },
-  });
-  if (enrollments.length === 0) throw new DomainError(403, "not_enrolled", "Quiz not available.");
-
-  const lessons = await prisma.lesson.findMany({
-    where: { courseId: { in: enrollments.map((e) => e.courseId) } },
-    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-    select: { id: true, courseId: true, sortOrder: true, contentType: true, contentJson: true },
-  });
-
-  const byCourse = new Map<string, typeof lessons>();
-  for (const lesson of lessons) {
-    const list = byCourse.get(lesson.courseId) ?? [];
-    list.push(lesson);
-    byCourse.set(lesson.courseId, list);
-  }
-
-  for (const enrollment of enrollments) {
-    const courseLessons = byCourse.get(enrollment.courseId) ?? [];
-    const linked = courseLessons.find(
-      (l) =>
-        l.contentType === "QUIZ" &&
-        (l.contentJson as { quizId?: unknown } | null)?.quizId === quizId
-    );
-    if (!linked) continue;
-
-    const completed = new Set(enrollment.lessonProgress.map((p) => p.lessonId));
-    // Reachable through any one enrolled course is enough.
-    if (isUnlocked(courseLessons, completed, linked.id)) return;
-  }
-
-  throw new DomainError(403, "not_available", "Quiz not available.");
+async function requireQuizCourse(clientId: string, quizId: string): Promise<QuizCourse> {
+  const course = await findQuizCourse(clientId, quizId);
+  // One message for "not enrolled", "no such quiz" and "locked": the difference
+  // would tell a learner which quiz ids exist.
+  if (!course) throw new DomainError(403, "not_available", "Quiz not available.");
+  return course;
 }
 
 /**
@@ -99,41 +77,39 @@ async function enforceAttemptBudget(clientId: string): Promise<void> {
   }
 }
 
+async function enforceQuizCooldown(clientId: string, quizId: string): Promise<void> {
+  const since = new Date(Date.now() - QUIZ_WINDOW_MS);
+  const recent = await prisma.quizAttempt.count({
+    where: { clientId, quizId, startedAt: { gte: since } },
+  });
+  if (recent >= MAX_ATTEMPTS_PER_QUIZ) {
+    throw new DomainError(
+      429,
+      "quiz_cooldown",
+      "You've tried this quiz several times in a row. Take a few minutes with the lessons it covers, then try again."
+    );
+  }
+}
+
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const actor = await requireClientActor();
     const { id } = await ctx.params;
-    await ensureQuizReachable(actor.clientId, id);
+    await requireQuizCourse(actor.clientId, id);
 
-    const quiz = await prisma.quiz.findFirst({
-      where: { id, tenantId: actor.tenantId },
-      include: {
-        questions: {
-          orderBy: { sortOrder: "asc" },
-          include: {
-            question: {
-              select: {
-                id: true,
-                type: true,
-                prompt: true,
-                optionsJson: true,
-                rubricJson: true,
-                points: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const quiz = await loadQuizForGrading(id, actor.tenantId);
     if (!quiz) throw new DomainError(404, "not_found", "Quiz not found.");
 
-    // Strip correct answers before sending to the learner.
+    const passMark = effectivePassMark(quiz.passingScore);
+
+    // Fields are picked one by one: `quiz` carries the answer key and rubrics.
     const payload = {
       id: quiz.id,
       title: quiz.title,
       description: quiz.description,
       timeLimitMin: quiz.timeLimitMin,
-      passingScore: quiz.passingScore,
+      /** The mark this quiz is actually held to (an unset mark means 100). */
+      passMark,
       questions: quiz.questions.map((qq) => {
         // Only the word bounds are exposed. Criteria and the model answer stay
         // server-side: handing a learner the rubric turns the essay into a
@@ -147,23 +123,37 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
           points: qq.points ?? qq.question.points,
           minWords: rubric?.minWords ?? null,
           maxWords: rubric?.maxWords ?? null,
+          // Sent only when the author allows hints on this quiz; the player
+          // keeps it hidden until the learner asks.
+          hint: quiz.hintsEnabled ? qq.question.hint?.trim() || null : null,
         };
       }),
     };
 
-    // Whether this learner has already cleared the completion bar for this quiz.
-    const perfect = await prisma.quizAttempt.findFirst({
-      where: {
-        quizId: id,
-        clientId: actor.clientId,
-        submittedAt: { not: null },
-        scorePercent: 100,
-        gradingStatus: "GRADED",
-      },
-      select: { id: true },
-    });
+    const [passing, latest] = await Promise.all([
+      // Whether this learner has already cleared the bar for this quiz.
+      prisma.quizAttempt.findFirst({
+        where: { quizId: id, clientId: actor.clientId, ...passingAttemptWhere(passMark) },
+        select: { id: true },
+      }),
+      prisma.quizAttempt.findFirst({
+        where: { quizId: id, clientId: actor.clientId, submittedAt: { not: null } },
+        orderBy: { submittedAt: "desc" },
+        select: { id: true, gradingStatus: true },
+      }),
+    ]);
 
-    return ok({ quiz: payload, alreadyPerfect: perfect != null });
+    return ok({
+      quiz: payload,
+      alreadyPassed: passing != null,
+      // An attempt still waiting on a grade. The result screen used to live only
+      // in the browser, so a refresh lost it — and with it the only button that
+      // could ask for the grade again.
+      openAttempt:
+        latest && latest.gradingStatus !== "GRADED"
+          ? { id: latest.id, gradingStatus: latest.gradingStatus }
+          : null,
+    });
   } catch (e) {
     return handleError(e);
   }
@@ -175,72 +165,33 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const actor = await requireClientActor();
     const { id } = await ctx.params;
     const body = SubmitBody.parse(await request.json());
-    await ensureQuizReachable(actor.clientId, id);
+    const course = await requireQuizCourse(actor.clientId, id);
 
-    const quiz = await prisma.quiz.findFirst({
-      where: { id, tenantId: actor.tenantId },
-      include: {
-        questions: {
-          include: {
-            question: {
-              select: {
-                id: true,
-                type: true,
-                prompt: true,
-                answerJson: true,
-                rubricJson: true,
-                points: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const quiz = await loadQuizForGrading(id, actor.tenantId);
     if (!quiz) throw new DomainError(404, "not_found", "Quiz not found.");
 
-    const scorable = quiz.questions.map((qq) => ({
-      id: qq.question.id,
-      type: qq.question.type,
-      answerJson: qq.question.answerJson,
-      rubricJson: qq.question.rubricJson,
-      points: qq.question.points,
-      effectivePoints: qq.points ?? qq.question.points,
-    })) as (ScorableQuestion & { effectivePoints: number })[];
+    await enforceQuizCooldown(actor.clientId, id);
 
-    const answers = body.answers as Record<string, Response>;
-
-    // Objectives are graded FIRST, before any LLM call, so a grader outage can
-    // never turn a correct multiple-choice answer into a wrong one.
-    const essays = collectEssays(
-      quiz.questions.map((qq) => qq.question),
-      body.answers
-    );
-
-    let essayGrades: Record<string, EssayGrade | null> | undefined;
-    let gradingError: string | null = null;
-
-    if (essays.length > 0) {
+    const hasEssays = quiz.questions.some((qq) => qq.question.type === "ESSAY");
+    if (hasEssays) {
       await enforceRateLimit(RATE_PRESETS.ESSAY_GRADE, [actor.clientId]);
       await enforceAttemptBudget(actor.clientId);
-
-      const context = await buildQuizContext(id);
-      const graded = await gradeEssays(essays, context);
-      if (graded.ok) essayGrades = graded.grades;
-      else gradingError = graded.error;
     }
 
-    const { scorePercent, perfect, perQuestion, results } = scoreAttempt(
-      scorable,
-      answers,
-      essayGrades
-    );
+    // Objectives are scored locally before any model is asked, so a grader
+    // outage can never turn a correct multiple-choice answer into a wrong one.
+    const evaluation = await evaluateAnswers({
+      quiz,
+      answers: body.answers as Record<string, Response>,
+      clientId: actor.clientId,
+      courseId: course.courseId,
+    });
 
-    // A failed grader must never be more permissive than a successful one.
-    // The attempt is still recorded (never lose a learner's writing) but it is
-    // PENDING, scoreless, and therefore unlocks nothing — so inducing a grader
-    // failure is strictly worse for the learner than letting it succeed.
-    const pending = gradingError != null;
-    const passed = pending ? null : quiz.passingScore != null ? scorePercent >= quiz.passingScore : null;
+    // A failed grader must never be more permissive than a successful one. The
+    // attempt is still recorded (never lose a learner's writing) but it is
+    // scoreless and therefore unlocks nothing — so inducing a grader failure is
+    // strictly worse for the learner than letting it succeed.
+    const status = evaluation.graded ? "GRADED" : ungradedStatus(evaluation, 1);
 
     const attempt = await prisma.quizAttempt.create({
       data: {
@@ -248,55 +199,22 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         quizId: id,
         clientId: actor.clientId,
         submittedAt: new Date(),
-        scorePercent: pending ? null : scorePercent,
-        passed,
         answersJson: body.answers as object,
-        resultsJson: results as object,
-        gradingStatus: pending ? "PENDING" : "GRADED",
-        gradingError,
-        gradedAt: pending ? null : new Date(),
+        gradingAttempts: hasEssays ? 1 : 0,
+        ...(evaluation.graded
+          ? gradedAttemptData(evaluation)
+          : {
+              scorePercent: null,
+              passed: null,
+              resultsJson: evaluation.results as object,
+              gradingStatus: status,
+              gradingError: evaluation.error,
+              gradedAt: null,
+            }),
       },
     });
 
-    if (pending) {
-      return ok({
-        attempt: {
-          id: attempt.id,
-          scorePercent: null,
-          passed: null,
-          perfect: false,
-          gradingStatus: "PENDING" as const,
-        },
-        results: null,
-        incorrectCount: 0,
-        essayFeedback: {},
-      });
-    }
-
-    const incorrectCount = Object.values(perQuestion).filter((ok) => !ok).length;
-
-    return ok({
-      attempt: {
-        id: attempt.id,
-        scorePercent,
-        passed,
-        perfect,
-        gradingStatus: "GRADED" as const,
-      },
-      // Retries are unlimited and completion requires 100%, so a per-question
-      // right/wrong map on a failed attempt is a brute-force oracle: a few
-      // retakes would reveal the whole answer key without teaching anything.
-      // Once the learner is at 100% there is nothing left to leak.
-      results: perfect ? perQuestion : null,
-      incorrectCount,
-      // Essay feedback IS shown on a failed attempt: it's formative rather than
-      // an answer key, and it is the entire point of grading essays with AI.
-      essayFeedback: Object.fromEntries(
-        Object.entries(results)
-          .filter(([, r]) => r.feedback != null || r.criteria != null)
-          .map(([qid, r]) => [qid, { feedback: r.feedback ?? "", criteria: r.criteria ?? [] }])
-      ),
-    });
+    return ok(learnerAttemptPayload(attempt.id, evaluation, status, { quiz, course }));
   } catch (e) {
     return handleError(e);
   }

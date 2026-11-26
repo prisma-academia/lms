@@ -4,13 +4,16 @@ import { requireClientActor } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { billingConfigured, env } from "@/lib/env";
-import { paystackProvider } from "@/lib/billing/paystack";
-import { flutterwaveProvider, flutterwaveReference } from "@/lib/billing/flutterwave";
+import { requireActiveGateway, requireSaleSplit, startCheckout } from "@/lib/billing/providers";
+import { checkoutReturnUrl } from "@/lib/billing/redirect";
 import { billingReference } from "@/lib/billing/reference";
+import { recordEnrollmentReferral } from "@/lib/referrals/attribution";
+import { readReferralCookie } from "@/lib/referrals/cookie";
 
 const EnrollBody = z.object({
-  provider: z.enum(["paystack", "flutterwave"]).optional(),
+  // Older pages let the learner pick a gateway. The platform chooses now
+  // (lib/billing/providers.ts), so this is accepted and not read.
+  provider: z.string().optional(),
 });
 
 export async function GET(_request: Request, ctx: { params: Promise<{ slug: string }> }) {
@@ -50,7 +53,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
     await requireCsrf(request);
     const actor = await requireClientActor();
     const { slug } = await ctx.params;
-    const body = EnrollBody.parse(await request.json().catch(() => ({})));
+    EnrollBody.parse(await request.json().catch(() => ({})));
 
     const course = await prisma.course.findFirst({
       where: { tenantId: actor.tenantId, slug, status: "PUBLISHED" },
@@ -72,69 +75,60 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
       const enrollment = await prisma.enrollment.create({
         data: { tenantId: actor.tenantId, courseId: course.id, clientId: actor.clientId },
       });
+      // Credit whoever sent this learner, if anyone did. Never throws.
+      await recordEnrollmentReferral({
+        tenantId: actor.tenantId,
+        clientId: actor.clientId,
+        enrollmentId: enrollment.id,
+        courseId: course.id,
+        cookieCode: await readReferralCookie(),
+      });
       return ok({ enrollment, checkoutUrl: null }, undefined, 201);
     }
 
-    if (!billingConfigured()) {
-      throw new DomainError(503, "billing_unconfigured", "Payments are not available.");
-    }
-
+    // Paid course. Which gateway, and whether this academy can be paid through
+    // it, are both decided in lib/billing/providers.ts.
+    const gateway = requireActiveGateway();
     const subaccount = await prisma.tenantSubaccount.findUnique({ where: { tenantId: actor.tenantId } });
-    if (!subaccount?.courseSalesEnabled) {
-      throw new DomainError(400, "sales_disabled", "Course sales are not enabled for this academy.");
-    }
-
-    const providerName = body.provider ?? (subaccount.defaultProvider === "FLUTTERWAVE" ? "flutterwave" : "paystack");
-    const provider = providerName === "paystack" ? paystackProvider : flutterwaveProvider;
-
-    if (providerName === "paystack" && (!subaccount.paystackSubaccountCode || subaccount.paystackStatus !== "ACTIVE")) {
-      throw new DomainError(400, "subaccount_inactive", "Paystack payouts are not active.");
-    }
-    if (providerName === "flutterwave" && (!subaccount.flutterwaveSubaccountId || subaccount.flutterwaveStatus !== "ACTIVE")) {
-      throw new DomainError(400, "subaccount_inactive", "Flutterwave payouts are not active.");
-    }
+    const split = requireSaleSplit(subaccount, gateway, course.priceCents);
 
     const client = await prisma.client.findUnique({ where: { id: actor.clientId } });
     if (!client) throw new DomainError(404, "not_found", "Learner not found.");
 
-    const reference = providerName === "flutterwave" ? flutterwaveReference("course") : billingReference("course");
-    const platformFeeCents = Math.round((course.priceCents * subaccount.platformCommissionPct) / 100);
+    const reference = billingReference("course");
 
+    // Written BEFORE the customer is sent to pay. This row is what a later
+    // "payment succeeded" is checked against: it proves the reference is ours
+    // and fixes the price, so neither can be supplied by whoever calls back.
     await prisma.coursePayment.create({
       data: {
         tenantId: actor.tenantId,
         courseId: course.id,
         clientId: actor.clientId,
-        provider: providerName === "paystack" ? "PAYSTACK" : "FLUTTERWAVE",
+        provider: gateway.name,
         amountCents: course.priceCents,
         currency: course.currency,
         externalRef: reference,
-        platformFeeCents,
-        tenantPayoutCents: course.priceCents - platformFeeCents,
+        platformFeeCents: split.platformFeeCents,
+        tenantPayoutCents: course.priceCents - split.platformFeeCents,
       },
     });
 
-    const host = request.headers.get("host") ?? "localhost:3000";
-    const callbackUrl = `http://${host}/my-courses?checkout=done`;
-
-    const checkout = await provider.initializeCheckout({
+    const checkout = await startCheckout(gateway, {
       email: client.email,
+      customerName: [client.firstName, client.lastName].filter(Boolean).join(" ") || undefined,
+      description: course.title,
       amountCents: course.priceCents,
       currency: course.currency,
       reference,
-      callbackUrl,
+      callbackUrl: checkoutReturnUrl(request, "/my-courses", reference),
       metadata: {
         type: "course_purchase",
         tenantId: actor.tenantId,
         courseId: course.id,
         clientId: actor.clientId,
       },
-      subaccount: {
-        paystackCode: subaccount.paystackSubaccountCode ?? undefined,
-        flutterwaveId: subaccount.flutterwaveSubaccountId ?? undefined,
-        platformFeeCents,
-        commissionPct: subaccount.platformCommissionPct,
-      },
+      subaccount: split,
     });
 
     return ok({ checkoutUrl: checkout.authorizationUrl, reference });

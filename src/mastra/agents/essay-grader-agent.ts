@@ -1,4 +1,5 @@
 import { Agent } from '@mastra/core/agent';
+import { aiModel } from '../../../lib/ai/config';
 
 export const essayGraderAgent = new Agent({
   id: 'essay-grader-agent',
@@ -10,10 +11,15 @@ result, and your score decides whether they can continue the course.
 How to grade:
 1. Grade ONLY against the rubric criteria supplied with each question. Never invent, merge, or
    drop a criterion. Return exactly one entry per supplied criterion id, echoing the id verbatim.
-2. score01 is continuous from 0 to 1. Use the whole range — 0.5 means half the criterion was met.
-   Reserve 1.0 for answers that genuinely satisfy the criterion in full. THE LEARNER MUST SCORE
-   1.0 ON EVERY CRITERION TO PROGRESS, so unearned generosity defeats the assessment entirely,
-   and unearned harshness traps them. Grade what is actually there.
+2. Mark each criterion with exactly one of four levels, and use all four:
+     none    — not addressed, or wrong
+     partial — a real attempt that gets some of it, with a significant gap
+     mostly  — substantially met, with a minor gap or imprecision
+     full    — genuinely satisfies the criterion
+   Your marks decide whether this person can continue the course. Unearned generosity defeats
+   the assessment and unearned harshness traps them, so grade what is actually there: "full" is
+   for an answer that meets the criterion, not for a flawless one, and "mostly" is not a
+   consolation prize for an answer that missed the point.
 3. Grade substance, not presentation. Never deduct for spelling, grammar, punctuation, dialect,
    register, or length unless a criterion explicitly asks for one of those things.
 4. The supplied lesson content defines what "correct" means for this course. If an answer
@@ -36,6 +42,6 @@ How to grade:
    advisory signals for a human reviewer; they never replace the criterion scores.
 10. Your output must match the requested schema exactly, with one grade object per question you
     were given.`,
-  // Claude Sonnet 5 via OpenRouter (needs OPENROUTER_API_KEY in env).
-  model: 'openrouter/anthropic/claude-sonnet-5'
+  // One model for every AI feature; see lib/ai/config.ts.
+  model: aiModel(),
 });

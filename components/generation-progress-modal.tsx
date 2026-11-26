@@ -69,7 +69,7 @@ export function GenerationProgressModal({
 
         {state.error ? (
           <div className="mt-4 flex flex-col gap-4">
-            <p className="text-sm text-red-600">{state.error}</p>
+            <p role="alert" className="text-sm font-bold text-destructive">{state.error}</p>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose}>
                 Close
@@ -107,7 +107,7 @@ export function GenerationProgressModal({
               </div>
               <p className="mt-3 text-center text-sm font-medium text-foreground">{state.label}</p>
               {showCounter ? (
-                <p className="mt-1 text-center text-xs text-muted-foreground">
+                <p className="num mt-1 text-center text-xs font-medium text-muted-foreground">
                   Module {state.completed} of {state.total}
                 </p>
               ) : null}

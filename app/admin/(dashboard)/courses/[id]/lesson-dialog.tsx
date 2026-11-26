@@ -9,7 +9,7 @@ import {
   INITIAL_GENERATION_PROGRESS,
   type GenerationProgressState,
 } from "@/components/generation-progress-modal";
-import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
+import { FormField, SelectInput, TextInput } from "@/components/form-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/icon";
 import { VideoUrlPreview } from "@/components/lesson/video-url-preview";
@@ -35,7 +35,7 @@ import {
  * duration the author would then expect to be able to edit.
  */
 function dwellHint(type: LessonContentType): string {
-  if (type === "QUIZ") return "Quizzes are gated by scoring 100%, so no timer is applied.";
+  if (type === "QUIZ") return "Quizzes are gated by their pass mark, so no timer is applied.";
   if (type === "TEXT" || type === "HTML")
     return "Scaled to the length of the content, between 15 seconds and 3 minutes.";
   return "Half the stated duration, between 15 seconds and 2 minutes.";
@@ -269,10 +269,11 @@ function LessonForm({
               id="lesson-dialog-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Introduction to variables"
+              autoComplete="off"
+              placeholder="e.g. Introduction to variables…"
             />
           </FormField>
-          <FormField label="Content type" htmlFor="lesson-dialog-type">
+          <FormField label="Lesson type" htmlFor="lesson-dialog-type">
             <SelectInput
               id="lesson-dialog-type"
               allowEmpty={false}
@@ -292,14 +293,14 @@ function LessonForm({
             {quizOptions.length > 0 ? (
               <SelectInput
                 id="lesson-dialog-quiz"
-                placeholder="Select a quiz…"
+                placeholder="Choose a quiz…"
                 options={quizOptions}
                 value={quizId}
                 onChange={(e) => setQuizId(e.target.value)}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
-                No quizzes yet — create one under Quizzes first.
+              <p className="text-xs font-medium text-muted-foreground">
+                There are no quizzes yet. Create one under Quizzes, then come back to attach it.
               </p>
             )}
           </FormField>
@@ -308,14 +309,14 @@ function LessonForm({
             {libraryOptions.length > 0 ? (
               <SelectInput
                 id="lesson-dialog-library"
-                placeholder="Select a file…"
+                placeholder="Choose a file…"
                 options={libraryOptions}
                 value={libraryItemId}
                 onChange={(e) => setLibraryItemId(e.target.value)}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
-                No library items yet — upload one under Library first.
+              <p className="text-xs font-medium text-muted-foreground">
+                The library is empty. Upload a file under Library, then come back to attach it.
               </p>
             )}
           </FormField>
@@ -331,7 +332,7 @@ function LessonForm({
                   onClick={() => setAiOpen((o) => !o)}
                   aria-expanded={aiOpen}
                 >
-                  <Icon name="sparkles" />
+                  <Icon name="sparkles" aria-hidden />
                   Write with AI
                 </Button>
               ) : null}
@@ -357,10 +358,8 @@ function LessonForm({
         {aiCapable && aiOpen ? (
           <div className="rounded-[10px] border-2 border-dashed border-border bg-background p-4">
             <div className="flex items-center gap-2">
-              <Icon name="sparkles" className="size-4 text-muted-foreground" />
-              <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                AI assist
-              </h3>
+              <Icon name="sparkles" className="size-4 text-muted-foreground" aria-hidden />
+              <h3 className="text-[13px] font-bold text-foreground">Write this lesson with AI</h3>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Writes the {type === "HTML" ? "HTML" : "text"} for &ldquo;
@@ -377,7 +376,8 @@ function LessonForm({
                   id="lesson-dialog-ai-instructions"
                   value={aiInstructions}
                   onChange={(e) => setAiInstructions(e.target.value)}
-                  placeholder="e.g. include a worked example and a short summary"
+                  autoComplete="off"
+                  placeholder="e.g. include a worked example and a short summary…"
                 />
               </FormField>
               <div className="flex items-center gap-3">
@@ -390,14 +390,12 @@ function LessonForm({
                   {aiGenerating ? "Generating…" : aiPreview ? "Regenerate" : "Generate"}
                 </Button>
               </div>
-              {aiError ? <p className="text-sm text-red-600">{aiError}</p> : null}
+              {aiError ? <p role="alert" className="text-sm font-bold text-destructive">{aiError}</p> : null}
 
               {aiPreview ? (
                 <div className="rounded-[10px] border-2 border-border bg-card p-3">
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                      Preview
-                    </h4>
+                    <h4 className="text-[13px] font-bold text-foreground">Preview</h4>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -416,7 +414,7 @@ function LessonForm({
                           setAiOpen(false);
                         }}
                       >
-                        <Icon name="check" />
+                        <Icon name="check" aria-hidden />
                         Use this content
                       </Button>
                     </div>
@@ -468,19 +466,24 @@ function LessonForm({
         </label>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Duration (minutes)" htmlFor="lesson-dialog-duration">
+          <FormField
+            label="Length in minutes (optional)"
+            htmlFor="lesson-dialog-duration"
+            hint="Shown to learners so they know how long to set aside."
+          >
             <TextInput
               id="lesson-dialog-duration"
               type="number"
+              inputMode="numeric"
               min="0"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
             />
           </FormField>
-          <FormField label="Group (optional)" htmlFor="lesson-dialog-group">
+          <FormField label="Module (optional)" htmlFor="lesson-dialog-group">
             <SelectInput
               id="lesson-dialog-group"
-              placeholder="Ungrouped"
+              placeholder="No module"
               options={groupOptions}
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
@@ -488,9 +491,9 @@ function LessonForm({
           </FormField>
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p role="alert" className="text-sm font-bold text-destructive">{error}</p> : null}
 
-        <div className="flex justify-end gap-2 border-t-2 border-dashed border-border pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t-2 border-dashed border-border pt-4 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>

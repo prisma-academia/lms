@@ -124,6 +124,8 @@ export function UploadDropzone({
         type="file"
         multiple
         className="hidden"
+        aria-label="Choose files to upload"
+        tabIndex={-1}
         onChange={(e) => {
           addFiles(Array.from(e.target.files ?? []));
           e.target.value = "";

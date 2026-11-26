@@ -1,12 +1,14 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { PageHeader, Card } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
 import { GradeForm } from "./grade-form";
+import { tenantFormatContext } from "@/lib/tenant/format-context";
 
 function clientName(c: {
   firstName: string | null;
@@ -25,84 +27,99 @@ export default async function AdminAssignmentDetailPage({
   const actor = await requireTenantPage(PERMISSIONS.TENANT_ASSIGNMENTS_READ.key);
   const { id } = await params;
 
-  const assignment = await prisma.assignment.findFirst({
-    where: { id, tenantId: actor.tenantId },
-    include: {
-      course: { select: { title: true } },
-      submissions: {
-        orderBy: { submittedAt: "desc" },
-        include: {
-          client: {
-            select: { firstName: true, lastName: true, email: true },
+  const [assignment, when] = await Promise.all([
+    prisma.assignment.findFirst({
+      where: { id, tenantId: actor.tenantId },
+      include: {
+        course: { select: { title: true } },
+        submissions: {
+          orderBy: { submittedAt: "desc" },
+          include: {
+            client: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+            grade: true,
           },
-          grade: true,
         },
       },
-    },
-  });
+    }),
+    tenantFormatContext(actor.tenantId),
+  ]);
   if (!assignment) notFound();
+
+  const canGrade = hasPermission(actor, PERMISSIONS.TENANT_GRADES_WRITE.key);
+  const ungraded = assignment.submissions.filter((s) => !s.grade).length;
 
   return (
     <div className="max-w-3xl">
-      <Link
-        href="/admin/assignments"
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
-      >
-        <Icon name="arrow-left" className="size-4" /> Assignments
-      </Link>
+      <PageHeader title={assignment.title} backHref="/admin/assignments" backLabel="Assignments" />
 
-      <div className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
-        <h1 className="font-heading text-2xl leading-tight">{assignment.title}</h1>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-muted-foreground">
-          <Badge color="var(--chart-1)">{assignment.course.title}</Badge>
+      <Card>
+        <div className="flex flex-wrap items-center gap-2 text-[12px] font-bold text-muted-foreground">
+          <Badge color="var(--chart-1)" className="max-w-full">
+            <span className="min-w-0 truncate">{assignment.course.title}</span>
+          </Badge>
           {assignment.publishedAt ? (
             <Badge color="var(--success)">Published</Badge>
           ) : (
             <Badge>Draft</Badge>
           )}
-          <span className="num">{assignment.maxPoints} pts</span>
+          <span className="num">Marked out of {assignment.maxPoints}</span>
           {assignment.dueAt ? (
-            <span className="num">· due {assignment.dueAt.toLocaleDateString()}</span>
+            <span className="num">· due {formatDate(assignment.dueAt, when)}</span>
           ) : null}
         </div>
         {assignment.description ? (
-          <p className="mt-3 text-sm font-medium leading-relaxed text-foreground">
+          <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-foreground">
             {assignment.description}
           </p>
-        ) : null}
-      </div>
+        ) : (
+          <p className="mt-3 text-sm font-medium text-muted-foreground">No instructions were given.</p>
+        )}
+      </Card>
 
-      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-        Submissions ({assignment.submissions.length})
-      </h2>
+      <div className="mb-3 mt-8 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-heading text-lg leading-tight">Submissions</h2>
+        <p className="num text-[13px] font-medium text-muted-foreground">
+          {assignment.submissions.length} handed in
+          {assignment.submissions.length > 0 ? ` · ${ungraded} still to mark` : ""}
+        </p>
+      </div>
 
       {assignment.submissions.length === 0 ? (
         <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
-          <EmptyState icon="clipboard">No submissions yet.</EmptyState>
+          <EmptyState icon="clipboard" title="Nothing handed in yet">
+            {assignment.publishedAt
+              ? "Work appears here as learners submit it."
+              : "This assignment is still a draft, so learners cannot see it or hand anything in."}
+          </EmptyState>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-3">
           {assignment.submissions.map((s) => (
-            <div
+            <li
               key={s.id}
               className="rounded-[14px] border-2 border-border bg-card p-4 shadow-sm"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-foreground">{clientName(s.client)}</span>
+                <h3 className="min-w-0 break-words font-bold text-foreground">{clientName(s.client)}</h3>
                 {s.grade ? (
                   <Badge color="var(--success)" rotate>
                     {s.grade.points}/{s.grade.maxPoints}
                   </Badge>
                 ) : (
-                  <Badge color="var(--warning)">Ungraded</Badge>
+                  <Badge color="var(--warning)">Not marked</Badge>
                 )}
-                <span className="num ml-auto text-[12px] font-bold text-muted-foreground">
-                  {s.submittedAt.toLocaleDateString()}
-                </span>
+                <time
+                  dateTime={s.submittedAt.toISOString()}
+                  className="num ml-auto text-[12px] font-bold text-muted-foreground"
+                >
+                  Handed in {formatDateTime(s.submittedAt, when)}
+                </time>
               </div>
 
               {s.textBody ? (
-                <p className="mt-3 whitespace-pre-wrap rounded-[10px] border-2 border-dashed border-border bg-muted p-3 text-sm font-medium text-foreground">
+                <p className="mt-3 whitespace-pre-wrap break-words rounded-[10px] border-2 border-dashed border-border bg-muted p-3 text-sm font-medium text-foreground">
                   {s.textBody}
                 </p>
               ) : null}
@@ -111,21 +128,31 @@ export default async function AdminAssignmentDetailPage({
                   href={s.linkUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold underline decoration-2 underline-offset-2"
+                  className="mt-3 inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-[8px] text-sm font-bold underline decoration-2 underline-offset-2 outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  <Icon name="external-link" className="size-4" /> Open submission
+                  <Icon name="external-link" aria-hidden className="size-4 shrink-0" />
+                  <span className="truncate">Open what they handed in</span>
+                  <span className="sr-only">(opens in a new tab)</span>
                 </a>
               ) : null}
 
-              <GradeForm
-                submissionId={s.id}
-                maxPoints={s.grade?.maxPoints ?? assignment.maxPoints}
-                initialPoints={s.grade?.points ?? null}
-                initialFeedback={s.grade?.feedback ?? null}
-              />
-            </div>
+              {canGrade ? (
+                <GradeForm
+                  submissionId={s.id}
+                  learnerName={clientName(s.client)}
+                  maxPoints={s.grade?.maxPoints ?? assignment.maxPoints}
+                  initialPoints={s.grade?.points ?? null}
+                  initialFeedback={s.grade?.feedback ?? null}
+                />
+              ) : s.grade?.feedback ? (
+                <p className="mt-3 text-sm font-medium text-foreground">
+                  <span className="font-bold">Feedback: </span>
+                  {s.grade.feedback}
+                </p>
+              ) : null}
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

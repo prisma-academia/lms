@@ -16,6 +16,9 @@ import { Segmented } from "@/components/ui/segmented";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
 import { formatBytes, formatDuration, formatDimensions } from "@/lib/media/format";
+import { formatDate, type FormatContext } from "@/lib/format";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { MEDIA_KIND_LABEL } from "@/lib/media/kind";
 import { AssignmentPicker } from "./assignment-picker";
 import { MediaThumb } from "./media-card";
@@ -34,6 +37,12 @@ type DrawerProps = {
   tags: LibraryTagRef[];
   canWrite: boolean;
   canAssign: boolean;
+  /**
+   * The academy's locale and time zone. Dates here are formatted in the browser
+   * (the item arrives from an API call), so the formatting must be told which
+   * locale and zone to use rather than fall back to the browser's.
+   */
+  formatContext?: FormatContext;
   onClose: () => void;
   onChanged: (patch: Partial<LibraryItemView>) => void;
   onDeleted: (id: string) => void;
@@ -61,11 +70,15 @@ function DetailsBody({
   tags,
   canWrite,
   canAssign,
+  formatContext,
   onClose,
   onChanged,
   onDeleted,
   onPreview,
 }: Omit<DrawerProps, "item"> & { item: LibraryItemView }) {
+  const confirm = useConfirm();
+  const { toast } = useToast();
+  const [deleting, setDeleting] = useState(false);
   const [grants, setGrants] = useState<GrantView[]>([]);
   const [draft, setDraft] = useState<LibraryItemView>(item);
   const [error, setError] = useState<string | null>(null);
@@ -126,9 +139,19 @@ function DetailsBody({
 
   async function remove() {
     if (!item) return;
-    if (!confirm(`Delete "${draft?.title || draft?.name}"? This removes the file permanently.`)) return;
+    const yes = await confirm({
+      title: `Delete “${draft?.title || draft?.name}”?`,
+      description:
+        "The file is removed from the library and from every lesson that uses it, for staff and learners alike. This cannot be undone.",
+      confirmLabel: "Delete file",
+      destructive: true,
+    });
+    if (!yes) return;
+    setDeleting(true);
     const res = await apiDelete(`/api/tenant/library/${item.id}`);
+    setDeleting(false);
     if (res.error) return setError(res.error.message);
+    toast("File deleted");
     onDeleted(item.id);
     onClose();
   }
@@ -156,7 +179,11 @@ function DetailsBody({
             </span>
           </button>
 
-          {error ? <p className="text-sm font-bold text-destructive">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="text-sm font-bold text-destructive">
+              {error}
+            </p>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-2 text-xs">
             <Fact label="Type" value={MEDIA_KIND_LABEL[draft.mediaKind]} />
@@ -167,7 +194,7 @@ function DetailsBody({
             {formatDimensions(draft.width, draft.height) ? (
               <Fact label="Dimensions" value={formatDimensions(draft.width, draft.height)!} />
             ) : null}
-            <Fact label="Added" value={new Date(draft.createdAt).toLocaleDateString()} />
+            <Fact label="Added" value={formatDate(draft.createdAt, formatContext)} />
             {(draft._count?.entitlements ?? 0) > 0 ? (
               <Fact label="Purchases" value={String(draft._count!.entitlements)} />
             ) : null}
@@ -325,10 +352,12 @@ function DetailsBody({
         </SheetBody>
 
         <SheetFooter className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">{saving ? "Saving…" : "Changes save as you edit."}</span>
+          <span className="text-xs text-muted-foreground" role="status">
+            {saving ? "Saving…" : "Changes save as you edit."}
+          </span>
           {canWrite ? (
-            <Button type="button" size="sm" variant="destructive" onClick={remove}>
-              <Icon name="trash" /> Delete
+            <Button type="button" size="sm" variant="destructive" onClick={remove} disabled={deleting}>
+              <Icon name="trash" aria-hidden /> {deleting ? "Deleting…" : "Delete file"}
             </Button>
           ) : null}
       </SheetFooter>
@@ -339,7 +368,7 @@ function DetailsBody({
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[8px] border-2 border-border bg-background px-2 py-1.5">
-      <span className="block text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="block text-[11px] font-bold text-muted-foreground">{label}</span>
       <span className="num block truncate font-bold">{value}</span>
     </div>
   );

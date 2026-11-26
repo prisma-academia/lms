@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useToast } from "@/components/ui/toast";
 
 type ProfileTenant = {
   id: string;
@@ -20,6 +21,7 @@ type ProfileTenant = {
 };
 
 export function TenantProfileForm({ tenant }: { tenant: ProfileTenant }) {
+  const { toast } = useToast();
   const [name, setName] = useState(tenant.name);
   const [companyEmail, setCompanyEmail] = useState(tenant.companyEmail ?? "");
   const [companyPhone, setCompanyPhone] = useState(tenant.companyPhone ?? "");
@@ -31,13 +33,11 @@ export function TenantProfileForm({ tenant }: { tenant: ProfileTenant }) {
   const [postalCode, setPostalCode] = useState(tenant.postalCode ?? "");
   const [country, setCountry] = useState(tenant.country ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setInfo(null);
     setPending(true);
     const res = await apiPatch(`/api/platform/tenants/${tenant.id}`, {
       name,
@@ -56,57 +56,110 @@ export function TenantProfileForm({ tenant }: { tenant: ProfileTenant }) {
       setError(res.error.message);
       return;
     }
-    setInfo("Profile saved.");
+    toast("Profile saved");
   }
 
   return (
     <form onSubmit={onSubmit} className="max-w-lg space-y-4">
       <FormField label="Academy name" htmlFor="tenant-name">
-        <TextInput id="tenant-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <TextInput
+          id="tenant-name"
+          name="name"
+          autoComplete="off"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
       </FormField>
-      <FormField label="Company email" htmlFor="tenant-email">
+      <FormField label="Email" htmlFor="tenant-email">
         <TextInput
           id="tenant-email"
+          name="companyEmail"
           type="email"
+          autoComplete="off"
+          spellCheck={false}
           value={companyEmail}
           onChange={(e) => setCompanyEmail(e.target.value)}
         />
       </FormField>
-      <FormField label="Company phone" htmlFor="tenant-phone">
-        <TextInput id="tenant-phone" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} />
+      <FormField label="Phone" htmlFor="tenant-phone">
+        <TextInput
+          id="tenant-phone"
+          name="companyPhone"
+          type="tel"
+          autoComplete="off"
+          value={companyPhone}
+          onChange={(e) => setCompanyPhone(e.target.value)}
+        />
       </FormField>
       <FormField label="Website" htmlFor="tenant-website">
-        <TextInput id="tenant-website" value={website} onChange={(e) => setWebsite(e.target.value)} />
+        <TextInput
+          id="tenant-website"
+          name="website"
+          inputMode="url"
+          autoComplete="off"
+          placeholder="https://…"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
       </FormField>
       <FormField label="Address line 1" htmlFor="tenant-addr1">
-        <TextInput id="tenant-addr1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+        <TextInput
+          id="tenant-addr1"
+          name="addressLine1"
+          autoComplete="off"
+          value={addressLine1}
+          onChange={(e) => setAddressLine1(e.target.value)}
+        />
       </FormField>
       <FormField label="Address line 2" htmlFor="tenant-addr2">
-        <TextInput id="tenant-addr2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} />
+        <TextInput
+          id="tenant-addr2"
+          name="addressLine2"
+          autoComplete="off"
+          value={addressLine2}
+          onChange={(e) => setAddressLine2(e.target.value)}
+        />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="City" htmlFor="tenant-city">
-          <TextInput id="tenant-city" value={city} onChange={(e) => setCity(e.target.value)} />
+          <TextInput id="tenant-city" name="city" autoComplete="off" value={city} onChange={(e) => setCity(e.target.value)} />
         </FormField>
-        <FormField label="Region" htmlFor="tenant-region">
-          <TextInput id="tenant-region" value={region} onChange={(e) => setRegion(e.target.value)} />
+        <FormField label="State or region" htmlFor="tenant-region">
+          <TextInput id="tenant-region" name="region" autoComplete="off" value={region} onChange={(e) => setRegion(e.target.value)} />
         </FormField>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Postal code" htmlFor="tenant-postal">
-          <TextInput id="tenant-postal" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+          <TextInput
+            id="tenant-postal"
+            name="postalCode"
+            autoComplete="off"
+            value={postalCode}
+            onChange={(e) => setPostalCode(e.target.value)}
+          />
         </FormField>
-        <FormField label="Country (ISO)" htmlFor="tenant-country">
+        <FormField
+          label="Country code"
+          htmlFor="tenant-country"
+          hint="Two letters, such as NG, GH or GB."
+        >
           <TextInput
             id="tenant-country"
+            name="country"
+            autoComplete="off"
+            spellCheck={false}
             value={country}
             onChange={(e) => setCountry(e.target.value.toUpperCase())}
             maxLength={2}
           />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {info ? <p className="text-sm text-green-700">{info}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save profile"}
       </Button>

@@ -141,7 +141,7 @@ export function RegisterWizard() {
         ) : null}
         {step === "otp" ? (
           <div className="flex flex-col gap-4">
-            {info ? <p className="text-sm font-medium text-green-700">{info}</p> : null}
+            {info ? <p className="text-sm font-medium text-success">{info}</p> : null}
             <FormField label="Verification code" htmlFor="code">
               <OtpInput
                 id="code"
@@ -218,7 +218,7 @@ function Steps({ current }: { current: Step }) {
       {items.map((it) => (
         <div
           key={it.key}
-          className={`rounded px-2 py-1 ${it.key === current ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-600"}`}
+          className={`rounded px-2 py-1 ${it.key === current ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
         >
           {it.label}
         </div>
@@ -385,7 +385,7 @@ function CompanyForm({
       <FormField label="Country" htmlFor="ctry" error={formState.errors.country?.message}>
         <SelectInput id="ctry" options={COUNTRY_OPTIONS} {...register("country")} />
       </FormField>
-      {error ? <p className="text-sm text-red-600 sm:col-span-2">{error}</p> : null}
+      {error ? <p className="text-sm text-destructive sm:col-span-2">{error}</p> : null}
       <div className="flex justify-between sm:col-span-2">
         <Button type="button" variant="outline" onClick={onBack} disabled={pending}>
           Back

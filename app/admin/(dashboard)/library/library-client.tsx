@@ -27,6 +27,7 @@ import {
 } from "@/components/library/library-dialogs";
 import { buildFolderTree, type LibraryItemView, type Named, type LibraryTagRef, type SortKey } from "@/components/library/types";
 import { formatBytes } from "@/lib/media/format";
+import type { FormatContext } from "@/lib/format";
 import { MEDIA_KIND_LABEL } from "@/lib/media/kind";
 
 type FolderRow = { id: string; name: string; parentId: string | null; count: number };
@@ -39,6 +40,7 @@ export function LibraryClient({
   tags: initialTags,
   storage,
   storageConfigured,
+  formatContext,
   canWrite,
   canAssign,
   totalCount,
@@ -48,6 +50,8 @@ export function LibraryClient({
   tags: LibraryTagRef[];
   storage: { used: number; reserved: number; quota: number };
   storageConfigured: boolean;
+  /** The academy's locale and time zone, for the dates shown in the details drawer. */
+  formatContext?: FormatContext;
   canWrite: boolean;
   canAssign: boolean;
   totalCount: number;
@@ -254,11 +258,11 @@ export function LibraryClient({
           <button
             type="button"
             onClick={() => setTab("uploads")}
-            className="flex min-w-48 flex-1 items-center gap-2 rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-left hover:bg-accent"
+            className="flex min-w-48 flex-1 items-center gap-2 rounded-[10px] border-2 border-border bg-card px-3 py-1.5 text-left hover:bg-accent outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <span className="num shrink-0 text-xs font-bold">Uploading {upload.activeCount}</span>
             <span className="min-w-0 flex-1">
-              <ProgressBar value={uploadPct} size="sm" color="var(--info)" aria-label="Upload progress" />
+              <ProgressBar value={uploadPct} size="sm" color="var(--info)" label="Upload progress" />
             </span>
             <span className="num shrink-0 text-xs text-muted-foreground">{uploadPct}%</span>
           </button>
@@ -549,6 +553,7 @@ export function LibraryClient({
       ) : null}
 
       <DetailsDrawer
+        formatContext={formatContext}
         item={openItem}
         folders={folderOptions}
         tags={tags}

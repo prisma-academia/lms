@@ -37,12 +37,19 @@ export function MediaDetail({ id }: { id: string }) {
   }, [id]);
 
   if (error) {
-    return <ErrorState title="Unavailable" message={error} onRetry={() => window.location.reload()} />;
+    return (
+      <ErrorState
+        title="This item can't be opened"
+        message={error}
+        retryLabel="Try again"
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
   if (!payload) {
     return (
       <div className="flex justify-center py-16">
-        <Spinner />
+        <Spinner label="Loading this item…" />
       </div>
     );
   }
@@ -54,8 +61,9 @@ export function MediaDetail({ id }: { id: string }) {
       <MediaViewer payload={payload} thumbUrl={`/api/client/library/${id}/thumb`} />
 
       <div>
-        <h1 className="font-heading text-xl">{displayTitle(item)}</h1>
-        <p className="num mt-1 text-sm text-muted-foreground">
+        {/* h2: the page header above already carries the page's h1. */}
+        <h2 className="break-words font-heading text-xl leading-tight">{displayTitle(item)}</h2>
+        <p className="num mt-1 text-sm font-medium text-muted-foreground">
           {MEDIA_KIND_LABEL[item.mediaKind]} · {formatBytes(item.sizeBytes)}
           {item.durationSeconds ? ` · ${formatDuration(item.durationSeconds)}` : ""}
           {item.folder ? ` · ${item.folder.name}` : ""}
@@ -63,7 +71,9 @@ export function MediaDetail({ id }: { id: string }) {
       </div>
 
       {item.description ? (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{item.description}</p>
+        <p className="max-w-[68ch] whitespace-pre-wrap break-words text-sm font-medium leading-relaxed">
+          {item.description}
+        </p>
       ) : null}
 
       {item.tags.length > 0 ? (
@@ -78,9 +88,10 @@ export function MediaDetail({ id }: { id: string }) {
         <a
           href={payload.playbackUrl}
           download={item.name}
-          className="inline-flex w-fit items-center gap-1.5 rounded-[10px] border-2 border-border bg-card px-3 py-2 text-sm font-bold shadow-sm transition-transform hover:-translate-y-px active:translate-y-px"
+          className="inline-flex min-h-11 w-fit items-center gap-1.5 rounded-[10px] border-2 border-border bg-card px-4 py-2 text-sm font-bold shadow-sm outline-none transition-transform [touch-action:manipulation] hover:-translate-y-px focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px"
         >
-          <Icon name="download" className="size-4" /> Download
+          <Icon name="download" className="size-4" aria-hidden /> Download
+          <span className="num font-medium text-muted-foreground">({formatBytes(item.sizeBytes)})</span>
         </a>
       ) : null}
     </div>

@@ -9,6 +9,7 @@ import {
 } from "@/lib/schemas/course-builder";
 import { isChoiceQuestion } from "@/lib/schemas/question";
 import { parseRubric } from "@/lib/schemas/essay-grading";
+import { lessonHeadingsOf } from "@/lib/content/lesson-headings";
 
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
@@ -46,6 +47,24 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
       : [];
     const quizById = new Map(quizzes.map((q) => [q.id, q]));
 
+    const lessonById = new Map(course.lessons.map((l) => [l.id, l] as const));
+    function sourceFor(question: {
+      sourceLessonId: string | null;
+      sourceAnchor: string | null;
+      sourceExcerpt: string | null;
+    }) {
+      const lesson = question.sourceLessonId ? lessonById.get(question.sourceLessonId) : undefined;
+      if (!lesson) return null;
+      const heading = question.sourceAnchor
+        ? lessonHeadingsOf(lesson.contentType, lesson.contentJson).find((h) => h.id === question.sourceAnchor)
+        : undefined;
+      return {
+        lessonTitle: lesson.title,
+        heading: heading?.text ?? null,
+        quote: question.sourceExcerpt,
+      };
+    }
+
     function exportLesson(lesson: (typeof course & object)["lessons"][number]): GeneratedLesson {
       const json = lesson.contentJson as Record<string, unknown>;
       let quiz: GeneratedQuiz | null = null;
@@ -72,6 +91,12 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
                   question.type === "SHORT_ANSWER" ? asStringArray(question.answerJson) : [],
                 rubric: question.type === "ESSAY" ? parseRubric(question.rubricJson) : null,
                 points: link.points ?? question.points,
+                hint: question.hint,
+                // Exported by lesson title and heading text, the same way the
+                // import resolves them — ids mean nothing in another course.
+                // A source in a different course is left out: its lesson is
+                // not part of this document.
+                source: sourceFor(question),
               };
             }),
           };

@@ -21,6 +21,7 @@ import {
 import { readFileSync } from "node:fs";
 import { LESSON_BLOCKS, lessonBlockGuide } from "../lib/content/lesson-blocks";
 import { sanitizeHtml } from "../lib/content/sanitize-html";
+import { reviveAiError } from "../lib/ai/run";
 
 const args = process.argv.slice(2);
 const runAi = args.includes("--ai");
@@ -63,16 +64,39 @@ const TEMPLATE = {
             description: null,
             passingScore: 70,
             questions: [
-              { type: "SINGLE_CHOICE", prompt: "Pick A", options: ["A", "B"], correctOptionIndexes: [0] },
+              {
+                type: "SINGLE_CHOICE",
+                prompt: "Pick A",
+                options: ["A", "B"],
+                correctOptionIndexes: [0],
+                hint: "  It comes first in the alphabet.  ",
+                // Cited the way a model cites: different case, by title and text.
+                source: { lessonTitle: "core ideas", heading: "IDEAS", quote: " Body text. " },
+              },
               // Deliberately wrong options: apply must normalise these.
-              { type: "TRUE_FALSE", prompt: "The sky is blue", options: ["Yes", "No"], correctOptionIndexes: [0] },
+              {
+                type: "TRUE_FALSE",
+                prompt: "The sky is blue",
+                options: ["Yes", "No"],
+                correctOptionIndexes: [0],
+                // The lesson exists; the heading does not.
+                source: { lessonTitle: "Welcome", heading: "A heading nobody wrote" },
+              },
               {
                 type: "MULTIPLE_CHOICE",
                 prompt: "Pick A and C",
                 options: ["A", "B", "C"],
                 correctOptionIndexes: [0, 2],
+                // No such lesson anywhere in the document.
+                source: { lessonTitle: "A lesson nobody wrote" },
               },
-              { type: "SHORT_ANSWER", prompt: "Capital of France?", acceptedAnswers: ["Paris"] },
+              {
+                type: "SHORT_ANSWER",
+                prompt: "Capital of France?",
+                acceptedAnswers: ["Paris"],
+                // A real lesson, but a video placeholder: nothing to read up on.
+                source: { lessonTitle: "Recorded walkthrough" },
+              },
             ],
           },
         },
@@ -92,16 +116,20 @@ const TEMPLATE = {
 };
 
 async function runWorkflow(input: CourseBuilderInput): Promise<GeneratedCourse> {
-  const { mastra } = await import("../src/mastra");
+  const { getMastra } = await import("../src/mastra");
+  const mastra = await getMastra();
   const workflow = mastra.getWorkflow("courseBuilderWorkflow");
   const run = await workflow.createRun();
   const result = await run.start({ inputData: input });
   if (result.status !== "success") {
-    const detail =
-      result.status === "failed" && result.error instanceof Error
-        ? result.error.message
-        : `status "${result.status}"`;
-    throw new Error(`Workflow did not succeed: ${detail}`);
+    // A failed run's `error` is a plain object, not an Error instance.
+    const cause = reviveAiError(
+      result.status === "failed" ? result.error : `status "${result.status}"`
+    );
+    throw new Error(`Workflow did not succeed (${cause.code}): ${cause.detail || cause.userMessage}`);
+  }
+  for (const warning of result.result.warnings ?? []) {
+    console.log(`  warning: ${warning.kind} "${warning.title}" (${warning.module}) — ${warning.reason}`);
   }
   return result.result.course;
 }
@@ -172,6 +200,7 @@ async function main() {
         sourceJson: JSON.stringify(TEMPLATE),
         allowPlaceholders: true,
         allowEssays: false,
+        quizPassMark: null,
       });
       eq("workflow fast path returns the template's modules", fromWorkflow.groups.length, 2);
       eq(
@@ -196,7 +225,7 @@ async function main() {
       const lessons = await prisma.lesson.findMany({
         where: { courseId: course.id },
         orderBy: { sortOrder: "asc" },
-        select: { title: true, sortOrder: true, contentType: true, contentJson: true, groupId: true },
+        select: { id: true, title: true, sortOrder: true, contentType: true, contentJson: true, groupId: true },
       });
       eq(
         "lessons land in outline order",
@@ -211,7 +240,12 @@ async function main() {
       check("every lesson is attached to a group", lessons.every((l) => l.groupId != null));
 
       const html = (lessons[1].contentJson as { html?: string }).html ?? "";
-      check("HTML lesson keeps its markup", html.includes("<h2>Ideas</h2>"), html);
+      check("HTML lesson keeps its markup", html.includes(">Ideas</h2>") && html.includes("<p>Body text.</p>"), html);
+      check(
+        "HTML lesson headings are stored with an anchor to link to",
+        html.includes('<h2 id="sec-ideas">Ideas</h2>'),
+        html
+      );
       check("HTML lesson is sanitised on write", !html.toLowerCase().includes("<script"), html);
       eq(
         "TEXT lesson keeps its body",
@@ -230,7 +264,21 @@ async function main() {
           passingScore: true,
           questions: {
             orderBy: { sortOrder: "asc" },
-            select: { question: { select: { type: true, prompt: true, optionsJson: true, answerJson: true, bankId: true } } },
+            select: {
+              question: {
+                select: {
+                  type: true,
+                  prompt: true,
+                  optionsJson: true,
+                  answerJson: true,
+                  bankId: true,
+                  hint: true,
+                  sourceLessonId: true,
+                  sourceAnchor: true,
+                  sourceExcerpt: true,
+                },
+              },
+            },
           },
         },
       });
@@ -255,6 +303,30 @@ async function main() {
       eq("choice answers store indexes", quiz?.questions[2].question.answerJson, [0, 2]);
       eq("short answers store accepted text", quiz?.questions[3].question.answerJson, ["Paris"]);
       eq("short answer carries no options", quiz?.questions[3].question.optionsJson, []);
+
+      // Hints, and where each question was drawn from. A source is written as a
+      // lesson title and heading text; apply has to turn that into real ids.
+      eq(
+        "a hint is stored, trimmed; a question without one stores none",
+        quiz?.questions.map((q) => q.question.hint),
+        ["It comes first in the alphabet.", null, null, null]
+      );
+      const sourceOf = (i: number) => {
+        const q = quiz?.questions[i].question;
+        return q ? [q.sourceLessonId, q.sourceAnchor, q.sourceExcerpt] : null;
+      };
+      eq(
+        "a cited lesson and heading resolve to that lesson's id and the heading's anchor",
+        sourceOf(0),
+        [lessons[1].id, "sec-ideas", "Body text."]
+      );
+      eq(
+        "a heading that is not in the lesson leaves a link to the lesson itself",
+        sourceOf(1),
+        [lessons[0].id, null, null]
+      );
+      eq("a lesson that is not in the document leaves no link", sourceOf(2), [null, null, null]);
+      eq("a lesson with nothing to read is never a source", sourceOf(3), [null, null, null]);
 
       // --- 3. Applying again appends instead of overwriting ---
       const second = await applyGeneratedCourse({
@@ -340,6 +412,7 @@ async function main() {
           sourceJson: null,
           allowPlaceholders: false,
           allowEssays: false,
+        quizPassMark: null,
         });
         check("AI generation returns at least one module", generated.groups.length >= 1);
         check(

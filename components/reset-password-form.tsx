@@ -7,20 +7,24 @@ import { z } from "zod";
 import Link from "next/link";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
-import { FormField, TextInput } from "@/components/form-field";
+import { FormField } from "@/components/form-field";
+import { PasswordInput } from "@/components/password-input";
 import { useApiError } from "@/components/use-api-error";
 
 const Schema = z
   .object({
-    password: z.string().min(12, "At least 12 characters."),
-    confirm: z.string().min(12),
+    password: z.string().min(12, "Use at least 12 characters."),
+    confirm: z.string().min(1, "Type the password again."),
   })
   .refine((v) => v.password === v.confirm, {
     path: ["confirm"],
-    message: "Passwords do not match.",
+    message: "The two passwords don't match.",
   });
 
 type Values = z.infer<typeof Schema>;
+
+const TEXT_LINK =
+  "inline-flex min-h-9 items-center rounded-[6px] font-bold underline decoration-primary decoration-2 underline-offset-2 outline-none hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function ResetPasswordForm({
   token,
@@ -55,19 +59,38 @@ export function ResetPasswordForm({
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <FormField label="New password" htmlFor="pw" error={formState.errors.password?.message}>
-        <TextInput id="pw" type="password" autoComplete="new-password" {...register("password")} />
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <FormField
+        label="New password"
+        htmlFor="pw"
+        hint="At least 12 characters, with a capital letter, a small letter, a number and a symbol."
+        error={formState.errors.password?.message}
+      >
+        <PasswordInput
+          id="pw"
+          autoComplete="new-password"
+          aria-invalid={formState.errors.password ? true : undefined}
+          {...register("password")}
+        />
       </FormField>
-      <FormField label="Confirm password" htmlFor="cf" error={formState.errors.confirm?.message}>
-        <TextInput id="cf" type="password" autoComplete="new-password" {...register("confirm")} />
+      <FormField label="Confirm new password" htmlFor="cf" error={formState.errors.confirm?.message}>
+        <PasswordInput
+          id="cf"
+          autoComplete="new-password"
+          aria-invalid={formState.errors.confirm ? true : undefined}
+          {...register("confirm")}
+        />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={formState.isSubmitting}>
-        {formState.isSubmitting ? "Saving…" : "Update password"}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit" size="lg" disabled={formState.isSubmitting}>
+        {formState.isSubmitting ? "Saving…" : "Save new password"}
       </Button>
-      <p className="text-center text-xs text-stone-500">
-        <Link href={backHref} className="underline">
+      <p className="text-center text-[13px] font-medium text-muted-foreground">
+        <Link href={backHref} className={TEXT_LINK}>
           {backLabel}
         </Link>
       </p>

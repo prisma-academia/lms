@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { PermissionPicker } from "./permission-picker";
 
 export function RoleEditor({
   permissions,
@@ -19,17 +20,11 @@ export function RoleEditor({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function toggle(p: string) {
-    const next = new Set(selected);
-    if (next.has(p)) next.delete(p);
-    else next.add(p);
-    setSelected(next);
-  }
-
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
     if (!name.trim()) {
-      setError("Name is required.");
+      setError("Give the role a name.");
       return;
     }
     setPending(true);
@@ -48,24 +43,35 @@ export function RoleEditor({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <FormField label="Role name" htmlFor="rname">
-        <TextInput id="rname" value={name} onChange={(e) => setName(e.target.value)} />
+    <form onSubmit={submit} className="flex flex-col gap-5">
+      <FormField
+        label="Role name"
+        htmlFor="rname"
+        hint="What you would call this job — for example “Course author” or “Finance officer”."
+        className="max-w-md"
+      >
+        <TextInput
+          id="rname"
+          name="name"
+          autoComplete="off"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </FormField>
-      <div className="grid grid-cols-2 gap-2 rounded border border-stone-200 p-3 text-sm">
-        {permissions.map((p) => (
-          <label key={p} className="flex items-center gap-2">
-            <input type="checkbox" checked={selected.has(p)} onChange={() => toggle(p)} />
-            <span className="font-mono text-xs">{p}</span>
-          </label>
-        ))}
-      </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <div>
-        <Button onClick={submit} disabled={pending}>
-          {pending ? "Saving…" : "Create role"}
+        <h2 className="mb-2 text-[13px] font-bold text-foreground">What this role can do</h2>
+        <PermissionPicker permissions={permissions} selected={selected} onChange={setSelected} />
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Creating…" : "Create role"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

@@ -23,6 +23,11 @@ export type ImageRules = {
   maxAspect: number;
   /** How the aspect window reads to a human, e.g. "between 1:3 and 3:1". */
   aspectHint: string;
+  /**
+   * Why the minimum size exists, completing "must be at least N×N pixels …".
+   * Defaults to the branding reason; set it for anything that is not a logo.
+   */
+  minSideReason?: string;
 };
 
 export const LOGO_RULES: ImageRules = {
@@ -43,6 +48,22 @@ export const FAVICON_RULES: ImageRules = {
   minAspect: 0.8,
   maxAspect: 1.25,
   aspectHint: "roughly square (between 0.8 and 1.25)",
+};
+
+/**
+ * A learner's profile photo. The limits apply to the file as picked: it is
+ * cropped square and scaled down by `squareImage` before it is sent, so a
+ * photo straight off a phone camera is fine and the aspect window is wide.
+ */
+export const AVATAR_RULES: ImageRules = {
+  label: "Photo",
+  types: ["image/png", "image/jpeg", "image/webp"],
+  maxBytes: 15 * 1024 * 1024,
+  minSidePx: 128,
+  minAspect: 1 / 4,
+  maxAspect: 4,
+  aspectHint: "no more than four times as wide as it is tall, or the reverse",
+  minSideReason: "so it stays sharp",
 };
 
 export function formatBytes(bytes: number): string {
@@ -137,7 +158,9 @@ export async function precheckImage(
   if (width < rules.minSidePx || height < rules.minSidePx) {
     return `${name} is ${width}×${height} pixels. The ${rules.label.toLowerCase()} must be at least ${
       rules.minSidePx
-    }×${rules.minSidePx} pixels so the generated favicon and social image stay sharp.`;
+    }×${rules.minSidePx} pixels ${
+      rules.minSideReason ?? "so the generated favicon and social image stay sharp"
+    }.`;
   }
   const aspect = width / height;
   if (aspect < rules.minAspect || aspect > rules.maxAspect) {
@@ -149,6 +172,46 @@ export async function precheckImage(
     } — crop the surrounding whitespace and try again.`;
   }
   return null;
+}
+
+/**
+ * Crop an image to a centred square and scale it down to `size` pixels.
+ *
+ * A profile photo is shown at 96px at most; sending a 6 MB camera original for
+ * that wastes the learner's data and the academy's storage. The result is
+ * WebP where the browser can encode it and PNG where it cannot.
+ *
+ * Returns the original file untouched if anything here is unavailable or
+ * fails — an old browser should still be able to upload a photo, and the
+ * server enforces its own size limit either way.
+ */
+export async function squareImage(file: File, size = 512): Promise<File> {
+  if (typeof document === "undefined" || typeof createImageBitmap !== "function") return file;
+  try {
+    // `from-image` applies the EXIF rotation, so a portrait phone photo is not
+    // stored lying on its side.
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const side = Math.min(bitmap.width, bitmap.height);
+    if (side <= 0) return file;
+    const out = Math.min(size, side);
+    const canvas = document.createElement("canvas");
+    canvas.width = out;
+    canvas.height = out;
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, out, out);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.86));
+    if (!blob || blob.size === 0) return file;
+    // A browser that cannot encode WebP hands back a PNG instead of failing.
+    const extension = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : null;
+    if (!extension) return file;
+    return new File([blob], `photo.${extension}`, { type: blob.type });
+  } catch {
+    return file;
+  }
 }
 
 function hostOf(url: string): string {

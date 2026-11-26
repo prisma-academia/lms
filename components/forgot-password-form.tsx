@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
 import { useApiError } from "@/components/use-api-error";
 
-const Schema = z.object({ email: z.email() });
+const Schema = z.object({ email: z.email("Enter your email address, like name@example.com.") });
 type Values = z.infer<typeof Schema>;
+
+const TEXT_LINK =
+  "inline-flex min-h-9 items-center rounded-[6px] font-bold underline decoration-primary decoration-2 underline-offset-2 outline-none hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export function ForgotPasswordForm({
   surface,
@@ -46,11 +49,13 @@ export function ForgotPasswordForm({
   if (done) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-stone-600">
-          If an account exists for that email, we sent a reset link. Check your inbox (and spam).
+        {/* Deliberately does not say whether the address has an account. */}
+        <p role="status" className="text-sm font-medium text-foreground">
+          If there&rsquo;s an account for that email, a reset link is on its way. Check your inbox
+          and your spam folder. The link works for a limited time.
         </p>
-        <p className="text-center text-xs text-stone-500">
-          <Link href={backHref} className="underline">
+        <p className="text-center text-[13px] font-medium text-muted-foreground">
+          <Link href={backHref} className={TEXT_LINK}>
             {backLabel}
           </Link>
         </p>
@@ -59,16 +64,29 @@ export function ForgotPasswordForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <FormField label="Email" htmlFor="email" error={formState.errors.email?.message}>
-        <TextInput id="email" type="email" autoComplete="email" {...register("email")} />
+        <TextInput
+          id="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="none"
+          spellCheck={false}
+          aria-invalid={formState.errors.email ? true : undefined}
+          {...register("email")}
+        />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={formState.isSubmitting}>
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <Button type="submit" size="lg" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Sending…" : "Send reset link"}
       </Button>
-      <p className="text-center text-xs text-stone-500">
-        <Link href={backHref} className="underline">
+      <p className="text-center text-[13px] font-medium text-muted-foreground">
+        <Link href={backHref} className={TEXT_LINK}>
           {backLabel}
         </Link>
       </p>

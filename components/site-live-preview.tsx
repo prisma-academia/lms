@@ -1,91 +1,71 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { renderTemplate, type VariableContext } from "@/lib/site/template";
+import type { VariableContext } from "@/lib/site/template";
+import { previewDocument } from "@/lib/site/preview-document";
+import type { SitePageKind } from "@/lib/site/site-api";
 import { cn } from "@/lib/utils";
 
 /**
- * The as-you-type preview for a site page.
+ * The as-you-type preview for a site document.
+ *
+ * It runs the same two steps the server does — fill in the variables, then
+ * sanitize for this kind of page (see lib/site/preview-document.ts) — so the
+ * preview is what a visitor will get, not what was typed: a `<script>`, or a
+ * sign-in form on a page that may not have one, is already gone here.
  *
  * Rendered into `<iframe sandbox="">` — an empty sandbox, with neither
- * `allow-scripts` nor `allow-same-origin`. That is what makes it safe to show
- * the author's source *before* it has been through the server sanitizer: the
- * browser refuses to execute script in the frame and the frame cannot reach the
- * parent origin, so a half-typed `<script>` previews as inert markup instead of
- * running inside the admin app.
+ * `allow-scripts` nor `allow-same-origin`. The sanitizer is one lock; this is
+ * the other. Nothing in the frame can run, submit a form, or reach the admin
+ * page around it.
  *
- * It uses the same `renderTemplate` the server does, so variables resolve
- * identically. What it deliberately does NOT reproduce is the sanitizer and the
- * site header/footer — both are server-side, and faking them here would mean a
- * second implementation to drift out of step with the real one. The editor says
- * so plainly and swaps to the real server render on save.
+ * What it does not show is the application around the page: the built-in
+ * header and footer, and the visitor's theme. The header and footer appear
+ * when their markup is passed in; the saved preview shows the rest.
  */
 
 const DEVICE_WIDTHS = { desktop: null, tablet: 820, mobile: 390 } as const;
 export type PreviewDevice = keyof typeof DEVICE_WIDTHS;
 
-function frameDocument(body: string, brandColor: string): string {
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  :root { --sb-brand: ${brandColor.replace(/[^\w#(),.%\s-]/g, "")}; --border: #e7e5e4; --card: #ffffff; }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: #1c1917;
-    background: #fff;
-    line-height: 1.6;
-  }
-  img { max-width: 100%; }
-</style>
-</head>
-<body>${body}</body>
-</html>`;
-}
-
 export function SiteLivePreview({
   source,
   context,
+  kind = "PAGE",
+  header,
+  footer,
+  sharedCss,
   device = "desktop",
   height = 620,
   className,
+  title = "Live preview",
   /** Debounce in ms. Long enough to not re-render mid-word. */
   delay = 300,
 }: {
   source: string;
   context: VariableContext | null;
+  /** What kind of page this is: decides which forms survive. */
+  kind?: SitePageKind;
+  /** The site's own header and footer, to show the page inside them. */
+  header?: string | null;
+  footer?: string | null;
+  sharedCss?: string | null;
   device?: PreviewDevice;
   height?: number;
   className?: string;
+  title?: string;
   delay?: number;
 }) {
-  const [debounced, setDebounced] = useState(source);
+  const [debounced, setDebounced] = useState({ source, header, footer, sharedCss });
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(source), delay);
+    const t = setTimeout(() => setDebounced({ source, header, footer, sharedCss }), delay);
     return () => clearTimeout(t);
-  }, [source, delay]);
+  }, [source, header, footer, sharedCss, delay]);
 
-  const srcDoc = useMemo(() => {
-    if (!context) return frameDocument("", "#0f172a");
-    let body: string;
-    try {
-      body = renderTemplate(debounced, context);
-    } catch {
-      // The engine is written not to throw, but a preview that renders nothing
-      // is still better than one that takes the editor down with it.
-      body = "";
-    }
-    const brand =
-      typeof (context.tenant as Record<string, unknown> | undefined)?.primaryColor === "string"
-        ? ((context.tenant as Record<string, string>).primaryColor)
-        : "#0f172a";
-    return frameDocument(body, brand);
-  }, [debounced, context]);
+  const srcDoc = useMemo(
+    () => previewDocument({ ...debounced, kind }, context).srcDoc,
+    [debounced, kind, context]
+  );
 
   const width = DEVICE_WIDTHS[device];
 
@@ -98,12 +78,11 @@ export function SiteLivePreview({
       style={{ height }}
     >
       <iframe
-        // An empty sandbox is the security boundary here. Do not add
-        // allow-scripts or allow-same-origin: this frame renders unsanitized
-        // author input by design.
+        // An empty sandbox is a security boundary here. Do not add
+        // allow-scripts, allow-forms or allow-same-origin.
         sandbox=""
         srcDoc={srcDoc}
-        title="Live preview"
+        title={title}
         className="h-full rounded-[10px] border border-border bg-white"
         style={{ width: width ? `${width}px` : "100%", maxWidth: "100%" }}
       />

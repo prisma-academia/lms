@@ -3,7 +3,12 @@ import type {
   CompletionContext,
   CompletionResult,
 } from "@codemirror/autocomplete";
-import { SITE_VARIABLES, GROUP_LABELS, type VariableDef } from "@/lib/site/variables";
+import {
+  SITE_VARIABLES,
+  GROUP_LABELS,
+  variablesForKind,
+  type VariableDef,
+} from "@/lib/site/variables";
 
 /**
  * Autocomplete for `{{ }}` inside the site builder's HTML editor.
@@ -109,7 +114,16 @@ export function variableCompletion(variables: VariableDef[]) {
     completeFrom(variables, context);
 }
 
-/** The site builder's instance. */
+/**
+ * The site builder's completion for a page of one kind: only the variables
+ * that exist on that kind of page. Offering `course.title` on the home page
+ * would complete to something that resolves to nothing.
+ */
+export function siteVariableCompletionFor(kind: string | null | undefined) {
+  return variableCompletion(variablesForKind(kind));
+}
+
+/** Every site variable, whatever the page. Prefer `siteVariableCompletionFor`. */
 export function siteVariableCompletion(
   context: CompletionContext
 ): CompletionResult | null {

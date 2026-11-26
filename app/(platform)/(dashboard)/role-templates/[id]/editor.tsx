@@ -4,6 +4,8 @@ import { useState } from "react";
 import { apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
+import { useToast } from "@/components/ui/toast";
+import { PermissionPicker } from "../permission-picker";
 
 export function RoleDetailEditor({
   id,
@@ -21,22 +23,15 @@ export function RoleDetailEditor({
   endpoint: string;
 }) {
   void id;
+  const { toast } = useToast();
   const [n, setN] = useState(name);
   const [selected, setSelected] = useState<Set<string>>(new Set(initial));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
 
-  function toggle(p: string) {
-    const next = new Set(selected);
-    if (next.has(p)) next.delete(p);
-    else next.add(p);
-    setSelected(next);
-  }
-
-  async function save() {
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
-    setInfo(null);
     setPending(true);
     const res = await apiPatch(endpoint, {
       ...(isSystem ? {} : { name: n }),
@@ -47,34 +42,48 @@ export function RoleDetailEditor({
       setError(res.error.message);
       return;
     }
-    setInfo("Saved.");
+    toast("Role saved");
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <FormField label="Role name" htmlFor="rn">
-        <TextInput id="rn" value={n} onChange={(e) => setN(e.target.value)} disabled={isSystem} />
+    <form onSubmit={save} className="flex flex-col gap-5">
+      <FormField
+        label="Role name"
+        htmlFor="rn"
+        hint={
+          isSystem
+            ? "Built-in roles cannot be renamed, and the Owner role cannot lose permissions."
+            : undefined
+        }
+        className="max-w-md"
+      >
+        <TextInput
+          id="rn"
+          name="name"
+          autoComplete="off"
+          value={n}
+          onChange={(e) => setN(e.target.value)}
+          disabled={isSystem}
+        />
       </FormField>
-      {isSystem ? (
-        <p className="text-xs text-stone-500">
-          System roles cannot be renamed. Built-in Owner role permissions cannot be reduced.
+      <div>
+        <h2 className="mb-2 text-[13px] font-bold text-foreground">What this role can do</h2>
+        <PermissionPicker permissions={allPermissions} selected={selected} onChange={setSelected} />
+      </div>
+      <p className="text-[13px] font-medium text-muted-foreground">
+        Changing a role does not change people who already have it. To update someone, open
+        their page and apply the role again.
+      </p>
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
         </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-2 rounded border border-stone-200 p-3 text-sm">
-        {allPermissions.map((p) => (
-          <label key={p} className="flex items-center gap-2">
-            <input type="checkbox" checked={selected.has(p)} onChange={() => toggle(p)} />
-            <span className="font-mono text-xs">{p}</span>
-          </label>
-        ))}
-      </div>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {info ? <p className="text-sm text-green-700">{info}</p> : null}
       <div>
-        <Button onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save"}
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save changes"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

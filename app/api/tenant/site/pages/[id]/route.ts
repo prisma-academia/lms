@@ -6,7 +6,8 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { getPageTemplate, PAGE_TEMPLATE_IDS } from "@/lib/site/page-templates";
-import { analyzeSource, htmlSourceSchema } from "@/lib/site/source";
+import { analyzeSource, htmlSourceSchema, publishProblems } from "@/lib/site/source";
+import { findPageKind } from "@/lib/site/site-api";
 import { isReservedSlug, slugify, toRow } from "@/lib/site/pages";
 
 const PatchBody = z.object({
@@ -52,8 +53,15 @@ export async function PATCH(request: Request, ctx: Ctx) {
     });
     if (!before) throw new DomainError(404, "not_found", "Page not found.");
 
+    const kind = findPageKind(before.kind);
+    const special = kind.kind !== "PAGE";
+    if (special && body.setHome) {
+      throw new DomainError(400, "not_a_page", `A ${kind.label.toLowerCase()} cannot be the home page.`);
+    }
+
     let slug = before.slug;
-    if (body.slug !== undefined && !before.isHome) {
+    // A special page's slug is fixed: it is how the page is found for its kind.
+    if (body.slug !== undefined && !before.isHome && !special) {
       slug = slugify(body.slug);
       if (!slug) throw new DomainError(400, "bad_slug", "Slug cannot be empty.");
       if (isReservedSlug(slug)) {
@@ -76,6 +84,20 @@ export async function PATCH(request: Request, ctx: Ctx) {
       htmlSource = body.htmlSource;
     }
 
+    // Going live — or staying live with new content — must leave a special
+    // page that works. Checked against the source as it WILL be.
+    const willBePublished = (body.status ?? before.status) === "PUBLISHED";
+    if (special && willBePublished) {
+      const problems = publishProblems(htmlSource ?? before.htmlSource, kind.kind);
+      if (problems.length > 0) {
+        throw new DomainError(
+          400,
+          "page_not_ready",
+          `${problems.join(" ")} Until that is fixed, visitors keep seeing the standard screen — save it as a draft to keep working on it.`
+        );
+      }
+    }
+
     if (body.setHome) {
       await prisma.sitePage.updateMany({
         where: { tenantId: actor.tenantId, isHome: true },
@@ -87,9 +109,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
       where: { id },
       data: {
         ...(body.title !== undefined ? { title: body.title } : {}),
-        ...(body.slug !== undefined && !before.isHome ? { slug } : {}),
+        ...(body.slug !== undefined && !before.isHome && !special ? { slug } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
-        ...(body.showInNav !== undefined ? { showInNav: body.showInNav } : {}),
+        ...(body.showInNav !== undefined && !special ? { showInNav: body.showInNav } : {}),
         ...(body.navOrder !== undefined ? { navOrder: body.navOrder } : {}),
         ...(body.seoTitle !== undefined ? { seoTitle: body.seoTitle } : {}),
         ...(body.seoDescription !== undefined
@@ -120,7 +142,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
 
     return ok({
       page: toRow(page),
-      ...analyzeSource(page.htmlSource, `sp-${page.id}`),
+      ...analyzeSource(page.htmlSource, `sp-${page.id}`, kind.kind),
     });
   } catch (e) {
     return handleError(e);

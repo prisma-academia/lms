@@ -7,7 +7,12 @@ export default async function NewPlatformRolePage() {
   await requirePlatformPage(PERMISSIONS.PLATFORM_ROLES_WRITE.key);
   return (
     <div>
-      <PageHeader title="New platform role" backHref="/role-templates" backLabel="Roles" />
+      <PageHeader
+        title="New platform role"
+        subtitle="Name the role, then tick what it should be able to do."
+        backHref="/role-templates"
+        backLabel="Platform roles"
+      />
       <Card>
         <RoleEditor permissions={ALL_PLATFORM_PERMISSION_KEYS} scope="platform" />
       </Card>

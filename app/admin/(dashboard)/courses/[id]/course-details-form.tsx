@@ -5,10 +5,20 @@ import { useRouter } from "next/navigation";
 import { apiPatch } from "@/lib/client/api";
 import { uploadViaPresign } from "@/lib/client/upload";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/shell";
-import { FormField, SelectInput, TextInput } from "@/components/form-field";
+import { FormField, SelectInput, TextArea, TextInput } from "@/components/form-field";
+import { Icon } from "@/components/icon";
+import { useToast } from "@/components/ui/toast";
+import { useSavedSnapshot, useUnsavedGuard } from "@/components/use-unsaved-guard";
 import type { SelectOption } from "@/lib/geo/options";
 import type { CourseInitial } from "./course-types";
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  PUBLISHED: "Published",
+  ARCHIVED: "Archived",
+};
 
 export function CourseDetailsForm({
   initial,
@@ -20,6 +30,7 @@ export function CourseDetailsForm({
   currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [title, setTitle] = useState(initial.title);
   const [slug, setSlug] = useState(initial.slug);
   const [description, setDescription] = useState(initial.description);
@@ -31,8 +42,12 @@ export function CourseDetailsForm({
   const [visibility, setVisibility] = useState(initial.visibility);
 
   const [courseError, setCourseError] = useState<string | null>(null);
-  const [courseInfo, setCourseInfo] = useState<string | null>(null);
   const [coursePending, setCoursePending] = useState(false);
+
+  // Closing or reloading the tab over unsaved details asks first. Status is
+  // left out: it only changes through Publish/Unpublish, which save at once.
+  const saved = useSavedSnapshot({ title, slug, description, price, currency, visibility });
+  useUnsavedGuard(canWrite && saved.dirty);
 
   const thumbRef = useRef<HTMLInputElement>(null);
   const [thumbBusy, setThumbBusy] = useState(false);
@@ -59,19 +74,18 @@ export function CourseDetailsForm({
       setCourseError(res.error.message);
       return;
     }
-    setCourseInfo("Thumbnail updated.");
+    toast("Thumbnail updated.");
     router.refresh();
   }
 
   async function saveCourse(patch?: { status?: string }) {
     setCourseError(null);
-    setCourseInfo(null);
     setCoursePending(true);
 
     const priceCents =
       price.trim() === "" ? null : Math.round(parseFloat(price) * 100);
     if (price.trim() !== "" && (Number.isNaN(priceCents) || priceCents! < 0)) {
-      setCourseError("Enter a valid price.");
+      setCourseError("Enter a valid price, or leave it empty for a free course.");
       setCoursePending(false);
       return;
     }
@@ -94,7 +108,16 @@ export function CourseDetailsForm({
       return;
     }
     if (res.data?.course.status) setStatus(res.data.course.status);
-    setCourseInfo("Course saved.");
+    saved.markSaved();
+    // Say what actually happened: "saved" after pressing Publish reads as if
+    // the publish did not take.
+    toast(
+      patch?.status === "PUBLISHED"
+        ? "Course published."
+        : patch?.status === "DRAFT"
+          ? "Course unpublished."
+          : "Course saved."
+    );
     router.refresh();
   }
 
@@ -104,52 +127,60 @@ export function CourseDetailsForm({
 
   return (
     <Card>
-      <h2 className="text-sm font-semibold uppercase text-stone-500">Course details</h2>
-      <div className="mt-4 flex max-w-xl flex-col gap-4">
-        <dl className="grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-stone-500">Status</dt>
-          <dd>{status}</dd>
-          <dt className="text-stone-500">Enrollments</dt>
-          <dd>{initial.enrollmentCount}</dd>
-          {initial.publishedAt ? (
-            <>
-              <dt className="text-stone-500">Published</dt>
-              <dd>{new Date(initial.publishedAt).toLocaleString()}</dd>
-            </>
-          ) : null}
-        </dl>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="font-heading text-lg leading-tight">Course details</h2>
+        <Badge color={status === "PUBLISHED" ? "var(--success)" : undefined}>
+          {STATUS_LABELS[status] ?? status}
+        </Badge>
+      </div>
+      <p className="num mt-1.5 text-[13px] font-medium text-muted-foreground">
+        {initial.enrollmentCount} {initial.enrollmentCount === 1 ? "learner" : "learners"} enrolled
+        {initial.publishedLabel ? ` · published ${initial.publishedLabel}` : ""}
+      </p>
 
+      <div className="mt-5 flex max-w-xl flex-col gap-4">
         <FormField label="Title" htmlFor="course-title">
           <TextInput
             id="course-title"
+            autoComplete="off"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             disabled={!canWrite}
           />
         </FormField>
-        <FormField label="Slug" htmlFor="course-slug">
+        <FormField
+          label="Web address"
+          htmlFor="course-slug"
+          hint="The last part of the course link. Changing it breaks links that have already been shared."
+        >
           <TextInput
             id="course-slug"
+            autoComplete="off"
+            spellCheck={false}
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
             disabled={!canWrite}
           />
         </FormField>
-        <FormField label="Description" htmlFor="course-desc">
-          <textarea
+        <FormField
+          label="Description"
+          htmlFor="course-desc"
+          hint="Shown on the course page, before a learner enrolls."
+        >
+          <TextArea
             id="course-desc"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             disabled={!canWrite}
-            className="rounded border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-stone-500 disabled:opacity-60"
           />
         </FormField>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Price (empty = free)" htmlFor="course-price">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label="Price" htmlFor="course-price" hint="Leave empty for a free course.">
             <TextInput
               id="course-price"
               type="number"
+              inputMode="decimal"
               min="0"
               step="0.01"
               value={price}
@@ -169,16 +200,16 @@ export function CourseDetailsForm({
           </FormField>
         </div>
         <FormField
-          label="Visibility"
+          label="Who can join"
           htmlFor="course-visibility"
-          hint="Public courses appear in the learner catalog and are self-enrollable. Private courses require staff to onboard learners."
+          hint="Public courses are listed in the catalogue and learners can enroll themselves. Private courses are hidden, and staff enroll learners."
         >
           <SelectInput
             id="course-visibility"
             allowEmpty={false}
             options={[
-              { value: "PUBLIC", label: "Public — self-enrollable" },
-              { value: "PRIVATE", label: "Private — manual onboarding only" },
+              { value: "PUBLIC", label: "Public — learners enroll themselves" },
+              { value: "PRIVATE", label: "Private — staff enroll learners" },
             ]}
             value={visibility}
             onChange={(e) => setVisibility(e.target.value)}
@@ -188,42 +219,61 @@ export function CourseDetailsForm({
         {canWrite ? (
           <div>
             <span className="text-[13px] font-bold text-foreground">Thumbnail</span>
-            <div className="mt-1 flex items-center gap-3">
-              <input ref={thumbRef} type="file" accept="image/*" onChange={uploadThumbnail} className="hidden" />
+            <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+              The picture shown on the course card. A wide image works best.
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                ref={thumbRef}
+                type="file"
+                accept="image/*"
+                onChange={uploadThumbnail}
+                className="hidden"
+                tabIndex={-1}
+                aria-hidden
+              />
               <Button type="button" variant="outline" size="sm" onClick={() => thumbRef.current?.click()} disabled={thumbBusy}>
+                <Icon name="upload" aria-hidden />
                 {thumbBusy ? "Uploading…" : "Upload thumbnail"}
               </Button>
             </div>
           </div>
         ) : null}
 
-        {courseError ? <p className="text-sm text-red-600">{courseError}</p> : null}
-        {courseInfo ? <p className="text-sm text-green-700">{courseInfo}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          {canWrite ? (
-            <>
-              <Button onClick={() => saveCourse()} disabled={coursePending}>
-                {coursePending ? "Saving…" : "Save"}
-              </Button>
-              {status !== "PUBLISHED" ? (
-                <Button variant="secondary" onClick={publishCourse} disabled={coursePending}>
-                  Publish
+        {courseError ? (
+          <p role="alert" className="text-sm font-bold text-destructive">
+            {courseError}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-dashed border-border pt-4">
+          <div className="flex flex-wrap gap-2">
+            {canWrite ? (
+              <>
+                <Button onClick={() => saveCourse()} disabled={coursePending}>
+                  {coursePending ? "Saving…" : "Save changes"}
                 </Button>
-              ) : null}
-              {status === "PUBLISHED" ? (
-                <Button
-                  variant="outline"
-                  onClick={() => saveCourse({ status: "DRAFT" })}
-                  disabled={coursePending}
-                >
-                  Unpublish
-                </Button>
-              ) : null}
-            </>
-          ) : null}
-          <Button variant="outline" asChild>
+                {status !== "PUBLISHED" ? (
+                  <Button variant="secondary" onClick={publishCourse} disabled={coursePending}>
+                    Save and publish
+                  </Button>
+                ) : null}
+                {status === "PUBLISHED" ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => saveCourse({ status: "DRAFT" })}
+                    disabled={coursePending}
+                  >
+                    Unpublish
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          <Button variant="ghost" asChild>
             <a href={`/api/tenant/courses/${initial.id}/export`} download>
-              Export JSON
+              <Icon name="download" aria-hidden />
+              Export as file
             </a>
           </Button>
         </div>

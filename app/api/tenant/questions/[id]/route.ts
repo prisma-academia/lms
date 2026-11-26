@@ -7,6 +7,7 @@ import { requireCsrf } from "@/lib/api/csrf-guard";
 import { questionTypeSchema } from "@/lib/schemas/question";
 import { essayRubricSchema } from "@/lib/schemas/essay-grading";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { questionSourceInput, resolveQuestionSource } from "@/lib/assessments/question-source";
 
 const PatchBody = z.object({
   type: questionTypeSchema.optional(),
@@ -16,6 +17,10 @@ const PatchBody = z.object({
   rubric: essayRubricSchema.nullable().optional(),
   points: z.number().int().min(0).max(1000).optional(),
   tagIds: z.array(z.string().min(1)).max(50).optional(),
+  /** A nudge shown on request. Null or empty clears it. */
+  hint: z.string().max(500).nullable().optional(),
+  /** Where the answer is taught; null clears it. */
+  source: questionSourceInput.optional(),
 });
 
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -43,10 +48,17 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       }
     }
 
+    // Validated before the write: a source naming another academy's lesson, or
+    // a heading that is not in the lesson, is rejected here.
+    const source =
+      body.source !== undefined ? await resolveQuestionSource(actor.tenantId, body.source) : null;
+
     await prisma.$transaction([
       prisma.question.update({
         where: { id },
         data: {
+          ...(body.hint !== undefined ? { hint: body.hint?.trim() || null } : {}),
+          ...(source ?? {}),
           ...(body.type ? { type: body.type } : {}),
           ...(body.prompt !== undefined ? { prompt: body.prompt } : {}),
           ...(body.options !== undefined ? { optionsJson: body.options as object } : {}),

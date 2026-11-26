@@ -15,8 +15,9 @@ export function CreateQuizForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function submit() {
-    if (!title.trim()) return setError("Title is required.");
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return setError("Give the quiz a title.");
     setError(null);
     setPending(true);
     const res = await apiPost<{ quiz: { id: string } }>("/api/tenant/quizzes", {
@@ -31,27 +32,59 @@ export function CreateQuizForm() {
   }
 
   return (
-    <div className="grid max-w-xl gap-4">
+    <form onSubmit={submit} className="grid max-w-xl gap-4">
       <FormField label="Title" htmlFor="q-title">
-        <TextInput id="q-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <TextInput
+          id="q-title"
+          name="title"
+          autoComplete="off"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
       </FormField>
-      <FormField label="Description (optional)" htmlFor="q-desc">
-        <TextArea id="q-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <FormField label="Description (optional)" htmlFor="q-desc" hint="Shown to learners above the first question.">
+        <TextArea id="q-desc" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Pass mark % (optional)" htmlFor="q-pass">
-          <TextInput id="q-pass" type="number" min="0" max="100" value={passingScore} onChange={(e) => setPassingScore(e.target.value)} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Pass mark (%)"
+          htmlFor="q-pass"
+          hint="The score a learner needs to move on. Leave empty to require every answer correct (100%)."
+        >
+          <TextInput
+            id="q-pass"
+            name="passingScore"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            max="100"
+            placeholder="100"
+            value={passingScore}
+            onChange={(e) => setPassingScore(e.target.value)}
+          />
         </FormField>
-        <FormField label="Time limit (min, optional)" htmlFor="q-time">
-          <TextInput id="q-time" type="number" min="1" value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
+        <FormField label="Time limit in minutes (optional)" htmlFor="q-time">
+          <TextInput
+            id="q-time"
+            name="timeLimitMin"
+            type="number"
+            inputMode="numeric"
+            min="1"
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(e.target.value)}
+          />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div>
-        <Button type="button" onClick={submit} disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? "Creating…" : "Create quiz"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

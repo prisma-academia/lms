@@ -17,7 +17,7 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
 
   return (
     <div>
-      <PageHeader title={plan.name} subtitle={`Plan code: ${plan.code}`} backHref="/plans" backLabel="Plans" />
+      <PageHeader title={plan.name} subtitle={`Plan code: ${plan.code}`} backHref="/plans" backLabel="Subscription plans" />
       <Card>
         <PlanForm
           mode="edit"

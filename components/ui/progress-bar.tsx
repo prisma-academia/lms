@@ -6,6 +6,7 @@ export function ProgressBar({
   className,
   size = "md",
   label,
+  "aria-label": ariaLabel,
 }: {
   value: number;
   color?: string;
@@ -16,7 +17,10 @@ export function ProgressBar({
    * which tells a screen-reader user nothing about what is progressing.
    */
   label?: string;
+  /** The same thing by its usual name, so reaching for it does not silently do nothing. */
+  "aria-label"?: string;
 }) {
+  const name = label ?? ariaLabel;
   const h = size === "sm" ? "h-2" : size === "lg" ? "h-3.5" : "h-3";
   const pct = Math.max(0, Math.min(100, value));
   return (
@@ -27,11 +31,11 @@ export function ProgressBar({
         className
       )}
       role="progressbar"
-      aria-label={label}
+      aria-label={name}
       aria-valuenow={Math.round(pct)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuetext={label ? `${Math.round(pct)}%` : undefined}
+      aria-valuetext={name ? `${Math.round(pct)}%` : undefined}
     >
       <div
         className="h-full rounded-full transition-[width] duration-500 ease-out"

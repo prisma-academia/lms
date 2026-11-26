@@ -13,6 +13,12 @@
 export type VariableKind = "scalar" | "list";
 
 export type VariableDef = {
+  /**
+   * Page kinds this variable exists on. Absent = every page. A course page's
+   * `course.*` has nothing to resolve to on the home page, so the editor only
+   * offers it where it works.
+   */
+  only?: ("COURSES" | "COURSE_DETAIL" | "PROGRAMME_DETAIL")[];
   /** Dotted path as written in a template, e.g. `tenant.name`. */
   path: string;
   kind: VariableKind;
@@ -50,6 +56,26 @@ const PROGRAMME_FIELDS = [
   { name: "courseCount", label: "Number of courses", sample: "6" },
 ];
 
+const NAV_FIELDS = [
+  { name: "title", label: "Page title", sample: "About" },
+  { name: "url", label: "Link to the page", sample: "/about" },
+  { name: "current", label: "Whether it is the page being viewed", sample: "false" },
+];
+
+const OUTLINE_FIELDS = [
+  { name: "title", label: "Lesson title", sample: "What is a budget?" },
+  { name: "module", label: "Module it belongs to", sample: "Module 1" },
+  { name: "kind", label: "Reading, video, quiz or file", sample: "Reading" },
+  { name: "duration", label: "Length, when known", sample: "8 min" },
+];
+
+const PROGRAMME_COURSE_FIELDS = [
+  { name: "title", label: "Course title", sample: "Introduction to Safety" },
+  { name: "description", label: "Short description", sample: "A practical grounding in workplace safety." },
+  { name: "url", label: "Link to the course page", sample: "/courses/introduction-to-safety" },
+  { name: "lessonCount", label: "Number of lessons", sample: "12" },
+];
+
 const ENROLLMENT_FIELDS = [
   { name: "courseTitle", label: "Course title", sample: "Introduction to Safety" },
   { name: "url", label: "Link to continue", sample: "/courses/introduction-to-safety" },
@@ -81,6 +107,76 @@ export const SITE_VARIABLES: VariableDef[] = [
   { path: "site.slug", kind: "scalar", label: "This page's URL path", sample: "about" },
   { path: "site.year", kind: "scalar", label: "Current year", sample: "2026" },
   { path: "site.origin", kind: "scalar", label: "Site origin URL", sample: "https://acme.test" },
+
+  // Accounts. Each link brings the visitor back to the page they were on.
+  { path: "auth.loginUrl", kind: "scalar", label: "Link to sign in", sample: "/auth/login" },
+  { path: "auth.registerUrl", kind: "scalar", label: "Link to create an account", sample: "/auth/register" },
+  { path: "auth.forgotPasswordUrl", kind: "scalar", label: "Link to reset a password", sample: "/auth/forgot-password" },
+  { path: "auth.dashboardUrl", kind: "scalar", label: "Link to the learner's dashboard", sample: "/dashboard" },
+
+  // Menu.
+  {
+    path: "nav",
+    kind: "list",
+    label: "Published pages shown in the menu",
+    sample: "3 pages",
+    fields: NAV_FIELDS,
+  },
+
+  // Catalogue links and search.
+  { path: "catalog.coursesUrl", kind: "scalar", label: "Link to the course catalogue", sample: "/courses" },
+  { path: "catalog.programmesUrl", kind: "scalar", label: "Link to the programme list", sample: "/programmes" },
+  {
+    path: "catalog.query",
+    kind: "scalar",
+    label: "What the visitor searched for",
+    sample: "",
+    only: ["COURSES"],
+  },
+  {
+    path: "catalog.count",
+    kind: "scalar",
+    label: "Number of courses shown",
+    sample: "3",
+    only: ["COURSES"],
+  },
+
+  // The course a course page is showing.
+  { path: "course.title", kind: "scalar", label: "Course title", sample: "Introduction to Safety", only: ["COURSE_DETAIL"] },
+  { path: "course.description", kind: "scalar", label: "Course description", sample: "A practical grounding in workplace safety.", only: ["COURSE_DETAIL"] },
+  { path: "course.price", kind: "scalar", label: "Formatted price, or Free", sample: "₦25,000", only: ["COURSE_DETAIL"] },
+  { path: "course.isFree", kind: "scalar", label: "Whether the course is free", sample: "false", only: ["COURSE_DETAIL"] },
+  { path: "course.thumbnailUrl", kind: "scalar", label: "Cover image URL", sample: "", only: ["COURSE_DETAIL"] },
+  { path: "course.lessonCount", kind: "scalar", label: "Number of lessons", sample: "12", only: ["COURSE_DETAIL"] },
+  { path: "course.url", kind: "scalar", label: "This course's address", sample: "/courses/introduction-to-safety", only: ["COURSE_DETAIL"] },
+  { path: "course.joinUrl", kind: "scalar", label: "Link to register and come back to this course", sample: "/auth/register", only: ["COURSE_DETAIL"] },
+  { path: "course.signInUrl", kind: "scalar", label: "Link to sign in and come back to this course", sample: "/auth/login", only: ["COURSE_DETAIL"] },
+  {
+    path: "course.lessons",
+    kind: "list",
+    label: "The course outline (titles only)",
+    sample: "12 lessons",
+    fields: OUTLINE_FIELDS,
+    only: ["COURSE_DETAIL"],
+  },
+
+  // The programme a programme page is showing.
+  { path: "programme.title", kind: "scalar", label: "Programme title", sample: "Health & Safety Diploma", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.description", kind: "scalar", label: "Programme description", sample: "A six-course pathway to certification.", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.price", kind: "scalar", label: "Formatted price, or Free", sample: "₦120,000", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.isFree", kind: "scalar", label: "Whether the programme is free", sample: "false", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.thumbnailUrl", kind: "scalar", label: "Cover image URL", sample: "", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.courseCount", kind: "scalar", label: "Number of courses", sample: "6", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.joinUrl", kind: "scalar", label: "Link to register and come back to this programme", sample: "/auth/register", only: ["PROGRAMME_DETAIL"] },
+  { path: "programme.signInUrl", kind: "scalar", label: "Link to sign in and come back to this programme", sample: "/auth/login", only: ["PROGRAMME_DETAIL"] },
+  {
+    path: "programme.courses",
+    kind: "list",
+    label: "The courses in the programme",
+    sample: "6 courses",
+    fields: PROGRAMME_COURSE_FIELDS,
+    only: ["PROGRAMME_DETAIL"],
+  },
 
   // Catalog.
   {
@@ -134,9 +230,19 @@ export function variableGroups(): { group: string; items: VariableDef[] }[] {
   return order.map((group) => ({ group, items: byGroup.get(group)! }));
 }
 
+/** The variables that exist on a page of this kind. */
+export function variablesForKind(kind: string | null | undefined): VariableDef[] {
+  return SITE_VARIABLES.filter((v) => !v.only || v.only.includes(kind as never));
+}
+
 export const GROUP_LABELS: Record<string, string> = {
   tenant: "Organisation",
   site: "This page",
+  auth: "Sign in and register",
+  nav: "Menu",
+  catalog: "Catalogue",
+  course: "This course",
+  programme: "This programme",
   courses: "Courses",
   programmes: "Programmes",
   user: "Signed-in learner",

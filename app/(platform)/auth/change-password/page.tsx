@@ -5,7 +5,7 @@ export default function ChangePasswordPage() {
   return (
     <AuthCard
       title="Set a new password"
-      subtitle="12+ characters, with upper, lower, digit, and symbol."
+      subtitle="Enter the password you have now, then choose a new one that only you know."
     >
       <ChangePasswordForm />
     </AuthCard>

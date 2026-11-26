@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { PageHeader } from "@/components/shell";
+import { formatPrice } from "@/lib/site/public-format";
+import { tenantFormatContext } from "../_lib/format-context";
 import { ProgrammesCatalog, type CatalogProgramme } from "./programmes-catalog";
 
 export default async function ClientProgrammesPage() {
@@ -18,6 +20,10 @@ export default async function ClientProgrammesPage() {
     include: { courses: { select: { courseId: true, course: { select: { status: true } } } } },
   });
 
+  // Formatted on the server, in the academy's locale — see the note in
+  // ../courses/page.tsx.
+  const { locale } = await tenantFormatContext(actor.tenantId);
+
   const rows: CatalogProgramme[] = programmes.map((p) => {
     const publishedCourseIds = p.courses
       .filter((pc) => pc.course.status === "PUBLISHED")
@@ -29,6 +35,7 @@ export default async function ClientProgrammesPage() {
       description: p.description,
       priceCents: p.priceCents,
       currency: p.currency,
+      priceLabel: formatPrice(p.priceCents, p.currency, locale),
       totalCourses: publishedCourseIds.length,
       enrolledCourses: publishedCourseIds.filter((id) => enrolledSet.has(id)).length,
     };

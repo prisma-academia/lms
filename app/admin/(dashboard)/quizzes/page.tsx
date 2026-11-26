@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
-import { PERMISSIONS } from "@/lib/auth/permissions";
+import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
+import { effectivePassMark } from "@/lib/assessments/pass-mark";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
 import { QuizzesTable } from "./table";
 
 export default async function QuizzesPage() {
   const actor = await requireTenantPage(PERMISSIONS.TENANT_QUIZZES_READ.key);
+  const canWrite = hasPermission(actor, PERMISSIONS.TENANT_QUIZZES_WRITE.key);
   const quizzes = await prisma.quiz.findMany({
     where: { tenantId: actor.tenantId },
     orderBy: { createdAt: "desc" },
@@ -17,17 +19,19 @@ export default async function QuizzesPage() {
     title: q.title,
     questions: q._count.questions,
     attempts: q._count.attempts,
-    passingScore: q.passingScore != null ? `${q.passingScore}%` : "—",
+    // The mark the quiz is actually held to: an unset mark means 100%, and a
+    // dash here would read as "no pass mark".
+    passingScore: `${effectivePassMark(q.passingScore)}%`,
   }));
   return (
     <div>
       <DataTableToolbar
         title="Quizzes"
-        description="Assemble quizzes from question banks and link them to lessons."
-        createHref="/admin/quizzes/new"
+        description="Build quizzes from your question banks and add them to course lessons."
+        createHref={canWrite ? "/admin/quizzes/new" : undefined}
         createLabel="New quiz"
       />
-      <QuizzesTable data={rows} />
+      <QuizzesTable data={rows} canCreate={canWrite} />
     </div>
   );
 }

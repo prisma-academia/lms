@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
+import { formatDate } from "@/lib/format";
+import { PLATFORM_FORMAT } from "../format";
 import { RolesTable } from "./table";
 
 export default async function PlatformRolesPage() {
@@ -12,13 +14,21 @@ export default async function PlatformRolesPage() {
     select: { id: true, name: true, isSystem: true, permissions: true, createdAt: true },
   });
   const rows = roles.map((r) => ({
-    ...r,
+    id: r.id,
+    name: r.name,
+    isSystem: r.isSystem,
     permissionCount: r.permissions.length,
     createdAt: r.createdAt.toISOString(),
+    createdLabel: formatDate(r.createdAt, PLATFORM_FORMAT),
   }));
   return (
     <div>
-      <DataTableToolbar title="Platform role templates" createHref="/role-templates/new" createLabel="New role" />
+      <DataTableToolbar
+        title="Platform roles"
+        description="Reusable sets of permissions for the people who run the platform."
+        createHref="/role-templates/new"
+        createLabel="New role"
+      />
       <RolesTable data={rows} />
     </div>
   );

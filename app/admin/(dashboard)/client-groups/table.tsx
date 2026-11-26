@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table";
 
@@ -8,35 +9,51 @@ export type ClientGroupRow = {
   name: string;
   description: string | null;
   memberCount: number;
+  /** ISO string, kept for sorting. */
   createdAt: string;
+  /** Formatted on the server in the academy's locale. */
+  createdLabel: string;
 };
 
 const columns: ColumnDef<ClientGroupRow>[] = [
-  { accessorKey: "name", header: "Name" },
+  {
+    accessorKey: "name",
+    header: "Name",
+    cell: (info) => <span className="font-bold text-foreground">{info.getValue() as string}</span>,
+  },
   {
     accessorKey: "description",
     header: "Description",
-    cell: (info) => (info.getValue() as string | null) ?? "—",
+    cell: (info) => (
+      <span className="line-clamp-2 max-w-md text-muted-foreground">
+        {(info.getValue() as string | null) ?? "—"}
+      </span>
+    ),
   },
-  { accessorKey: "memberCount", header: "Members" },
+  {
+    accessorKey: "memberCount",
+    header: "Members",
+    cell: (info) => <span className="num">{info.getValue() as number}</span>,
+  },
   {
     accessorKey: "createdAt",
     header: "Created",
     cell: (info) => (
-      <span className="text-xs text-stone-500">
-        {new Date(info.getValue() as string).toLocaleDateString()}
+      <span className="num text-xs font-medium text-muted-foreground">
+        {info.row.original.createdLabel}
       </span>
     ),
   },
 ];
 
-export function ClientGroupsTable({ data }: { data: ClientGroupRow[] }) {
+export function ClientGroupsTable({ data, empty }: { data: ClientGroupRow[]; empty?: ReactNode }) {
   return (
     <DataTable
       columns={columns}
       data={data}
       rowHref={(g) => `/admin/client-groups/${g.id}`}
       searchPlaceholder="Search groups…"
+      empty={empty}
     />
   );
 }

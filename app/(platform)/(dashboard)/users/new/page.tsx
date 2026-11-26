@@ -13,7 +13,12 @@ export default async function NewPlatformUserPage() {
   });
   return (
     <div>
-      <PageHeader title="Invite platform user" backHref="/users" backLabel="Users" />
+      <PageHeader
+        title="Invite a platform user"
+        subtitle="They receive an email with a temporary password and choose their own on first sign-in."
+        backHref="/users"
+        backLabel="Platform users"
+      />
       <Card>
         <InviteUserForm roles={roles} />
       </Card>

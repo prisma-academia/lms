@@ -145,9 +145,9 @@ export function OnboardingWizard({ initial, canWriteBilling, canWriteCourses }: 
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 text-xs text-stone-500">
+      <div className="flex gap-2 text-xs text-muted-foreground">
         {STEPS.map((s) => (
-          <span key={s} className={s === step ? "font-semibold text-stone-900" : ""}>
+          <span key={s} className={s === step ? "font-semibold text-foreground" : ""}>
             {s}
           </span>
         ))}
@@ -192,7 +192,7 @@ export function OnboardingWizard({ initial, canWriteBilling, canWriteCourses }: 
 
       {step === "payout" && (
         <div className="space-y-4">
-          <p className="text-sm text-stone-600">Add bank details to sell paid courses. Payouts use platform sub-accounts — no API keys needed.</p>
+          <p className="text-sm text-muted-foreground">Add bank details to sell paid courses. Payouts use platform sub-accounts — no API keys needed.</p>
           <FormField label="Business name" htmlFor="onboard-biz">
             <TextInput id="onboard-biz" value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
           </FormField>
@@ -209,12 +209,12 @@ export function OnboardingWizard({ initial, canWriteBilling, canWriteCourses }: 
       )}
 
       {step === "finish" && (
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-muted-foreground">
           You&apos;re all set. Your academy is on a 90-day trial with 10 GB storage. Upgrade anytime from Billing.
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex gap-2">
         <Button onClick={onNext} disabled={pending}>

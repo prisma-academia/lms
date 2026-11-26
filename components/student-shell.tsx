@@ -7,207 +7,246 @@ import { TenantMark } from "@/components/tenant-mark";
 import { Icon, type IconName } from "@/components/icon";
 import { LogoutButton } from "@/components/logout-button";
 import { NotificationBell } from "@/components/notification-bell";
-import { NavLinks, type NavItem } from "@/components/nav-links";
+import { GroupedNav } from "@/components/nav-links";
+import { activeNavHref, flattenNav, type NavEntry, type NavItem } from "@/components/nav-model";
+import { PageFinderButton, PageFinderProvider } from "@/components/command-palette";
+import { MAIN_CONTENT_ID, SHELL_STICKY_TOP, SkipLink } from "@/components/skip-link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Avatar } from "@/components/ui/avatar";
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ThemeMode } from "@/lib/theme/cookie";
 import { cn } from "@/lib/utils";
 
 type Tab = NavItem & { icon: IconName };
 
-const PRIMARY_TABS: Tab[] = [
-  { href: "/dashboard", label: "Home", icon: "grid" },
-  { href: "/my-courses", label: "Courses", icon: "book" },
-  { href: "/assignments", label: "Tasks", icon: "clipboard" },
-  { href: "/grades", label: "Grades", icon: "award" },
-  { href: "/profile", label: "Profile", icon: "user" },
-];
+const HOME: Tab = { href: "/dashboard", label: "Home", icon: "grid" };
+const COURSES: Tab = { href: "/my-courses", label: "Courses", icon: "book" };
+const TASKS: Tab = { href: "/assignments", label: "Assignments", icon: "clipboard" };
+const GRADES: Tab = { href: "/grades", label: "Grades", icon: "award" };
 
-const SECONDARY_NAV: Tab[] = [
-  { href: "/courses", label: "Catalog", icon: "search" },
-  { href: "/programmes", label: "Programmes", icon: "book" },
-  { href: "/library", label: "Library", icon: "layers" },
+/**
+ * The four places a learner goes most. On a phone these are the tab bar; the
+ * rest sits one tap away under "More". Five tabs left no room for it, and the
+ * fifth (Profile) is not somewhere anyone goes daily.
+ */
+const PRIMARY_TABS: Tab[] = [HOME, COURSES, TASKS, GRADES];
+
+const MY_LEARNING: Tab[] = [
   { href: "/certificates", label: "Certificates", icon: "award" },
   { href: "/calendar", label: "Calendar", icon: "calendar" },
+];
+const EXPLORE: Tab[] = [
+  { href: "/courses", label: "Catalog", icon: "search" },
+  { href: "/programmes", label: "Programmes", icon: "route" },
+  { href: "/library", label: "Library", icon: "layers" },
+];
+const YOU: Tab[] = [
+  { href: "/profile", label: "Profile", icon: "user" },
   { href: "/inbox", label: "Inbox", icon: "mail" },
   { href: "/notifications", label: "Notifications", icon: "bell" },
 ];
 
-const SIDEBAR_NAV: Tab[] = [...PRIMARY_TABS, ...SECONDARY_NAV];
+/** Everything, grouped — the desktop sidebar. */
+const SIDEBAR_NAV: NavEntry[] = [
+  HOME,
+  { id: "learning", label: "My learning", items: [COURSES, TASKS, GRADES, ...MY_LEARNING] },
+  { id: "explore", label: "Explore", items: EXPLORE },
+  { id: "you", label: "You", items: YOU },
+];
+
+/** What the tab bar does not show — the "More" sheet. */
+const MORE_NAV: NavEntry[] = [
+  { id: "learning", label: "My learning", items: MY_LEARNING },
+  { id: "explore", label: "Explore", items: EXPLORE },
+  { id: "you", label: "You", items: YOU },
+];
+
+const ALL_ITEMS = flattenNav(SIDEBAR_NAV);
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
+  // A course page belongs to "my courses"; the catalogue is only its own index.
   if (href === "/my-courses")
     return pathname === "/my-courses" || pathname.startsWith("/courses/");
   if (href === "/courses") return pathname === "/courses";
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-function initials(label: string): string {
-  const parts = label.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+const TAB_CLASS =
+  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-bold outline-none [touch-action:manipulation] transition-colors focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-ring";
+
+function TabIcon({ name, active }: { name: IconName; active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "flex size-8 items-center justify-center rounded-[10px] border-2 transition-colors",
+        active ? "border-foreground bg-primary text-primary-foreground shadow-sm" : "border-transparent"
+      )}
+    >
+      <Icon name={name} className="size-[18px]" />
+    </span>
+  );
 }
 
 export function StudentShell({
   title,
   logoUrl,
   userLabel,
+  avatarUrl,
   themeMode,
   children,
 }: {
   title: string;
   logoUrl?: string | null;
   userLabel: string;
+  /** The learner's profile photo, when they have one. */
+  avatarUrl?: string | null;
   themeMode: ThemeMode;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Held here so the "More" sheet reopens showing the mode last chosen.
+  const [mode, setMode] = useState<ThemeMode>(themeMode);
+
+  const current = activeNavHref(pathname, ALL_ITEMS, isActive);
+  const onPrimaryTab = PRIMARY_TABS.some((tab) => tab.href === current);
 
   return (
-    <>
-      <div className="flex min-h-[100dvh] flex-col lg:flex-row">
+    <PageFinderProvider items={ALL_ITEMS}>
+      <SkipLink />
+      <div className={cn("flex min-h-[100dvh] flex-col lg:flex-row", SHELL_STICKY_TOP)}>
         {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-border bg-card px-4 py-6 lg:flex">
-          <div className="mb-6 flex shrink-0 items-center gap-3 px-1">
-            <TenantMark
-              logoUrl={logoUrl}
-              name={title}
-              className="size-10 rounded-[12px] text-lg"
-            />
-            <div className="min-w-0">
-              <div className="truncate font-heading text-[15px] leading-tight">
-                {title}
-              </div>
-              <div className="text-[11.5px] font-bold text-muted-foreground">
-                Student portal
-              </div>
-            </div>
+        <aside
+          aria-label="Sidebar"
+          className="sticky top-0 hidden h-[100dvh] w-60 shrink-0 flex-col border-r-2 border-border bg-card px-4 py-5 lg:flex print:hidden"
+        >
+          <Link
+            href="/dashboard"
+            className="mb-4 flex shrink-0 items-center gap-3 rounded-[10px] px-1 py-1 outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <TenantMark logoUrl={logoUrl} name={title} className="size-10 rounded-[12px] text-lg" />
+            <span className="min-w-0">
+              <span className="block truncate font-heading text-[15px] leading-tight">{title}</span>
+              <span className="block text-[11.5px] font-bold text-muted-foreground">Student portal</span>
+            </span>
+          </Link>
+
+          <PageFinderButton className="mb-4 w-full shrink-0" />
+
+          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 pb-2">
+            <GroupedNav entries={SIDEBAR_NAV} isActive={isActive} />
           </div>
 
-          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
-            <NavLinks items={SIDEBAR_NAV} isActive={isActive} />
-          </div>
-
-          <div className="shrink-0 pt-6">
+          <div className="shrink-0 pt-4">
             <div className="mb-3 flex items-center gap-2.5 border-t-2 border-dashed border-border pt-4">
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[12px] font-bold text-primary-foreground"
+              <Link
+                href="/profile"
+                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
-                {initials(userLabel)}
-              </span>
-              <div className="min-w-0 flex-1 truncate text-[13px] font-bold text-card-foreground">
-                {userLabel}
-              </div>
+                <Avatar label={userLabel} src={avatarUrl} />
+                <span className="min-w-0 truncate text-[13px] font-bold text-card-foreground">{userLabel}</span>
+              </Link>
               <NotificationBell />
             </div>
-            <div className="mb-3">
-
-              <ThemeToggle initialMode={themeMode} />
-
+            <div className="flex items-center justify-between gap-2">
+              <ThemeToggle initialMode={mode} onChange={setMode} />
+              <LogoutButton endpoint="/api/auth/logout" postLogoutPath="/auth/login" logoutContext="client" />
             </div>
-
-            <LogoutButton
-              endpoint="/api/auth/logout"
-              postLogoutPath="/auth/login"
-              logoutContext="client"
-            />
           </div>
         </aside>
 
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex items-center gap-2 border-b-2 border-border bg-card px-3 py-3 sm:gap-3 sm:px-4 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b-2 border-border bg-card px-3 py-2 lg:hidden print:hidden">
+          <Link
+            href="/dashboard"
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[10px] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <Icon name={menuOpen ? "x" : "menu"} className="size-[18px]" />
-          </button>
-          <TenantMark
-            logoUrl={logoUrl}
-            name={title}
-            className="size-9 text-[15px]"
-            iconClassName="size-[18px]"
-          />
-          <span className="min-w-0 truncate font-heading text-base">{title}</span>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <NotificationBell />
-          </div>
+            <TenantMark logoUrl={logoUrl} name={title} className="size-9 text-[15px]" iconClassName="size-[18px]" />
+            <span className="min-w-0 truncate font-heading text-base">{title}</span>
+          </Link>
+          <PageFinderButton compact className="shrink-0" />
+          <NotificationBell className="size-11" />
           <Link
             href="/profile"
-            aria-label="Profile"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-foreground bg-primary text-[12px] font-bold text-primary-foreground [touch-action:manipulation]"
+            aria-label="Your profile"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full outline-none [touch-action:manipulation] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            {initials(userLabel)}
+            <Avatar label={userLabel} src={avatarUrl} />
           </Link>
         </header>
 
-        {menuOpen ? (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <button
-              type="button"
-              aria-label="Close menu"
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setMenuOpen(false)}
-            />
-            <div className="safe-b absolute inset-x-0 top-0 max-h-[100dvh] overflow-y-auto border-b-2 border-border bg-card px-4 pb-6 pt-[68px] shadow-md">
-              <NavLinks items={SECONDARY_NAV} onNavigate={() => setMenuOpen(false)} />
-              <div className="mt-4 border-t-2 border-dashed border-border pt-4">
-                <div className="mb-2 truncate text-sm font-bold text-muted-foreground">
-                  {userLabel}
-                </div>
-                <LogoutButton
-                  endpoint="/api/auth/logout"
-                  postLogoutPath="/auth/login"
-                  logoutContext="client"
-                />
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Main content */}
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-10 lg:py-8">
-          <div className="mx-auto w-full max-w-4xl">{children}</div>
+        {/* Main content. `main > div` stays the page's direct wrapper: a page
+            that needs more width asks for it with `data-wide-page`, and the rule
+            in globals.css matches on exactly this structure. The bottom padding
+            keeps the last of the page clear of the tab bar and the home
+            indicator below it. */}
+        <main
+          id={MAIN_CONTENT_ID}
+          tabIndex={-1}
+          className="min-w-0 flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-5 outline-none sm:px-6 lg:px-10 lg:py-8 print:p-0"
+        >
+          <div className="mx-auto w-full max-w-4xl print:max-w-none">{children}</div>
         </main>
 
         {/* Mobile bottom tab bar */}
         <nav
           aria-label="Primary"
-          className="safe-b fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t-2 border-border bg-card lg:hidden"
+          className="safe-b fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t-2 border-border bg-card lg:hidden print:hidden"
         >
-          {PRIMARY_TABS.map((t) => {
-            const active = isActive(pathname, t.href);
+          {PRIMARY_TABS.map((tab) => {
+            const active = tab.href === current;
             return (
               <Link
-                key={t.href}
-                href={t.href}
+                key={tab.href}
+                href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-bold [touch-action:manipulation] transition-colors",
-                  active ? "text-card-foreground" : "text-muted-foreground"
-                )}
+                className={cn(TAB_CLASS, active ? "text-card-foreground" : "text-muted-foreground")}
               >
-                <span
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-[10px] border-2 transition-colors",
-                    active
-                      ? "border-foreground bg-primary text-primary-foreground shadow-sm"
-                      : "border-transparent"
-                  )}
-                >
-                  <Icon name={t.icon} className="size-[18px]" />
-                </span>
-                {t.label}
+                <TabIcon name={tab.icon} active={active} />
+                {tab.label}
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+            // Marked as where you are when the page is one of the ones it holds.
+            className={cn(TAB_CLASS, !onPrimaryTab ? "text-card-foreground" : "text-muted-foreground")}
+          >
+            <TabIcon name="more-horizontal" active={!onPrimaryTab} />
+            More
+          </button>
         </nav>
+
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent side="bottom" className="lg:hidden">
+            <SheetHeader>
+              <SheetTitle>More</SheetTitle>
+              <SheetDescription className="truncate">{userLabel}</SheetDescription>
+            </SheetHeader>
+            <SheetBody className="px-3">
+              <GroupedNav
+                entries={MORE_NAV}
+                isActive={isActive}
+                label="More pages"
+                onNavigate={() => setMoreOpen(false)}
+              />
+            </SheetBody>
+            <SheetFooter className="flex items-center justify-between gap-3">
+              <ThemeToggle initialMode={mode} onChange={setMode} size="md" />
+              <LogoutButton
+                endpoint="/api/auth/logout"
+                postLogoutPath="/auth/login"
+                logoutContext="client"
+                size="lg"
+              />
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
       </div>
-    </>
+    </PageFinderProvider>
   );
 }

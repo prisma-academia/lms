@@ -10,7 +10,7 @@ export default function ClientNotFound() {
       </p>
       <div>
         <Button asChild variant="outline">
-          <Link href="/c/dashboard">Back to dashboard</Link>
+          <Link href="/dashboard">Back to dashboard</Link>
         </Button>
       </div>
     </div>

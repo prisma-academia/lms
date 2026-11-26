@@ -1,38 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { TextInput, TextArea } from "@/components/form-field";
+import { useToast } from "@/components/ui/toast";
 
 export function GradeForm({
   submissionId,
+  learnerName,
   maxPoints,
   initialPoints,
   initialFeedback,
 }: {
   submissionId: string;
+  /** Names the form for assistive technology: a page holds one per submission. */
+  learnerName: string;
   maxPoints: number;
   initialPoints: number | null;
   initialFeedback: string | null;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
+  const uid = useId();
   const [points, setPoints] = useState(
     initialPoints != null ? String(initialPoints) : ""
   );
   const [feedback, setFeedback] = useState(initialFeedback ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSaved(false);
     const n = Number(points);
-    if (Number.isNaN(n) || n < 0 || n > maxPoints) {
-      setError(`Enter points between 0 and ${maxPoints}.`);
+    if (points.trim() === "" || Number.isNaN(n) || n < 0 || n > maxPoints) {
+      setError(`Enter a mark between 0 and ${maxPoints}.`);
       return;
     }
     setPending(true);
@@ -45,42 +49,62 @@ export function GradeForm({
       setError(res.error.message);
       return;
     }
-    setSaved(true);
+    toast(`Mark saved for ${learnerName}.`);
     router.refresh();
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
-      <div className="flex items-end gap-3">
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="text-[13px] font-bold text-foreground">Points</span>
+    <form
+      onSubmit={submit}
+      noValidate
+      aria-label={`Mark ${learnerName}'s submission`}
+      className="mt-4 flex flex-col gap-3 border-t-2 border-dashed border-border pt-4"
+    >
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1.5 text-sm">
+          <label htmlFor={`${uid}-points`} className="text-[13px] font-bold text-foreground">
+            Mark
+          </label>
           <div className="flex items-center gap-1.5">
             <TextInput
+              id={`${uid}-points`}
               type="number"
+              inputMode="numeric"
               min="0"
               max={maxPoints}
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               className="w-24"
+              aria-describedby={`${uid}-max`}
               required
             />
-            <span className="num text-sm font-bold text-muted-foreground">/ {maxPoints}</span>
+            <span id={`${uid}-max`} className="num text-sm font-bold text-muted-foreground">
+              out of {maxPoints}
+            </span>
           </div>
-        </label>
-        <Button type="submit" disabled={pending} size="sm">
-          {pending ? "Saving…" : initialPoints != null ? "Update grade" : "Save grade"}
-        </Button>
-        {saved ? (
-          <span className="pb-2 text-sm font-bold text-success">Saved ✓</span>
-        ) : null}
+        </div>
       </div>
-      <TextArea
-        value={feedback}
-        onChange={(e) => setFeedback(e.target.value)}
-        placeholder="Feedback (optional)"
-        rows={2}
-      />
-      {error ? <p className="text-xs font-bold text-destructive">{error}</p> : null}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor={`${uid}-feedback`} className="text-[13px] font-bold text-foreground">
+          Feedback for the learner (optional)
+        </label>
+        <TextArea
+          id={`${uid}-feedback`}
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          rows={2}
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div>
+        <Button type="submit" disabled={pending} size="sm">
+          {pending ? "Saving…" : initialPoints != null ? "Update mark" : "Save mark"}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -2,7 +2,9 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/shell";
+import { formatDateTime } from "@/lib/format";
 import { ActivityTable } from "@/app/(platform)/(dashboard)/activity/table";
+import { tenantFormatContext } from "@/lib/tenant/format-context";
 
 function displayName(
   firstName: string | null | undefined,
@@ -43,6 +45,11 @@ export default async function TenantActivityPage() {
       : [],
   ]);
 
+  // Times are formatted here, once, in the academy's own locale and time zone.
+  // The table is a Client Component: formatting there would run on the server
+  // and again in the browser, in two different locales.
+  const formatContext = await tenantFormatContext(actor.tenantId);
+
   const userById = new Map(users.map((u) => [u.id, u]));
   const clientById = new Map(clients.map((c) => [c.id, c]));
 
@@ -69,12 +76,16 @@ export default async function TenantActivityPage() {
       targetId: r.targetId,
       ip: r.ip,
       createdAt: r.createdAt.toISOString(),
+      createdLabel: formatDateTime(r.createdAt, formatContext),
     };
   });
 
   return (
     <div>
-      <PageHeader title="Activity" />
+      <PageHeader
+        title="Activity"
+        subtitle="The 200 most recent sign-ins and changes in your academy."
+      />
       <ActivityTable data={data} variant="tenant" />
     </div>
   );

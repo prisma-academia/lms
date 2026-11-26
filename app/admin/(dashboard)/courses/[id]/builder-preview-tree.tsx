@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/form-field";
 import { Icon } from "@/components/icon";
@@ -17,6 +17,24 @@ import type {
 
 type DragItem = { kind: "group"; gi: number } | { kind: "lesson"; gi: number; li: number };
 
+/**
+ * Stable ids for View Transitions and list keys — they survive a reorder
+ * because the same module and lesson objects are moved, not recreated.
+ *
+ * Kept at module level rather than in a ref: it is looked up while rendering,
+ * and a ref must not be read then. Keyed by object identity in a WeakMap, so
+ * one cache serves every tree and an entry goes when its object does.
+ */
+const STABLE_KEYS = new WeakMap<object, string>();
+function stableKey(obj: object): string {
+  let id = STABLE_KEYS.get(obj);
+  if (!id) {
+    id = crypto.randomUUID();
+    STABLE_KEYS.set(obj, id);
+  }
+  return id;
+}
+
 function arrayMove<T>(arr: T[], from: number, to: number): T[] {
   const next = [...arr];
   const [item] = next.splice(from, 1);
@@ -24,10 +42,19 @@ function arrayMove<T>(arr: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** What a lesson is, in the words an author uses — not the storage type. */
+const TYPE_LABELS: Record<GeneratedLesson["contentType"], string> = {
+  TEXT: "Reading",
+  HTML: "Reading",
+  VIDEO_URL: "Video",
+  FILE: "File",
+  QUIZ: "Quiz",
+};
+
 function TypeBadge({ type }: { type: GeneratedLesson["contentType"] }) {
   return (
-    <span className="rounded border border-stone-300 bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase text-stone-600">
-      {type}
+    <span className="shrink-0 whitespace-nowrap rounded-[6px] border-2 border-border bg-card px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+      {TYPE_LABELS[type] ?? type}
     </span>
   );
 }
@@ -46,7 +73,7 @@ function MoveButtons({
   return (
     <div className="flex shrink-0 gap-1">
       <Button variant="outline" size="icon-xs" aria-label="Move up" disabled={!canUp} onClick={onUp}>
-        <Icon name="chevron-up" />
+        <Icon name="chevron-up" aria-hidden />
       </Button>
       <Button
         variant="outline"
@@ -55,7 +82,7 @@ function MoveButtons({
         disabled={!canDown}
         onClick={onDown}
       >
-        <Icon name="chevron-down" />
+        <Icon name="chevron-down" aria-hidden />
       </Button>
     </div>
   );
@@ -70,7 +97,7 @@ function QuestionPreview({
 }) {
   const correct = new Set(question.correctOptionIndexes);
   return (
-    <div className="rounded border border-stone-200 bg-white p-3 text-sm">
+    <div className="rounded-[10px] border-2 border-border bg-card p-3 text-sm">
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium">{question.prompt}</p>
         {onRemove ? (
@@ -80,33 +107,34 @@ function QuestionPreview({
         ) : null}
       </div>
       {question.type === "ESSAY" ? (
-        // The rubric is shown in full on purpose. A generated essay is a hard
-        // progression gate — learners need full marks on every criterion — so
-        // this preview is the only chance a human gets to catch a vague
-        // criterion before it blocks people. Do not collapse or truncate it.
+        // The rubric is shown in full on purpose. A generated essay is marked
+        // by AI against these criteria and the result counts towards the
+        // quiz's pass mark, so this preview is the only chance a human gets to
+        // catch a vague criterion before it costs learners marks. Do not
+        // collapse or truncate it.
         <div className="mt-2 flex flex-col gap-1.5">
-          <p className="text-xs font-semibold text-stone-600">
-            AI-graded rubric — learners need full marks on every criterion
+          <p className="text-xs font-semibold text-muted-foreground">
+            Marked by AI against these criteria. Check each one can be judged fairly.
           </p>
           <ul className="flex flex-col gap-1">
             {(question.rubric?.criteria ?? []).map((c) => (
-              <li key={c.id} className="rounded bg-stone-50 px-2 py-1 text-xs text-stone-700">
+              <li key={c.id} className="rounded-[6px] bg-muted px-2 py-1 text-xs text-foreground">
                 <span className="font-semibold">{c.label}</span>
-                <span className="text-stone-400"> · weight {c.weight}</span>
-                {c.description ? <span className="block text-stone-600">{c.description}</span> : null}
+                <span className="text-muted-foreground"> · weight {c.weight}</span>
+                {c.description ? <span className="block text-muted-foreground">{c.description}</span> : null}
               </li>
             ))}
           </ul>
           {question.rubric?.modelAnswer ? (
-            <p className="text-xs text-stone-600">
+            <p className="text-xs text-muted-foreground">
               <span className="font-semibold">Model answer:</span> {question.rubric.modelAnswer}
             </p>
           ) : null}
         </div>
       ) : question.type === "SHORT_ANSWER" ? (
-        <p className="mt-2 text-xs text-stone-600">
+        <p className="mt-2 text-xs text-muted-foreground">
           Accepted answers:{" "}
-          <span className="font-semibold text-green-700">{question.acceptedAnswers.join(", ")}</span>
+          <span className="font-semibold text-foreground">{question.acceptedAnswers.join(", ")}</span>
         </p>
       ) : (
         <ul className="mt-2 flex flex-col gap-1">
@@ -114,18 +142,24 @@ function QuestionPreview({
             <li
               key={i}
               className={cn(
-                "rounded px-2 py-1 text-xs",
-                correct.has(i) ? "bg-green-50 font-semibold text-green-800" : "text-stone-600"
+                "rounded-[6px] px-2 py-1 text-xs",
+                correct.has(i) ? "bg-success/15 font-semibold text-foreground" : "text-muted-foreground"
               )}
             >
-              {correct.has(i) ? "✓ " : ""}
+              {correct.has(i) ? (
+                <>
+                  <span aria-hidden>✓ </span>
+                  <span className="sr-only">Correct answer: </span>
+                </>
+              ) : null}
               {opt}
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-1 text-[11px] text-stone-400">
-        {question.type} · {question.points} pt{question.points === 1 ? "" : "s"}
+      <p className="num mt-1 text-[11px] font-medium text-muted-foreground">
+        {question.type.charAt(0) + question.type.slice(1).toLowerCase().replace(/_/g, " ")} ·{" "}
+        {question.points} point{question.points === 1 ? "" : "s"}
       </p>
     </div>
   );
@@ -163,7 +197,7 @@ function LessonPreview({
   return (
     <li
       className={cn(
-        "rounded border border-stone-200 bg-stone-50 p-3 transition-opacity",
+        "rounded-[10px] border-2 border-border bg-muted p-3 transition-opacity",
         dragging && "opacity-40",
         dropTarget && "outline outline-2 outline-offset-2 outline-primary"
       )}
@@ -173,7 +207,8 @@ function LessonPreview({
       <div className="flex items-center gap-2">
         {canEdit ? (
           <span
-            className="cursor-grab text-stone-400 active:cursor-grabbing"
+            aria-hidden
+            className="cursor-grab text-muted-foreground active:cursor-grabbing"
             title="Drag to reorder"
           >
             <Icon name="grip" className="size-4" />
@@ -182,37 +217,49 @@ function LessonPreview({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="text-xs font-bold text-stone-500 [touch-action:manipulation]"
+          className="flex size-7 shrink-0 items-center justify-center rounded-[8px] text-xs font-bold text-muted-foreground outline-none [touch-action:manipulation] hover:bg-muted hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-ring"
           aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} the content of “${lesson.title}”`}
         >
-          {open ? "▾" : "▸"}
+          <span aria-hidden>{open ? "▾" : "▸"}</span>
         </button>
         <TypeBadge type={lesson.contentType} />
         {canEdit ? (
           <TextInput
+            aria-label="Lesson title"
+            autoComplete="off"
             value={lesson.title}
             onChange={(e) => onChange({ ...lesson, title: e.target.value })}
-            className="flex-1"
+            className="min-w-0 flex-1"
           />
         ) : (
-          <span className="flex-1 text-sm font-medium">{lesson.title}</span>
+          <span className="min-w-0 flex-1 break-words text-sm font-medium">{lesson.title}</span>
         )}
         {lesson.durationMin != null ? (
-          <span className="shrink-0 text-xs text-stone-500">{lesson.durationMin} min</span>
+          <span className="num hidden shrink-0 text-xs font-medium text-muted-foreground sm:inline">
+            {lesson.durationMin} min
+          </span>
         ) : null}
         {lesson.contentType === "QUIZ" && lesson.quiz ? (
-          <span className="shrink-0 text-xs text-stone-500">{lesson.quiz.questions.length} q</span>
+          <span className="num hidden shrink-0 text-xs font-medium text-muted-foreground sm:inline">
+            {lesson.quiz.questions.length} question{lesson.quiz.questions.length === 1 ? "" : "s"}
+          </span>
         ) : null}
         {canEdit && move ? <MoveButtons {...move} /> : null}
         {canEdit ? (
-          <Button variant="destructive" size="icon-xs" aria-label="Delete lesson" onClick={onRemove}>
-            <Icon name="trash" />
+          <Button
+            variant="destructive"
+            size="icon-xs"
+            aria-label={`Remove the lesson “${lesson.title}”`}
+            onClick={onRemove}
+          >
+            <Icon name="trash" aria-hidden />
           </Button>
         ) : null}
       </div>
 
       {open ? (
-        <div className="mt-3 border-t border-dashed border-stone-300 pt-3">
+        <div className="mt-3 border-t border-dashed border-border pt-3">
           {lesson.contentType === "TEXT" && lesson.body ? (
             <div className="lesson-prose text-sm">{renderLessonText(lesson.body)}</div>
           ) : null}
@@ -226,7 +273,9 @@ function LessonPreview({
             <div className="flex flex-col gap-2">
               <p className="text-sm font-semibold">{lesson.quiz.title}</p>
               {lesson.quiz.passingScore != null ? (
-                <p className="text-xs text-stone-500">Passing score: {lesson.quiz.passingScore}%</p>
+                <p className="num text-xs font-medium text-muted-foreground">
+                  Pass mark: {lesson.quiz.passingScore}%
+                </p>
               ) : null}
               {lesson.quiz.questions.map((q, i) => (
                 <QuestionPreview
@@ -240,8 +289,8 @@ function LessonPreview({
             </div>
           ) : null}
           {lesson.contentType === "VIDEO_URL" || lesson.contentType === "FILE" ? (
-            <p className="text-sm italic text-stone-500">
-              Placeholder — {lesson.placeholderNote ?? "attach content after applying."}
+            <p className="text-sm font-medium text-muted-foreground">
+              Nothing attached yet. {lesson.placeholderNote ?? "Attach the content after adding this to the course."}
             </p>
           ) : null}
         </div>
@@ -262,18 +311,6 @@ export function BuilderPreviewTree({
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  /** Stable ids for View Transitions — survives arrayMove (same object refs). */
-  const keyMap = useRef(new WeakMap<object, string>());
-
-  function stableKey(obj: object): string {
-    let id = keyMap.current.get(obj);
-    if (!id) {
-      id = crypto.randomUUID();
-      keyMap.current.set(obj, id);
-    }
-    return id;
-  }
-
   function commit(next: GeneratedCourse) {
     withViewTransition(() => onChange(next));
   }
@@ -338,7 +375,7 @@ export function BuilderPreviewTree({
   return (
     <div className="flex flex-col gap-4">
       {course.courseSummary ? (
-        <p className="text-sm text-stone-600">{course.courseSummary}</p>
+        <p className="text-sm text-muted-foreground">{course.courseSummary}</p>
       ) : null}
       {course.groups.map((group, gi) => (
         <div
@@ -370,7 +407,8 @@ export function BuilderPreviewTree({
           <div className="flex items-center gap-2">
             {canEdit ? (
               <span
-                className="cursor-grab text-stone-400 active:cursor-grabbing"
+                aria-hidden
+                className="cursor-grab text-muted-foreground active:cursor-grabbing"
                 title="Drag to reorder modules"
                 draggable
                 onDragStart={(e) => {
@@ -385,24 +423,27 @@ export function BuilderPreviewTree({
             <button
               type="button"
               onClick={() => toggleGroup(gi)}
-              className="text-xs font-bold text-stone-500 [touch-action:manipulation]"
+              className="flex size-7 shrink-0 items-center justify-center rounded-[8px] text-xs font-bold text-muted-foreground outline-none [touch-action:manipulation] hover:bg-muted hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-1 focus-visible:outline-ring"
               aria-expanded={!collapsed.has(gi)}
+              aria-label={`${collapsed.has(gi) ? "Show" : "Hide"} the lessons in module ${gi + 1}`}
             >
-              {collapsed.has(gi) ? "▸" : "▾"}
+              <span aria-hidden>{collapsed.has(gi) ? "▸" : "▾"}</span>
             </button>
-            <span className="shrink-0 text-xs font-bold uppercase text-stone-400">
+            <span className="num hidden shrink-0 text-xs font-bold text-muted-foreground sm:inline">
               Module {gi + 1}
             </span>
             {canEdit ? (
               <TextInput
+                aria-label={`Title of module ${gi + 1}`}
+                autoComplete="off"
                 value={group.title}
                 onChange={(e) => updateGroup(gi, { title: e.target.value })}
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
             ) : (
-              <span className="flex-1 text-sm font-semibold">{group.title}</span>
+              <span className="min-w-0 flex-1 break-words text-sm font-bold">{group.title}</span>
             )}
-            <span className="shrink-0 text-xs text-stone-500">
+            <span className="num hidden shrink-0 text-xs font-medium text-muted-foreground sm:inline">
               {group.lessons.length} lesson{group.lessons.length === 1 ? "" : "s"}
             </span>
             {canEdit ? (
@@ -485,9 +526,10 @@ export function BuilderPreviewTree({
         </div>
       ))}
       {canEdit ? (
-        <p className="text-xs text-stone-400">
-          Drag the <Icon name="grip" className="inline size-3" /> handle (or use the arrows) to
-          reorder modules and lessons — lessons can be dragged between modules.
+        <p className="text-xs font-medium text-muted-foreground">
+          Reorder modules and lessons with the arrows, or drag the{" "}
+          <Icon name="grip" className="inline size-3" aria-hidden /> handle. Lessons can be dragged
+          from one module to another.
         </p>
       ) : null}
     </div>

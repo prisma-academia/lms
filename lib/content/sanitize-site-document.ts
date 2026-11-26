@@ -1,6 +1,16 @@
 import sanitize from "sanitize-html";
 import { sanitizeAndScopeCss, scopeSelectorFor } from "./sanitize-css";
 import { SANITIZE_OPTIONS } from "./sanitize-html";
+import {
+  SITE_FIELD_NAMES,
+  SITE_INPUT_TYPES,
+  findSiteForm,
+  findSiteForms,
+  formAllowedOn,
+  kindAllowsPassword,
+  type FoundSiteForm,
+  type SitePageKind,
+} from "../site/site-api";
 
 /**
  * Sanitize a whole author-written HTML *document* for a site page.
@@ -45,7 +55,243 @@ export type SiteDocument = {
   headDescription: string | null;
   /** How many elements the sanitizer stripped. Drives the editor's warning. */
   removedTagCount: number;
+  /** The platform forms (data-lms-form) that survived, with their fields. */
+  forms: FoundSiteForm[];
 };
+
+/**
+ * Sanitizer options for a SITE document of a given kind.
+ *
+ * Everything in the shared lesson/certificate policy, plus forms — but only
+ * the forms in the Site API (lib/site/site-api.ts), and only as declarations:
+ *
+ *  - a `<form>` survives only with a known `data-lms-form` that is allowed on
+ *    this kind of page; any other form becomes a plain `<div>`;
+ *  - `action` and `method` are never the author's. They are removed, and set
+ *    here only for the search box (a GET to the catalogue, so it works without
+ *    script). Where a credential form posts is decided by the platform's
+ *    runtime, not by markup;
+ *  - an `<input>` keeps a `name` only if it is one of the catalogue's field
+ *    names, and a `type` only from a short list — no `hidden`, no `file`;
+ *  - `value`, `pattern`, `form` and `formaction` are not in the allowlist at
+ *    all, so a field cannot arrive pre-filled, validate against an author's
+ *    expression, or be attached to a different form;
+ *  - a password field exists only on the sign-in and register pages. On any
+ *    other page the element is removed outright: a page that is not the
+ *    platform's own auth page has no business asking for a password.
+ *
+ * The lesson and certificate sanitizers do not use this: a form in a lesson is
+ * still stripped.
+ */
+type TagTransform = (tagName: string, attribs: sanitize.Attributes) => sanitize.Tag;
+
+/* -------------------------------------------------------------------------- */
+/* Two style rules that apply to site documents only                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * What a site document's CSS may not do, on top of the shared CSS policy.
+ *
+ * Both rules exist because a site page is shown to the public around the
+ * platform's own controls, which a lesson or a certificate never is:
+ *
+ *  1. Nothing may be pinned to the window. `position: fixed` lets one element
+ *     cover the header's Sign in button, the staff sign-in link, or the whole
+ *     page with a look-alike of it; `sticky` with a tall parent does the same
+ *     more quietly. The one place `sticky` is the point is the site's own
+ *     header, so it is kept there and nowhere else. `position` is an
+ *     allowlist, not a blocklist, so `position: var(--p)` cannot smuggle a
+ *     value in.
+ *  2. A page that asks for a password fetches nothing from anywhere else. On
+ *     the sign-in, register and forgot-password pages a `url()` may only be
+ *     an inline image, a path on this site, or a reference inside the page.
+ *     (The `/auth/*` content policy already refuses remote images and fonts;
+ *     this removes the request from the page rather than relying on the
+ *     browser to block it.) Escapes are refused there too: `u\72l(…)` is
+ *     still `url(…)` to a browser.
+ *
+ * Applied as a pass over CSS and inline styles the shared sanitizer has
+ * ALREADY cleaned and scoped — so this only ever removes declarations, and
+ * never has to be trusted with anything the shared policy would have refused.
+ */
+type SiteStylePolicy = {
+  /** True for the site header document only. */
+  allowSticky: boolean;
+  /** True on the pages that take a password or start a password reset. */
+  localUrlsOnly: boolean;
+};
+
+const POSITION_VALUES = new Set(["static", "relative", "absolute", "inherit", "initial", "unset", "revert", "revert-layer"]);
+const STICKY_VALUES = new Set(["sticky", "-webkit-sticky"]);
+const CREDENTIAL_KINDS: ReadonlySet<SitePageKind> = new Set<SitePageKind>(["LOGIN", "REGISTER", "FORGOT_PASSWORD"]);
+/** An inline image, a reference inside the page, or a path on this site (not `//host`). */
+const LOCAL_URL = /^(?:data:image\/|#|\/(?![/\\])|\.\.?\/)/i;
+const CSS_URL = /url\(\s*(['"]?)([^'")]*)\1\s*\)/gi;
+
+function declarationAllowed(property: string, value: string, policy: SiteStylePolicy): boolean {
+  if (property === "position") {
+    const position = value.replace(/!\s*important\s*$/i, "").trim().toLowerCase();
+    return POSITION_VALUES.has(position) || (policy.allowSticky && STICKY_VALUES.has(position));
+  }
+
+  if (policy.localUrlsOnly) {
+    if (value.includes("\\")) return false;
+    const flat = value.toLowerCase();
+    // image-set() takes bare strings as addresses, with no url() to inspect.
+    if (flat.includes("image-set(")) return false;
+    if (flat.includes("url(")) {
+      const targets = [...value.matchAll(CSS_URL)].map((match) => match[2].trim());
+      // A url( the pattern cannot read is not given the benefit of the doubt.
+      if (targets.length === 0 || targets.some((target) => !LOCAL_URL.test(target))) return false;
+    }
+  }
+  return true;
+}
+
+/** Split a declaration list on `;`, ignoring those inside quotes or brackets (`url(data:…;base64,…)`). */
+function splitDeclarations(body: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === "\\") {
+      i++;
+    } else if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === "(" || ch === "[") {
+      depth++;
+    } else if (ch === ")" || ch === "]") {
+      depth = Math.max(0, depth - 1);
+    } else if (ch === ";" && depth === 0) {
+      parts.push(body.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(body.slice(start));
+  return parts;
+}
+
+function filterDeclarations(body: string, policy: SiteStylePolicy): string {
+  return splitDeclarations(body)
+    .map((declaration) => declaration.trim())
+    .filter((declaration) => {
+      if (!declaration) return false;
+      const colon = declaration.indexOf(":");
+      if (colon <= 0) return false;
+      return declarationAllowed(
+        declaration.slice(0, colon).trim().toLowerCase(),
+        declaration.slice(colon + 1).trim(),
+        policy
+      );
+    })
+    .join("; ");
+}
+
+/**
+ * Run the declarations of every rule in a sanitized stylesheet through the
+ * site policy. Only the innermost `{ … }` blocks hold declarations (a rule's,
+ * a keyframe stop's, an @font-face's); everything outside them — selectors,
+ * at-rule preludes, the scoping the shared sanitizer added — is copied through
+ * untouched, byte for byte.
+ */
+function filterStylesheet(css: string, policy: SiteStylePolicy): string {
+  let out = "";
+  let copied = 0;
+  let open = -1;
+  let quote: string | null = null;
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (ch === "\\") {
+      i++;
+    } else if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === "{") {
+      open = i;
+    } else if (ch === "}" && open >= 0) {
+      out += `${css.slice(copied, open + 1)} ${filterDeclarations(css.slice(open + 1, i), policy)} `;
+      copied = i;
+      open = -1;
+    }
+  }
+  return out + css.slice(copied);
+}
+
+function siteSanitizeOptions(kind: SitePageKind, policy: SiteStylePolicy): sanitize.IOptions {
+  const allowPassword = kindAllowsPassword(kind);
+  const shared = (SANITIZE_OPTIONS.transformTags as Record<string, TagTransform>)["*"];
+
+  return {
+    ...SANITIZE_OPTIONS,
+    allowedTags: [...(SANITIZE_OPTIONS.allowedTags as string[]), "form", "input", "button", "label"],
+    allowedAttributes: {
+      ...(SANITIZE_OPTIONS.allowedAttributes as Record<string, sanitize.AllowedAttribute[]>),
+      // `action`/`method` are listed so the values SET BELOW survive; the
+      // author's own are deleted in the transform before they get this far.
+      form: ["action", "method"],
+      input: ["type", "name", "placeholder", "required", "autocomplete", "minlength", "maxlength", "inputmode"],
+      button: ["type"],
+      label: ["for"],
+    },
+    transformTags: {
+      "*": (tagName, attribs) => {
+        const cleaned = shared(tagName, attribs);
+        const next: sanitize.Attributes = { ...cleaned.attribs };
+
+        // `shared` has already cleaned the inline style; the site rules go on top.
+        if (next.style) {
+          const kept = filterDeclarations(next.style, policy);
+          if (kept) next.style = kept;
+          else delete next.style;
+        }
+
+        if (tagName === "form") {
+          delete next.action;
+          delete next.method;
+          const form = findSiteForm(next["data-lms-form"]);
+          if (!form || !formAllowedOn(form, kind)) {
+            delete next["data-lms-form"];
+            return { tagName: "div", attribs: next };
+          }
+          next["data-lms-form"] = form.kind;
+          if (form.kind === "search") {
+            next.action = "/courses";
+            next.method = "get";
+          }
+          return { tagName: "form", attribs: next };
+        }
+
+        if (tagName === "input") {
+          const type = (next.type ?? "text").toLowerCase();
+          // A type outside the list (hidden, file, checkbox, image…) is not
+          // turned into a text box nobody asked for: the element is marked
+          // here and removed by the filter below.
+          if (!SITE_INPUT_TYPES.has(type)) return { tagName, attribs: { type: "unsupported" } };
+          next.type = type;
+          if (next.name !== undefined && !SITE_FIELD_NAMES.has(next.name)) delete next.name;
+          return { tagName, attribs: next };
+        }
+
+        if (tagName === "button") {
+          next.type = (next.type ?? "").toLowerCase() === "button" ? "button" : "submit";
+          return { tagName, attribs: next };
+        }
+
+        return { tagName: cleaned.tagName, attribs: next };
+      },
+    },
+    exclusiveFilter: (frame) => {
+      if (frame.tag !== "input") return false;
+      const type = (frame.attribs.type ?? "").toLowerCase();
+      return type === "unsupported" || (type === "password" && !allowPassword);
+    },
+  };
+}
 
 const STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
 const TITLE_TAG = /<title\b[^>]*>([\s\S]*?)<\/title\s*>/i;
@@ -81,7 +327,25 @@ function countTags(html: string): number {
   return n;
 }
 
-export function sanitizeSiteDocument(source: string, id: string): SiteDocument {
+export function sanitizeSiteDocument(
+  source: string,
+  id: string,
+  opts: {
+    /** What kind of page this is; decides which forms it may contain. */
+    kind?: SitePageKind;
+    /**
+     * Which part of the site this document is. Only the header may pin itself
+     * to the top of the window. Left out, it is read from `id`: the renderer,
+     * the preview and the layout API all sanitize the header as `sl-header`.
+     */
+    part?: "page" | "header" | "footer";
+  } = {}
+): SiteDocument {
+  const kind = opts.kind ?? "PAGE";
+  const policy: SiteStylePolicy = {
+    allowSticky: (opts.part ?? (id === "sl-header" ? "header" : "page")) === "header",
+    localUrlsOnly: CREDENTIAL_KINDS.has(kind),
+  };
   const { attribute, selector } = scopeSelectorFor(id);
 
   let working = source.replace(DOCTYPE, "");
@@ -140,18 +404,19 @@ export function sanitizeSiteDocument(source: string, id: string): SiteDocument {
   });
 
   const before = countTags(withoutStyles);
-  const html = sanitize(withoutStyles, SANITIZE_OPTIONS);
+  const html = sanitize(withoutStyles, siteSanitizeOptions(kind, policy));
   const after = countTags(html);
 
   return {
     html,
     css:
       collectedCss.length > 0
-        ? sanitizeAndScopeCss(collectedCss.join("\n"), selector)
+        ? filterStylesheet(sanitizeAndScopeCss(collectedCss.join("\n"), selector), policy)
         : "",
     scope: attribute,
     headTitle,
     headDescription,
     removedTagCount: Math.max(0, before - after),
+    forms: findSiteForms(html),
   };
 }

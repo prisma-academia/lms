@@ -2,36 +2,39 @@ import Link from "next/link";
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { Card } from "@/components/shell";
+import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
 import { courseAccent, courseIcon } from "@/lib/ui/course-color";
+import { formatDateTime, type FormatContext } from "@/lib/format";
+import { tenantFormatContext } from "../_lib/format-context";
+import { DAY_MS, DUE_TONE_COLOR, daysBetween, dueLabel, zonedParts } from "../_lib/zoned";
+import { countOf } from "../_lib/labels";
 
-const DAY_MS = 86400000;
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SECTION_HEADING = "text-[13px] font-bold text-foreground";
 
-function dayKey(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
-
-function dueInfo(due: Date, now: Date): { text: string; color: string } {
-  const days = Math.round(
-    (new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime() -
-      new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
-      DAY_MS
-  );
-  if (days < 0) return { text: "Past due", color: "var(--muted-foreground)" };
-  if (days === 0) return { text: "Due today", color: "var(--destructive)" };
-  if (days === 1) return { text: "Due tomorrow", color: "var(--destructive)" };
-  if (days <= 4) return { text: `Due in ${days} days`, color: "var(--warning)" };
-  return { text: `Due in ${days} days`, color: "var(--muted-foreground)" };
+/** "Mon", "Nov" — in the academy's language, for a day that is already a calendar day. */
+function partOf(dayNumber: number, part: "weekday" | "month", ctx: FormatContext): string {
+  try {
+    // The day number IS the calendar day, so it is read back in UTC: applying
+    // the academy's zone a second time would shift it.
+    return new Intl.DateTimeFormat(ctx.locale ?? "en", { [part]: "short", timeZone: "UTC" }).format(
+      new Date(dayNumber * DAY_MS)
+    );
+  } catch {
+    return "";
+  }
 }
 
 export default async function OverviewPage() {
   const actor = await requireClientPage();
   const now = new Date();
+  // Every "today", "this week" and "due in" below is counted in the academy's
+  // own time zone, not the server's — see ../_lib/zoned.ts.
+  const format = await tenantFormatContext(actor.tenantId);
+  const today = zonedParts(now, format.timeZone);
 
   const enrollments = await prisma.enrollment.findMany({
     where: { clientId: actor.clientId },
@@ -79,15 +82,11 @@ export default async function OverviewPage() {
     (s, e) => s + e.lessonProgress.length,
     0
   );
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const weekAhead = new Date(startOfToday.getTime() + 7 * DAY_MS);
-  const dueThisWeek = assignments.filter(
-    (a) =>
-      a.dueAt &&
-      a.submissions.length === 0 &&
-      a.dueAt >= startOfToday &&
-      a.dueAt <= weekAhead
-  ).length;
+  // Still to hand in, with how many calendar days away each deadline is.
+  const outstanding = assignments
+    .filter((a) => a.dueAt && a.submissions.length === 0)
+    .map((a) => ({ assignment: a, dueAt: a.dueAt!, daysAway: daysBetween(now, a.dueAt!, format.timeZone) }));
+  const dueThisWeek = outstanding.filter((o) => o.daysAway >= 0 && o.daysAway <= 7).length;
   const gradeMax = grades.reduce((s, g) => s + g.maxPoints, 0);
   const gradeAvg =
     gradeMax === 0
@@ -95,27 +94,29 @@ export default async function OverviewPage() {
       : Math.round((grades.reduce((s, g) => s + g.points, 0) / gradeMax) * 100);
 
   // --- activity + streak from lesson completions ---
-  const completions = enrollments.flatMap((e) =>
+  const completionDays = enrollments.flatMap((e) =>
     e.lessonProgress
       .map((p) => p.completedAt)
       .filter((d): d is Date => d != null)
+      .map((d) => zonedParts(d, format.timeZone).dayNumber)
   );
-  const activeDays = new Set(completions.map((d) => dayKey(new Date(d))));
+  const activeDays = new Set(completionDays);
   let streak = 0;
   for (let i = 0; i < 365; i++) {
-    const d = new Date(startOfToday.getTime() - i * DAY_MS);
-    if (activeDays.has(dayKey(d))) streak++;
+    if (activeDays.has(today.dayNumber - i)) streak++;
     else if (i === 0) continue; // today with no activity yet doesn't break a prior streak
     else break;
   }
   const week = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(startOfToday.getTime() - (6 - i) * DAY_MS);
-    const count = completions.filter(
-      (c) => dayKey(new Date(c)) === dayKey(d)
-    ).length;
-    return { label: WEEKDAYS[d.getDay()], count, today: i === 6 };
+    const dayNumber = today.dayNumber - (6 - i);
+    return {
+      label: partOf(dayNumber, "weekday", format),
+      count: completionDays.filter((n) => n === dayNumber).length,
+      today: i === 6,
+    };
   });
   const maxCount = Math.max(1, ...week.map((w) => w.count));
+  const weekTotal = week.reduce((sum, w) => sum + w.count, 0);
 
   // --- continue learning ---
   const continueList = enrollments
@@ -127,14 +128,13 @@ export default async function OverviewPage() {
       return { enrollment: e, next };
     });
 
-  // --- due radar ---
-  const radar = assignments
-    .filter((a) => a.dueAt && a.submissions.length === 0 && a.dueAt >= startOfToday)
-    .sort((a, b) => (a.dueAt!.getTime() - b.dueAt!.getTime()))
+  // --- due soon ---
+  const dueSoon = outstanding
+    .filter((o) => o.daysAway >= 0)
+    .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
     .slice(0, 4);
 
-  const hour = now.getHours();
-  const greetWord = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
+  const greetWord = today.hour < 12 ? "Good morning" : today.hour < 18 ? "Good afternoon" : "Good evening";
 
   const focus = continueList
     .map((c) => ({
@@ -148,18 +148,16 @@ export default async function OverviewPage() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="font-heading text-2xl leading-tight">
+        <h1 className="text-balance font-heading text-2xl leading-tight">
           {greetWord}. Ready to learn?
         </h1>
         <p className="mt-1 text-sm font-medium text-muted-foreground">
-          {dueThisWeek > 0
-            ? `${dueThisWeek} task${dueThisWeek === 1 ? "" : "s"} due this week`
-            : "Nothing due this week"}
+          {dueThisWeek > 0 ? `${countOf(dueThisWeek, "assignment")} due this week` : "Nothing due this week"}
           {streak > 0 ? ` · ${streak}-day streak` : ""}
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           icon="book"
           iconBg="var(--chart-1)"
@@ -191,27 +189,33 @@ export default async function OverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card accent="var(--chart-1)">
-            <h3 className="mb-4 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.1em]">
-              This week
-              <span className="num ml-auto text-xs font-bold normal-case tracking-normal text-muted-foreground">
-                {lessonsCompleted > 0
-                  ? `${completions.filter((c) => new Date(c) >= new Date(startOfToday.getTime() - 6 * DAY_MS)).length} lessons`
-                  : "no activity yet"}
+            <div className="mb-4 flex items-baseline justify-between gap-2">
+              <h2 className={SECTION_HEADING}>This week</h2>
+              <span className="num text-xs font-bold text-muted-foreground">
+                {weekTotal > 0 ? countOf(weekTotal, "lesson") : "No lessons yet"}
               </span>
-            </h3>
-            <div className="flex h-40 items-end gap-2 sm:gap-3">
+            </div>
+            {/* One picture to a screen reader, with the numbers in its name: seven
+                unlabelled bars would be seven stops that say nothing. */}
+            <div
+              role="img"
+              aria-label={`Lessons completed in the last 7 days: ${week
+                .map((w) => `${w.today ? "today" : w.label} ${w.count}`)
+                .join(", ")}.`}
+              className="flex h-40 items-end gap-2 sm:gap-3"
+            >
               {week.map((w, i) => (
-                <div
-                  key={i}
-                  className="flex flex-1 flex-col items-center gap-2"
-                >
+                <div key={i} aria-hidden className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                  <span className="num text-[11px] font-bold text-muted-foreground">
+                    {w.count > 0 ? w.count : ""}
+                  </span>
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className={`w-full rounded-t-[8px] border-2 border-border ${
                         w.count === 0
-                          ? "border-dashed border-border"
+                          ? "border-dashed"
                           : w.today
                             ? "bg-primary shadow-sm"
                             : "bg-chart-1 shadow-sm"
@@ -220,10 +224,9 @@ export default async function OverviewPage() {
                         height: `${
                           w.count === 0
                             ? 8
-                            : Math.max(14, (w.count / maxCount) * 120)
+                            : Math.max(14, (w.count / maxCount) * 104)
                         }px`,
                       }}
-                      title={`${w.count} lesson${w.count === 1 ? "" : "s"}`}
                     />
                   </div>
                   <span
@@ -237,20 +240,29 @@ export default async function OverviewPage() {
           </Card>
 
           <Card>
-            <h3 className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em]">
-              Jump back in
-            </h3>
+            <h2 className={`mb-2 ${SECTION_HEADING}`}>Continue learning</h2>
             {continueList.length === 0 ? (
-              <EmptyState icon="book" title="No active courses">
-                Browse the catalog and enroll to get started.
+              <EmptyState
+                icon="book"
+                title={enrollments.length === 0 ? "No courses yet" : "All caught up"}
+                action={
+                  <Button asChild size="sm">
+                    <Link href="/courses">Browse courses</Link>
+                  </Button>
+                }
+              >
+                {enrollments.length === 0
+                  ? "Pick a course from the catalogue and it will appear here, with your place saved."
+                  : "You have finished every course you enrolled in. Find your next one in the catalogue."}
               </EmptyState>
             ) : (
-              <div className="divide-dash">
+              <ul className="divide-dash">
                 {continueList.map(({ enrollment: e, next }) => {
                   const accent = courseAccent(e.course.id);
                   return (
-                    <div key={e.id} className="flex items-center gap-3 py-3">
+                    <li key={e.id} className="flex items-center gap-3 py-3">
                       <span
+                        aria-hidden
                         className="flex size-10 shrink-0 items-center justify-center rounded-[10px] border-2 border-foreground text-foreground"
                         style={{ background: accent }}
                       >
@@ -268,9 +280,10 @@ export default async function OverviewPage() {
                           color={accent}
                           size="sm"
                           className="mt-2"
+                          label={`Progress in ${e.course.title}`}
                         />
                       </div>
-                      <span className="num text-sm font-bold">
+                      <span className="num shrink-0 text-sm font-bold">
                         {e.progressPercent}%
                       </span>
                       <Link
@@ -279,44 +292,42 @@ export default async function OverviewPage() {
                             ? `/courses/${e.course.slug}/learn?lesson=${next.id}`
                             : `/courses/${e.course.slug}/learn`
                         }
-                        aria-label={`Resume ${e.course.title}`}
-                        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm [touch-action:manipulation] active:translate-x-px active:translate-y-px active:shadow-none"
+                        aria-label={`Continue ${e.course.title}`}
+                        className="flex size-11 shrink-0 items-center justify-center rounded-[10px] border-2 border-border bg-card shadow-sm outline-none [touch-action:manipulation] hover:bg-muted focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-x-px active:translate-y-px active:shadow-none"
                       >
-                        <Icon name="arrow-right" className="size-4" />
+                        <Icon name="arrow-right" className="size-4" aria-hidden />
                       </Link>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <Card accent="var(--chart-4)">
-            <h3 className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em]">
-              Due radar
-            </h3>
-            {radar.length === 0 ? (
+            <h2 className={`mb-2 ${SECTION_HEADING}`}>Due soon</h2>
+            {dueSoon.length === 0 ? (
               <EmptyState icon="check-circle">
-                Radar&rsquo;s clear. Enjoy it.
+                Nothing is due. New assignments from your courses will show up here.
               </EmptyState>
             ) : (
-              <div className="divide-dash">
-                {radar.map((a) => {
-                  const info = dueInfo(a.dueAt!, now);
+              <ul className="divide-dash">
+                {dueSoon.map(({ assignment: a, dueAt, daysAway }) => {
+                  const due = zonedParts(dueAt, format.timeZone);
+                  const info = dueLabel(daysAway);
                   const accent = courseAccent(a.course.id);
                   return (
-                    <div key={a.id} className="flex items-center gap-3 py-2.5">
+                    <li key={a.id} className="flex items-center gap-3 py-2.5">
                       <div
-                        className="num flex size-11 shrink-0 -rotate-3 flex-col items-center justify-center rounded-[10px] border-2 border-foreground leading-none"
+                        aria-hidden
+                        className="num flex size-11 shrink-0 -rotate-3 flex-col items-center justify-center rounded-[10px] border-2 border-foreground leading-none text-foreground"
                         style={{ background: accent }}
                       >
-                        <span className="text-[15px] font-bold">
-                          {a.dueAt!.getDate()}
-                        </span>
-                        <span className="mt-0.5 text-[9px] font-bold uppercase">
-                          {MONTHS[a.dueAt!.getMonth()]}
+                        <span className="text-[15px] font-bold">{due.day}</span>
+                        <span className="mt-0.5 text-[9px] font-bold">
+                          {partOf(due.dayNumber, "month", format)}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -329,33 +340,34 @@ export default async function OverviewPage() {
                       </div>
                       <span
                         className="num shrink-0 text-[12px] font-bold"
-                        style={{ color: info.color }}
+                        style={{ color: DUE_TONE_COLOR[info.tone] }}
                       >
                         {info.text}
+                        <span className="sr-only">, {formatDateTime(dueAt, format)}</span>
                       </span>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
             <Link
               href="/assignments"
-              className="mt-3 inline-flex items-center gap-1 text-[13px] font-bold underline decoration-primary decoration-2 underline-offset-2"
+              className="mt-3 inline-flex min-h-9 items-center gap-1 rounded-[8px] text-[13px] font-bold underline decoration-primary decoration-2 underline-offset-2 outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
-              All tasks <Icon name="arrow-right" className="size-3.5" />
+              All assignments <Icon name="arrow-right" className="size-3.5" aria-hidden />
             </Link>
           </Card>
 
           {focus ? (
             <Card accent="var(--foreground)" className="bg-primary text-primary-foreground">
-              <h3 className="mb-2 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.1em]">
-                <Icon name="target" className="size-4" /> Closest to done
-              </h3>
+              <h2 className="mb-2 flex items-center gap-2 text-[13px] font-bold">
+                <Icon name="target" className="size-4" aria-hidden /> Closest to done
+              </h2>
               <p className="text-[13.5px] font-medium leading-relaxed">
-                <b>{focus.enrollment.course.title}</b> is {focus.pct}% in.{" "}
+                <b>{focus.enrollment.course.title}</b> is {focus.pct}% complete.{" "}
                 {focus.remaining > 0
-                  ? `${focus.remaining} lesson${focus.remaining === 1 ? "" : "s"} and it's off your plate for good.`
-                  : "One last push to wrap it up."}
+                  ? `${countOf(focus.remaining, "lesson")} to go.`
+                  : "One last push to finish it."}
               </p>
             </Card>
           ) : null}

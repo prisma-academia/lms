@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { RouteProgress } from "@/components/route-progress";
 import { ErrorDialogProvider } from "@/components/error-dialog";
 import { ToastProvider } from "@/components/ui/toast";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { ThemeScript } from "@/components/theme-script";
 import { resolveThemeForRequest } from "@/lib/theme/resolve";
 import {
@@ -79,7 +80,9 @@ export default async function RootLayout({
         </Suspense>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ToastProvider>
-            <ErrorDialogProvider>{children}</ErrorDialogProvider>
+            <ErrorDialogProvider>
+              <ConfirmProvider>{children}</ConfirmProvider>
+            </ErrorDialogProvider>
           </ToastProvider>
         </NextIntlClientProvider>
       </body>

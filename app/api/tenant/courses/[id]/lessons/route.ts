@@ -5,7 +5,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
-import { assertLessonContent } from "@/lib/courses/lesson-content";
+import { assertLessonContent, withLessonAnchors } from "@/lib/courses/lesson-content";
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
@@ -71,7 +71,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         title: body.title,
         sortOrder: body.sortOrder ?? (maxOrder._max.sortOrder ?? -1) + 1,
         contentType,
-        contentJson: (body.contentJson ?? {}) as object,
+        contentJson: withLessonAnchors(contentType, body.contentJson ?? {}) as object,
         assetKey: ref.assetKey,
         libraryItemId: ref.libraryItemId,
         durationMin: body.durationMin ?? null,

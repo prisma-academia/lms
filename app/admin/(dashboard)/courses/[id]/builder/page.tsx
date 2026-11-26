@@ -24,7 +24,8 @@ export default async function CourseBuilderPage({
     <div>
       <PageHeader
         title="AI course builder"
-        backHref={`/admin/courses/${course.id}`}
+        subtitle="Describe what to teach and get a draft of modules, lessons and quizzes to edit."
+        backHref={`/admin/courses/${course.id}?tab=content`}
         backLabel={course.title}
       />
       <BuilderStudio

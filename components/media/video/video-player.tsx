@@ -287,7 +287,7 @@ export function VideoPlayer({
           <span className="num text-sm font-bold">Resume from {formatDuration(resumeAt)}?</span>
           <button
             type="button"
-            className="rounded-[6px] bg-primary px-2 py-1 text-xs font-bold text-primary-foreground"
+            className="min-h-8 rounded-[6px] bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground [touch-action:manipulation] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
             onClick={() => {
               seekTo(resumeAt);
               setResumeAt(null);
@@ -298,7 +298,7 @@ export function VideoPlayer({
           </button>
           <button
             type="button"
-            className="px-1 text-xs font-bold text-muted-foreground"
+            className="min-h-8 rounded-[6px] px-1.5 text-xs font-bold text-muted-foreground hover:text-foreground [touch-action:manipulation] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
             onClick={() => setResumeAt(null)}
           >
             Start over

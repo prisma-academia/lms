@@ -9,14 +9,10 @@ import { Icon } from "@/components/icon";
 import { CourseEnrollButton } from "../enroll-button";
 import { courseAccent, courseIcon } from "@/lib/ui/course-color";
 import { isUnlocked, frontierLesson } from "@/lib/courses/gating";
-
-function formatPrice(cents: number | null, currency: string): string {
-  if (cents == null || cents === 0) return "Free";
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  }).format(cents / 100);
-}
+import { ShareDialog } from "@/components/share/share-dialog";
+import { requestOrigin } from "@/lib/site/metadata";
+import { formatDuration, formatPrice, isPaid, plural } from "@/lib/site/public-format";
+import { tenantFormatContext } from "../../_lib/format-context";
 
 export default async function CourseDetailPage({
   params,
@@ -57,14 +53,26 @@ export default async function CourseDetailPage({
     0
   );
   const accent = courseAccent(course.id);
+  // The academy's locale, not the server's: the price reads the way learners
+  // write it, whatever machine rendered the page.
+  const { locale } = await tenantFormatContext(actor.tenantId);
+  const priceLabel = formatPrice(course.priceCents, course.currency, locale);
+  const paid = isPaid(course.priceCents);
+  const completedCount = course.lessons.filter((l) => doneSet.has(l.id)).length;
+  // Only a course that has a public page is worth sharing: a private one would
+  // show the person receiving the link a "page not found".
+  const shareUrl =
+    course.visibility === "PUBLIC"
+      ? new URL(`/courses/${course.slug}`, await requestOrigin()).toString()
+      : null;
 
   return (
     <div className="max-w-3xl">
       <Link
         href="/courses"
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground hover:text-foreground"
+        className="mb-4 inline-flex min-h-9 items-center gap-1.5 rounded-[8px] text-[13px] font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Icon name="arrow-left" className="size-4" /> Catalog
+        <Icon name="arrow-left" className="size-4" aria-hidden /> All courses
       </Link>
 
       <div
@@ -73,25 +81,30 @@ export default async function CourseDetailPage({
       >
         <div className="flex items-start gap-4">
           <span
+            aria-hidden
             className="flex size-14 shrink-0 items-center justify-center rounded-[12px] border-2 border-border text-foreground"
             style={{ background: accent }}
           >
             <Icon name={courseIcon(course.id)} className="size-7" />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="font-heading text-2xl leading-tight">{course.title}</h1>
+            <h1 className="text-balance break-words font-heading text-2xl leading-tight">{course.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] font-bold text-muted-foreground">
-              <Badge color={course.priceCents ? "var(--warning)" : "var(--success)"}>
-                {formatPrice(course.priceCents, course.currency)}
-              </Badge>
-              <span>{course.lessons.length} lessons</span>
-              {totalDuration > 0 ? <span>· ~{totalDuration} min</span> : null}
+              {enrolled ? (
+                <Badge color={enrollment.completedAt ? "var(--success)" : "var(--info)"}>
+                  {enrollment.completedAt ? "Completed" : "Enrolled"}
+                </Badge>
+              ) : (
+                <Badge color={paid ? "var(--warning)" : "var(--success)"}>{priceLabel}</Badge>
+              )}
+              <span>{plural(course.lessons.length, "lesson")}</span>
+              {totalDuration > 0 ? <span>· about {formatDuration(totalDuration)}</span> : null}
             </div>
           </div>
         </div>
 
         {course.description ? (
-          <p className="mt-4 text-sm font-medium leading-relaxed text-foreground">
+          <p className="mt-4 max-w-[68ch] whitespace-pre-line break-words text-sm font-medium leading-relaxed text-foreground">
             {course.description}
           </p>
         ) : null}
@@ -102,21 +115,53 @@ export default async function CourseDetailPage({
               <span>{enrollment.completedAt ? "Completed" : "Your progress"}</span>
               <span className="num text-foreground">{enrollment.progressPercent}%</span>
             </div>
-            <ProgressBar value={enrollment.progressPercent} color={accent} size="sm" />
+            <ProgressBar
+              value={enrollment.progressPercent}
+              color={accent}
+              size="sm"
+              label="Your progress in this course"
+            />
           </div>
         ) : null}
 
-        <div className="mt-5 border-t-2 border-dashed border-border pt-5">
-          <CourseEnrollButton
-            slug={course.slug}
-            priceCents={course.priceCents}
-            enrolled={enrolled}
-          />
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t-2 border-dashed border-border pt-5">
+          {enrolled ? (
+            // One way in, and it says where it leads: the next lesson by name.
+            <Button asChild className="min-h-11 max-w-full sm:min-h-0">
+              <Link
+                href={
+                  nextLesson
+                    ? `/courses/${course.slug}/learn?lesson=${nextLesson.id}`
+                    : `/courses/${course.slug}/learn`
+                }
+              >
+                <span className="truncate">
+                  {nextLesson && !doneSet.has(nextLesson.id)
+                    ? `${completedCount > 0 ? "Continue" : "Start"}: ${nextLesson.title}`
+                    : "Review the course"}
+                </span>
+                <Icon name="arrow-right" aria-hidden />
+              </Link>
+            </Button>
+          ) : (
+            <CourseEnrollButton
+              slug={course.slug}
+              priceCents={course.priceCents}
+              priceLabel={priceLabel}
+              enrolled={false}
+            />
+          )}
+          {shareUrl ? <ShareDialog url={shareUrl} title={course.title} /> : null}
         </div>
       </div>
 
-      <h2 className="mb-3 mt-6 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+      <h2 className="mb-3 mt-6 flex items-baseline justify-between gap-3 font-heading text-lg leading-tight">
         Lessons
+        {enrolled ? (
+          <span className="num font-sans text-[12px] font-bold text-muted-foreground">
+            {completedCount} of {course.lessons.length} done
+          </span>
+        ) : null}
       </h2>
       <div className="rounded-[14px] border-2 border-border bg-card p-2 shadow-md">
         {course.lessons.length === 0 ? (
@@ -124,19 +169,23 @@ export default async function CourseDetailPage({
             No lessons published yet.
           </p>
         ) : (
-          <ul className="divide-dash">
+          <ol className="divide-dash">
             {course.lessons.map((lesson, i) => {
               const done = doneSet.has(lesson.id);
               const locked = enrolled && !isUnlocked(course.lessons, doneSet, lesson.id);
+              // An enrolled learner can go straight to any lesson that is open
+              // to them. The player enforces the same rule; this only saves a step.
+              const openable = enrolled && !locked;
               return (
                 <li
                   key={lesson.id}
-                  className={`flex items-center gap-3 px-2 py-3 text-sm ${
-                    locked ? "opacity-60" : ""
+                  className={`flex min-h-12 items-center gap-3 px-2 py-2.5 text-sm ${
+                    locked ? "text-muted-foreground" : ""
                   }`}
                 >
                   <span
-                    className={`flex size-7 shrink-0 items-center justify-center rounded-[8px] border-2 border-border text-[12px] font-bold ${
+                    aria-hidden
+                    className={`num flex size-7 shrink-0 items-center justify-center rounded-[8px] border-2 border-border text-[12px] font-bold ${
                       done ? "bg-success text-success-foreground" : "bg-card text-muted-foreground"
                     }`}
                   >
@@ -148,7 +197,19 @@ export default async function CourseDetailPage({
                       i + 1
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 font-medium">{lesson.title}</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">
+                    {openable ? (
+                      <Link
+                        href={`/courses/${course.slug}/learn?lesson=${lesson.id}`}
+                        className="rounded-[4px] outline-none hover:underline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        {lesson.title}
+                      </Link>
+                    ) : (
+                      lesson.title
+                    )}
+                    {done ? <span className="sr-only"> (completed)</span> : null}
+                  </span>
                   {locked ? (
                     <span className="shrink-0 text-[12px] font-bold text-muted-foreground">
                       Locked
@@ -161,25 +222,14 @@ export default async function CourseDetailPage({
                 </li>
               );
             })}
-          </ul>
+          </ol>
         )}
       </div>
-
-      {enrolled ? (
-        <Button asChild className="mt-6">
-          <Link
-            href={
-              nextLesson
-                ? `/courses/${course.slug}/learn?lesson=${nextLesson.id}`
-                : `/courses/${course.slug}/learn`
-            }
-          >
-            {nextLesson && !doneSet.has(nextLesson.id)
-              ? `Continue: ${nextLesson.title}`
-              : "Go to course player"}
-            <Icon name="arrow-right" />
-          </Link>
-        </Button>
+      {enrolled && course.lessons.some((l) => !isUnlocked(course.lessons, doneSet, l.id)) ? (
+        <p className="mt-3 flex items-start gap-1.5 text-[13px] font-medium text-muted-foreground">
+          <Icon name="lock" className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          Lessons open in order: finish one to unlock the next.
+        </p>
       ) : null}
     </div>
   );

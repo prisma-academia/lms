@@ -29,12 +29,13 @@ export function CreateFeeForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
     const amountCents = Math.round(parseFloat(amount) * 100);
-    if (!name.trim()) return setError("Name is required.");
-    if (Number.isNaN(amountCents) || amountCents < 1) return setError("Enter a valid amount.");
-    if (!target) return setError(`Select a ${targetType === "client" ? "client" : "group"}.`);
+    if (!name.trim()) return setError("Give the fee a name.");
+    if (Number.isNaN(amountCents) || amountCents < 1) return setError("Enter an amount greater than zero.");
+    if (!target) return setError(`Choose a ${targetType === "client" ? "learner" : "group"}.`);
 
     setPending(true);
     const res = await apiPost<{ fee: { id: string } }>("/api/tenant/fees", {
@@ -54,19 +55,29 @@ export function CreateFeeForm({
     router.push(`/admin/fees/${res.data!.fee.id}`);
   }
 
+  const noTargets = targetType === "client" ? clients.length === 0 : groups.length === 0;
+
   return (
-    <div className="grid max-w-xl gap-4">
-      <FormField label="Name" htmlFor="fee-name">
-        <TextInput id="fee-name" value={name} onChange={(e) => setName(e.target.value)} />
+    <form onSubmit={submit} className="grid max-w-xl gap-4">
+      <FormField label="Name" htmlFor="fee-name" hint="What the charge is for, such as “Term 1 tuition”.">
+        <TextInput
+          id="fee-name"
+          name="name"
+          autoComplete="off"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </FormField>
       <FormField label="Description (optional)" htmlFor="fee-desc">
-        <TextArea id="fee-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <TextArea id="fee-desc" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Amount" htmlFor="fee-amount">
           <TextInput
             id="fee-amount"
+            name="amount"
             type="number"
+            inputMode="decimal"
             min="0"
             step="0.01"
             value={amount}
@@ -84,16 +95,16 @@ export function CreateFeeForm({
         </FormField>
       </div>
       <FormField label="Due date (optional)" htmlFor="fee-due">
-        <TextInput id="fee-due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+        <TextInput id="fee-due" name="dueAt" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Target type" htmlFor="fee-target-type">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField label="Charge it to" htmlFor="fee-target-type">
           <SelectInput
             id="fee-target-type"
             allowEmpty={false}
             options={[
-              { value: "client", label: "Individual client" },
-              { value: "group", label: "Client group" },
+              { value: "client", label: "One learner" },
+              { value: "group", label: "A group of learners" },
             ]}
             value={targetType}
             onChange={(e) => {
@@ -102,22 +113,39 @@ export function CreateFeeForm({
             }}
           />
         </FormField>
-        <FormField label={targetType === "client" ? "Client" : "Client group"} htmlFor="fee-target">
+        <FormField
+          label={targetType === "client" ? "Learner" : "Group"}
+          htmlFor="fee-target"
+          hint={
+            noTargets
+              ? targetType === "client"
+                ? "There are no learners yet. Add one first."
+                : "There are no groups yet. Create one first."
+              : targetType === "group"
+                ? "Everyone in the group is charged the same amount."
+                : undefined
+          }
+        >
           <SelectInput
             id="fee-target"
-            placeholder={`Select a ${targetType}…`}
+            placeholder={`Choose a ${targetType === "client" ? "learner" : "group"}…`}
             options={targetType === "client" ? clients : groups}
             value={target}
             onChange={(e) => setTarget(e.target.value)}
+            disabled={noTargets}
           />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div>
-        <Button type="button" onClick={submit} disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? "Creating…" : "Create fee"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

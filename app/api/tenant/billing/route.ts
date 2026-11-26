@@ -3,6 +3,7 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError } from "@/lib/api/errors";
 import { daysUntilTrialEnd, formatBytes, storageUsagePercent } from "@/lib/tenant/plan";
+import { activeGateway, checkoutGatewayName, payoutStatus } from "@/lib/billing/providers";
 
 export async function GET() {
   try {
@@ -40,6 +41,10 @@ export async function GET() {
       },
       plans,
       subaccount: tenant.subaccount,
+      // Whether money can move at all, and whether this academy's share of a
+      // sale has somewhere to go — on the gateway in use, not a former one.
+      gateway: { available: activeGateway() !== null, name: checkoutGatewayName() },
+      payouts: { status: payoutStatus(tenant.subaccount, checkoutGatewayName()) },
       payments,
     });
   } catch (e) {

@@ -10,6 +10,9 @@ import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { readSessionToken, getSession } from "@/lib/auth/session";
 import type { VariableContext } from "@/lib/site/template";
 import { AUTH_VARIABLE_PREFIXES } from "@/lib/site/variables";
+import { authHref } from "@/lib/auth/next-path";
+import { formatDuration, formatPrice, isPaid } from "@/lib/site/public-format";
+import type { PublicCourse, PublicProgramme } from "@/lib/site/public-catalog";
 
 /**
  * Resolve the `{{ }}` variables a site page can reference.
@@ -207,9 +210,21 @@ export async function buildVariableContext(input: {
   viewer?: SiteViewer;
   /** Cap on catalog rows. Matches the old `courses` block ceiling. */
   limit?: number;
+  /**
+   * Where the header's sign-in and register links should bring the visitor
+   * back to. Already reduced to a safe same-site path by the caller.
+   */
+  next?: string | null;
+  /** The catalogue page's search text, if any. */
+  query?: string | null;
+  /** The course a COURSE_DETAIL page is showing. */
+  course?: PublicCourse | null;
+  /** The programme a PROGRAMME_DETAIL page is showing. */
+  programme?: PublicProgramme | null;
 }): Promise<VariableContext> {
   const { tenantId, tenant, page, origin, used } = input;
   const limit = input.limit ?? 24;
+  const query = input.query?.trim().slice(0, 100) ?? "";
 
   const settings = parseTenantSettings(tenant.settingsJson);
   const urls = brandingAssetUrls(settings);
@@ -244,6 +259,19 @@ export async function buildVariableContext(input: {
       year: new Date().getFullYear(),
       origin,
     },
+    auth: {
+      loginUrl: authHref("login", input.next),
+      registerUrl: authHref("register", input.next),
+      forgotPasswordUrl: "/auth/forgot-password",
+      dashboardUrl: "/dashboard",
+    },
+    nav: [],
+    catalog: {
+      coursesUrl: "/courses",
+      programmesUrl: "/programmes",
+      query,
+      count: 0,
+    },
     courses: [],
     programmes: [],
     user: { isAuthenticated: false, name: "", email: "" },
@@ -255,8 +283,73 @@ export async function buildVariableContext(input: {
     },
   };
 
-  if (usesAny(used, ["courses"])) {
-    ctx.courses = await loadCourses(tenantId, limit);
+  if (usesAny(used, ["nav"])) {
+    const pages = await prisma.sitePage.findMany({
+      // `kind: PAGE`: the designed sign-in page and its like are reached at
+      // their own addresses, never listed in a menu.
+      where: { tenantId, status: "PUBLISHED", showInNav: true, isHome: false, kind: "PAGE" },
+      orderBy: { navOrder: "asc" },
+      select: { slug: true, title: true },
+    });
+    ctx.nav = pages.map((p) => ({ title: p.title, url: `/${p.slug}`, current: p.slug === page.slug }));
+  }
+
+  if (usesAny(used, ["courses", "catalog"])) {
+    const all = await loadCourses(tenantId, query ? 200 : limit);
+    // The search box narrows the list on the server; there is no public search
+    // endpoint for a page's script to call, because a page has no script.
+    const needle = query.toLowerCase();
+    const shown = needle
+      ? all.filter((c) => `${c.title} ${c.description}`.toLowerCase().includes(needle)).slice(0, limit)
+      : all;
+    ctx.courses = shown;
+    ctx.catalog = { coursesUrl: "/courses", programmesUrl: "/programmes", query, count: shown.length };
+  }
+
+  if (input.course) {
+    const c = input.course;
+    const here = `/courses/${c.slug}`;
+    ctx.course = {
+      title: c.title,
+      description: c.description ?? "",
+      price: formatPrice(c.priceCents, c.currency, settings.locale),
+      isFree: !isPaid(c.priceCents),
+      thumbnailUrl: c.thumbnailUrl ?? "",
+      lessonCount: c.lessonCount,
+      url: here,
+      joinUrl: authHref("register", here),
+      signInUrl: authHref("login", here),
+      lessons: c.modules.flatMap((module) =>
+        module.lessons.map((lesson) => ({
+          title: lesson.title,
+          module: module.title ?? "",
+          kind: lesson.kind,
+          duration: lesson.durationMin ? formatDuration(lesson.durationMin) : "",
+        }))
+      ),
+    };
+  }
+
+  if (input.programme) {
+    const p = input.programme;
+    const here = `/programmes/${p.slug}`;
+    ctx.programme = {
+      title: p.title,
+      description: p.description ?? "",
+      price: formatPrice(p.priceCents, p.currency, settings.locale),
+      isFree: !isPaid(p.priceCents),
+      thumbnailUrl: p.thumbnailUrl ?? "",
+      courseCount: p.courseCount,
+      joinUrl: authHref("register", here),
+      signInUrl: authHref("login", here),
+      courses: p.courses.map((course) => ({
+        title: course.title,
+        description: course.description ?? "",
+        // Empty when the course has no public page of its own to link to.
+        url: course.publicSlug ? `/courses/${course.publicSlug}` : "",
+        lessonCount: course.lessonCount,
+      })),
+    };
   }
   if (usesAny(used, ["programmes"])) {
     ctx.programmes = await loadProgrammes(tenantId, limit);

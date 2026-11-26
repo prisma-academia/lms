@@ -32,6 +32,22 @@ export const generatedQuestionSchema = z.object({
   /** ESSAY only: the weighted rubric the AI grader marks against. */
   rubric: essayRubricSchema.nullable().default(null),
   points: z.number().int().min(1).default(1),
+  /** A nudge shown on request while answering. Never contains the answer. */
+  hint: z.string().max(500).nullable().default(null),
+  /**
+   * Where in the course this question was drawn from, so a learner who gets it
+   * wrong can be sent back to read it. Titles and heading text rather than ids:
+   * this document is written before any lesson has an id, and the apply step
+   * resolves it to a real lesson and heading anchor.
+   */
+  source: z
+    .object({
+      lessonTitle: z.string().min(1),
+      heading: z.string().nullable().default(null),
+      quote: z.string().max(400).nullable().default(null),
+    })
+    .nullable()
+    .default(null),
 });
 
 export const generatedQuizSchema = z.object({
@@ -135,6 +151,13 @@ export const courseBuilderInputSchema = z.object({
    * someone intends to review the rubrics in the builder preview.
    */
   allowEssays: z.boolean().default(false),
+  /**
+   * Pass mark (percent) given to every generated quiz; null leaves it unset,
+   * which the platform treats as 100%. Chosen by the author here rather than by
+   * the model per quiz: a pass mark decides who can progress, and that is not a
+   * number to leave to whatever the model happened to write.
+   */
+  quizPassMark: z.number().int().min(1).max(100).nullable().default(null),
 });
 
 /** Input for single-lesson AI generation from the lesson add/edit form.

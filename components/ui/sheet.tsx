@@ -58,7 +58,9 @@ function SheetContent({
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col overflow-y-auto border-border bg-card shadow-lg",
+          // overscroll-contain: reaching the end of the sheet must not start
+          // scrolling the page underneath it.
+          "fixed z-50 flex flex-col overflow-y-auto overscroll-contain border-border bg-card shadow-lg",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           sideClasses,
           className
@@ -90,7 +92,13 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function SheetBody({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="sheet-body" className={cn("flex-1 overflow-y-auto px-5 py-4", className)} {...props} />;
+  return (
+    <div
+      data-slot="sheet-body"
+      className={cn("flex-1 overflow-y-auto overscroll-contain px-5 py-4", className)}
+      {...props}
+    />
+  );
 }
 
 function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {

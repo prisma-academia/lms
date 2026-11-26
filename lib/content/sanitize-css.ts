@@ -39,26 +39,80 @@ const SAFE_URL_SCHEME = /^(?:https?:|data:image\/|\/|\.\/|\.\.\/|#)/i;
 /** At-rules whose body is a nested list of rules that must be scoped in turn. */
 const NESTED_AT_RULES = new Set(["media", "supports", "container", "layer", "scope"]);
 
+/** At-rules whose body is a list of keyframe stops (`from { … }`, `50% { … }`). */
+const KEYFRAME_AT_RULES = new Set(["keyframes", "-webkit-keyframes"]);
+
 /**
- * At-rules whose body is declarations or keyframe stops rather than selectors.
- * Kept verbatim (after declaration sanitizing) — scoping `from`/`to` or a
- * `@font-face` body would break them.
+ * At-rules whose body is plain declarations. Kept after declaration
+ * sanitizing — there is no selector in them to scope.
+ *
+ * `@property` is deliberately absent: it registers a custom property for the
+ * whole document, so an author could redefine a first-party variable from
+ * inside their block.
  */
-const FLAT_AT_RULES = new Set([
-  "keyframes",
-  "-webkit-keyframes",
-  "font-face",
-  "page",
-  "counter-style",
-  "property",
-]);
+const DECLARATION_AT_RULES = new Set(["font-face", "page", "counter-style"]);
 
 /** At-rules that are dropped whole. `@import` loads remote CSS and leaks referrers. */
 const BANNED_AT_RULES = new Set(["import", "charset", "namespace", "document"]);
 
-/** Strip comments. Done first so `/* *​/` can't hide a banned token from the scanner. */
-function stripComments(css: string): string {
-  return css.replace(/\/\*[\s\S]*?\*\//g, " ");
+/** The only things a keyframe stop selector can be. */
+const KEYFRAME_STOP = /^(?:from|to|\d+(?:\.\d+)?%)(?:\s*,\s*(?:from|to|\d+(?:\.\d+)?%))*$/i;
+
+/**
+ * Characters that never belong in an at-rule prelude we re-emit verbatim
+ * (`@media (…)`, `@keyframes name`). Quotes and backslashes are what let a
+ * prelude disagree with the browser about where it ends; braces, `<` and `;`
+ * would end it outright.
+ */
+const UNSAFE_PRELUDE = /["'\\{}<;]/;
+
+/**
+ * Strip comments and flatten line breaks.
+ *
+ * Comments go first so `/* *​/` can't hide a banned token from the scanner.
+ *
+ * Line breaks are flattened to spaces because a raw newline ENDS a string in a
+ * browser (it becomes a "bad string" and parsing resumes on the next line).
+ * A scanner that lets the string run on across the newline is reading a
+ * different stylesheet from the one the browser will see, and everything after
+ * that point — including where the next rule starts — is a guess. With no
+ * newlines left, a string can only end at its closing quote, for both of us.
+ */
+function normalise(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/[\r\n\f]+/g, " ");
+}
+
+/**
+ * True when every string in `input` is closed and every `(`/`[` is matched.
+ *
+ * Anything that fails this would leave the browser inside a string or a
+ * bracket when our own `{` or `}` arrives, so the rule boundaries we emit
+ * would not be the ones it parses.
+ */
+function wellFormed(input: string): boolean {
+  const stack: string[] = [];
+  let quote: string | null = null;
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    // A backslash escapes whatever follows it, inside a string or out of one.
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(") stack.push(")");
+    else if (ch === "[") stack.push("]");
+    else if (ch === ")" || ch === "]") {
+      if (stack.pop() !== ch) return false;
+    }
+  }
+
+  return quote === null && stack.length === 0;
 }
 
 /**
@@ -72,6 +126,21 @@ function valueIsUnsafe(value: string): boolean {
   // perfectly ordinary declaration, and would break straight out into markup.
   // No legitimate declaration needs `<`, so the whole declaration goes.
   if (value.includes("<")) return true;
+
+  // A declaration value never needs a brace. One that has a brace is either a
+  // nested rule (`& ~ * { … }`, which CSS nesting makes a real, unscoped rule)
+  // or the tail of a rule boundary this scanner and the browser disagree on.
+  // Braces inside a quoted string are legal CSS and vanishingly rare; refusing
+  // them too means a string-boundary bug can never become a scope escape.
+  if (value.includes("{") || value.includes("}")) return true;
+
+  // A leftover comment marker would comment out whatever we emit after it.
+  if (value.includes("/*") || value.includes("*/")) return true;
+
+  // A trailing backslash would escape the separator we append.
+  if (value.endsWith("\\")) return true;
+
+  if (!wellFormed(value)) return true;
 
   const flat = value.replace(/\s+/g, "").toLowerCase();
   if (flat.includes("expression(")) return true;
@@ -91,7 +160,7 @@ function valueIsUnsafe(value: string): boolean {
 export function sanitizeDeclarations(input: string): string {
   const out: string[] = [];
 
-  for (const raw of splitTopLevel(stripComments(input), ";")) {
+  for (const raw of splitTopLevel(normalise(input), ";")) {
     const decl = raw.trim();
     if (!decl) continue;
 
@@ -127,8 +196,15 @@ function splitTopLevel(input: string, sep: string): string[] {
   for (let i = 0; i < input.length; i++) {
     const ch = input[i];
 
+    // Skip the escaped character rather than peeking backwards for a
+    // backslash: `"\\"` is a closed string holding one backslash, and "was the
+    // previous character a backslash" reads its closing quote as escaped.
+    if (ch === "\\") {
+      i++;
+      continue;
+    }
     if (quote) {
-      if (ch === quote && input[i - 1] !== "\\") quote = null;
+      if (ch === quote) quote = null;
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -164,17 +240,26 @@ function scopeSelector(selector: string, scope: string): string | null {
   // from this check on purpose — it is the child combinator, not markup.
   if (/[{}<;]/.test(trimmed)) return null;
 
+  // An unclosed string or bracket would swallow the `{` we emit after it, and a
+  // leftover comment marker would swallow the rule.
+  if (!wellFormed(trimmed) || trimmed.includes("/*") || trimmed.includes("*/")) return null;
+  if (trimmed.endsWith("\\")) return null;
+
   const rootOnly = /^(?::root|html|body|\*)$/i;
   if (rootOnly.test(trimmed)) return scope;
 
   // Leading page-level selector: `body .card` → `<scope> .card`.
   const leadingRoot = /^(?::root|html|body)\b\s*/i;
-  if (leadingRoot.test(trimmed)) {
-    const rest = trimmed.replace(leadingRoot, "").trim();
-    return rest ? `${scope} ${rest}` : scope;
-  }
+  const rest = leadingRoot.test(trimmed) ? trimmed.replace(leadingRoot, "").trim() : trimmed;
+  if (!rest) return scope;
 
-  return `${scope} ${trimmed}`;
+  // The scope is prepended as an ANCESTOR. A selector that begins with a
+  // sibling combinator would therefore become `<scope> ~ .x` — everything that
+  // follows the block on the page, which is precisely what scoping exists to
+  // protect. (`>` is fine: a child of the scope is still inside it.)
+  if (/^[+~]/.test(rest)) return null;
+
+  return `${scope} ${rest}`;
 }
 
 /** Scope a full comma-separated selector list, dropping any part we reject. */
@@ -207,8 +292,13 @@ function readRules(css: string): Rule[] {
 
     for (; j < css.length; j++) {
       const ch = css[j];
+      // Same escape rule as `splitTopLevel`: skip the escaped character.
+      if (ch === "\\") {
+        j++;
+        continue;
+      }
       if (quote) {
-        if (ch === quote && css[j - 1] !== "\\") quote = null;
+        if (ch === quote) quote = null;
         continue;
       }
       if (ch === '"' || ch === "'") quote = ch;
@@ -238,8 +328,12 @@ function readRules(css: string): Rule[] {
     quote = null;
     for (let k = braceStart; k < css.length; k++) {
       const ch = css[k];
+      if (ch === "\\") {
+        k++;
+        continue;
+      }
       if (quote) {
-        if (ch === quote && css[k - 1] !== "\\") quote = null;
+        if (ch === quote) quote = null;
         continue;
       }
       if (ch === '"' || ch === "'") quote = ch;
@@ -281,16 +375,20 @@ function transformRules(css: string, scope: string, depth: number): string {
   const out: string[] = [];
 
   for (const rule of readRules(css)) {
-    // At-rule preludes (`@media (…)`, `@keyframes name`) are re-emitted
-    // verbatim, so they get the same `<` ban as selectors and values —
-    // otherwise `@media screen and (x:"</style>…")` closes the style element.
-    if (rule.prelude.includes("<")) continue;
-
     const at = atRuleName(rule.prelude);
 
     if (at) {
       if (BANNED_AT_RULES.has(at)) continue;
       if (!rule.hasBody) continue;
+
+      // At-rule preludes (`@media (…)`, `@keyframes name`) are re-emitted
+      // verbatim — they never pass through the selector or declaration checks.
+      // So they get the strictest rule of all: no quotes, no escapes, no
+      // braces, no `<`, and balanced parentheses. A prelude that needs any of
+      // those is rare enough to drop, and a prelude that smuggles them is how
+      // `@keyframes x (a:"\\") {} html{…}` used to emit an unscoped rule.
+      if (UNSAFE_PRELUDE.test(rule.prelude) || !wellFormed(rule.prelude)) continue;
+      if (rule.prelude.includes("/*") || rule.prelude.includes("*/")) continue;
 
       if (NESTED_AT_RULES.has(at)) {
         const inner = transformRules(rule.body, scope, depth + 1);
@@ -298,16 +396,24 @@ function transformRules(css: string, scope: string, depth: number): string {
         continue;
       }
 
-      if (FLAT_AT_RULES.has(at)) {
-        // @keyframes holds stop blocks (`from { … }`); @font-face holds plain
-        // declarations. Both are already inert without a selector to scope.
-        const inner = /\{/.test(rule.body)
-          ? readRules(rule.body)
-              .filter((r) => r.hasBody)
-              .map((r) => `${r.prelude} { ${sanitizeDeclarations(r.body)} }`)
-              .join(" ")
-          : sanitizeDeclarations(rule.body);
-        if (inner.trim()) out.push(`${rule.prelude} { ${inner} }`);
+      if (KEYFRAME_AT_RULES.has(at)) {
+        // Stop selectors are re-emitted too, so each one must be exactly a
+        // keyframe stop (`from`, `to`, `50%`) and nothing else.
+        const stops = readRules(rule.body)
+          .filter((r) => r.hasBody && KEYFRAME_STOP.test(r.prelude))
+          .map((r) => ({ prelude: r.prelude, body: sanitizeDeclarations(r.body) }))
+          .filter((r) => r.body)
+          .map((r) => `${r.prelude} { ${r.body} }`)
+          .join(" ");
+        if (stops) out.push(`${rule.prelude} { ${stops} }`);
+        continue;
+      }
+
+      if (DECLARATION_AT_RULES.has(at)) {
+        // Plain declarations only. A nested block (`@page { @top-center { … } }`)
+        // fails the declaration checks and is dropped; the rest is kept.
+        const inner = sanitizeDeclarations(rule.body);
+        if (inner) out.push(`${rule.prelude} { ${inner} }`);
         continue;
       }
 
@@ -337,7 +443,7 @@ function transformRules(css: string, scope: string, depth: number): string {
  */
 export function sanitizeAndScopeCss(css: string, scope: string): string {
   if (!css.trim()) return "";
-  return transformRules(stripComments(css), scope, 0);
+  return transformRules(normalise(css), scope, 0);
 }
 
 /**

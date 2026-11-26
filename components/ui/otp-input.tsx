@@ -99,7 +99,12 @@ export function OtpInput({
           type="text"
           inputMode="numeric"
           autoComplete={i === 0 ? "one-time-code" : "off"}
-          maxLength={1}
+          // The first box takes the whole code: a phone's "from Messages"
+          // suggestion types all the digits into the focused field at once, and
+          // a one-character limit would keep only the first. `handleChange`
+          // spreads them across the boxes.
+          maxLength={i === 0 ? length : 1}
+          aria-label={`Digit ${i + 1} of ${length}`}
           disabled={disabled}
           autoFocus={autoFocus && i === 0}
           aria-invalid={ariaInvalid}
@@ -109,8 +114,8 @@ export function OtpInput({
           onPaste={(e) => handlePaste(i, e)}
           onFocus={(e) => e.target.select()}
           className={cn(
-            "h-12 w-11 rounded-[10px] border-2 border-border bg-card text-center text-lg font-bold text-card-foreground outline-none transition-[box-shadow,transform]",
-            "focus:-translate-x-px focus:-translate-y-px focus:shadow-sm",
+            "h-12 w-11 rounded-[10px] border-2 border-border bg-card text-center text-lg font-bold text-card-foreground outline-none transition-[box-shadow]",
+            "focus-visible:shadow-sm focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring",
             "disabled:cursor-not-allowed disabled:opacity-60",
             ariaInvalid ? "border-destructive" : undefined
           )}

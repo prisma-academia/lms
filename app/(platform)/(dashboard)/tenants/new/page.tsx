@@ -7,7 +7,12 @@ export default async function NewTenantPage() {
   await requirePlatformPage(PERMISSIONS.PLATFORM_TENANTS_WRITE.key);
   return (
     <div>
-      <PageHeader title="New tenant" backHref="/tenants" backLabel="Tenants" />
+      <PageHeader
+        title="New academy"
+        subtitle="Set up the organisation and invite the person who will own it."
+        backHref="/tenants"
+        backLabel="Academies"
+      />
       <Card>
         <CreateTenantForm />
       </Card>

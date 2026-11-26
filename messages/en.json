@@ -10,10 +10,11 @@
     "userGroups": "User groups",
     "clients": "Learners",
     "learners": "Learners",
-    "clientGroups": "Client groups",
+    "clientGroups": "Learner groups",
     "courses": "Courses",
     "programmes": "Programmes",
     "enrollments": "Enrollments",
+    "referrals": "Referrals",
     "assignments": "Assignments",
     "questionBanks": "Question banks",
     "quizzes": "Quizzes",
@@ -28,7 +29,14 @@
     "templates": "Templates",
     "activity": "Activity",
     "sitePages": "Site pages",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groupPeople": "People",
+    "groupLearning": "Learning",
+    "groupAssessment": "Assessment",
+    "groupEngagement": "Engagement",
+    "groupPayments": "Payments",
+    "groupWebsite": "Website",
+    "groupSystem": "System"
   },
   "auth": {
     "loginTitle": "Sign in",

@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db/client";
 import { classicHomeHtml } from "@/lib/site/page-templates";
+import type { SitePageKind } from "@/lib/site/site-api";
 
 export type SitePageRow = {
   id: string;
   slug: string;
   title: string;
+  /** PAGE for an ordinary page; anything else replaces a built-in screen. */
+  kind: SitePageKind;
   status: "DRAFT" | "PUBLISHED";
   isHome: boolean;
   showInNav: boolean;
@@ -54,6 +57,7 @@ export function toRow(page: {
   id: string;
   slug: string;
   title: string;
+  kind: SitePageKind;
   status: "DRAFT" | "PUBLISHED";
   isHome: boolean;
   showInNav: boolean;
@@ -68,6 +72,7 @@ export function toRow(page: {
     id: page.id,
     slug: page.slug,
     title: page.title,
+    kind: page.kind,
     status: page.status,
     isHome: page.isHome,
     showInNav: page.showInNav,

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { apiPost, apiPatch, apiDelete } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
+import { zonedInputToIso } from "@/lib/time/zoned-input";
 
 type Option = { value: string; label: string };
 
@@ -36,11 +39,6 @@ export type EventInitial = {
   recurrenceUntil: string;
 };
 
-function toIso(local: string): string | null {
-  if (!local) return null;
-  const d = new Date(local);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 export function EventForm({
   mode,
@@ -50,6 +48,7 @@ export function EventForm({
   groups,
   audienceLabel,
   canWrite,
+  timeZone,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -58,12 +57,19 @@ export function EventForm({
   groups: Option[];
   audienceLabel?: string;
   canWrite: boolean;
+  /** The academy's time zone: the clock every time in this form is on. */
+  timeZone: string;
 }) {
+  // Read on the academy's clock, exactly as the page filled the fields — not
+  // on this browser's, which may be in another zone.
+  const toIso = (local: string) => zonedInputToIso(local, timeZone);
   const router = useRouter();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [v, setV] = useState(initial);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function set<K extends keyof EventInitial>(k: K, value: EventInitial[K]) {
     setV((prev) => ({ ...prev, [k]: value }));
@@ -71,10 +77,17 @@ export function EventForm({
 
   async function submit() {
     setError(null);
-    setInfo(null);
-    if (!v.title.trim()) return setError("Title is required.");
+    if (!v.title.trim()) return setError("Give the event a title.");
     const startIso = toIso(v.startAt);
-    if (!startIso) return setError("A valid start date/time is required.");
+    if (!startIso) return setError("Choose when the event starts.");
+    const endIso = toIso(v.endAt);
+    if (endIso && endIso < startIso) return setError("The event cannot end before it starts.");
+    if (mode === "create" && v.audience === "CLIENT" && !v.clientId) {
+      return setError("Choose the learner this event is for.");
+    }
+    if (mode === "create" && v.audience === "GROUP" && !v.clientGroupId) {
+      return setError("Choose the learner group this event is for.");
+    }
 
     setPending(true);
     const common = {
@@ -103,29 +116,45 @@ export function EventForm({
     setPending(false);
     if (res.error) return setError(res.error.message);
     if (mode === "create") {
+      toast("Event added to the calendar.");
       router.push("/admin/events");
     } else {
-      setInfo("Saved.");
+      toast("Event saved.");
       router.refresh();
     }
   }
 
   async function onDelete() {
-    if (!confirm("Delete this event?")) return;
+    const ok = await confirm({
+      title: `Delete “${initial.title}”?`,
+      description:
+        initial.recurrence !== "NONE"
+          ? "This removes the event and every repeat of it from everyone's calendar. This cannot be undone."
+          : "This removes the event from everyone's calendar. This cannot be undone.",
+      confirmLabel: "Delete event",
+      destructive: true,
+    });
+    if (!ok) return;
+    setError(null);
+    setDeleting(true);
     const res = await apiDelete(`/api/tenant/events/${id}`);
-    if (res.error) return setError(res.error.message);
+    if (res.error) {
+      setDeleting(false);
+      return setError(res.error.message);
+    }
+    toast("Event deleted.");
     router.push("/admin/events");
   }
 
   return (
     <div className="grid max-w-xl gap-4">
       <FormField label="Title" htmlFor="e-title">
-        <TextInput id="e-title" value={v.title} onChange={(e) => set("title", e.target.value)} disabled={!canWrite} />
+        <TextInput id="e-title" autoComplete="off" value={v.title} onChange={(e) => set("title", e.target.value)} disabled={!canWrite} />
       </FormField>
-      <FormField label="Description" htmlFor="e-desc">
+      <FormField label="Description (optional)" htmlFor="e-desc">
         <TextArea id="e-desc" value={v.description} onChange={(e) => set("description", e.target.value)} disabled={!canWrite} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Type" htmlFor="e-type">
           <SelectInput id="e-type" allowEmpty={false} options={TYPE_OPTIONS} value={v.type} onChange={(e) => set("type", e.target.value)} disabled={!canWrite} />
         </FormField>
@@ -133,8 +162,8 @@ export function EventForm({
           <SelectInput id="e-recur" allowEmpty={false} options={RECUR_OPTIONS} value={v.recurrence} onChange={(e) => set("recurrence", e.target.value)} disabled={!canWrite} />
         </FormField>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Starts" htmlFor="e-start">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField label="Starts" htmlFor="e-start" hint={`Times are in the academy's time zone (${timeZone.replace(/_/g, " ")}).`}>
           <TextInput id="e-start" type="datetime-local" value={v.startAt} onChange={(e) => set("startAt", e.target.value)} disabled={!canWrite} />
         </FormField>
         <FormField label="Ends (optional)" htmlFor="e-end">
@@ -146,56 +175,70 @@ export function EventForm({
           <TextInput id="e-until" type="datetime-local" value={v.recurrenceUntil} onChange={(e) => set("recurrenceUntil", e.target.value)} disabled={!canWrite} />
         </FormField>
       ) : null}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Location (optional)" htmlFor="e-loc">
-          <TextInput id="e-loc" value={v.location} onChange={(e) => set("location", e.target.value)} disabled={!canWrite} />
+          <TextInput id="e-loc" autoComplete="off" value={v.location} onChange={(e) => set("location", e.target.value)} disabled={!canWrite} />
         </FormField>
-        <FormField label="URL (optional)" htmlFor="e-url">
-          <TextInput id="e-url" value={v.url} onChange={(e) => set("url", e.target.value)} disabled={!canWrite} />
+        <FormField label="Link (optional)" htmlFor="e-url" hint="For example, the meeting link for a live session.">
+          <TextInput id="e-url" type="url" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://…" value={v.url} onChange={(e) => set("url", e.target.value)} disabled={!canWrite} />
         </FormField>
       </div>
 
       {mode === "create" ? (
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Audience" htmlFor="e-aud">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label="Who is it for" htmlFor="e-aud">
             <SelectInput
               id="e-aud"
               allowEmpty={false}
               options={[
-                { value: "ALL", label: "All clients" },
-                { value: "CLIENT", label: "A client" },
-                { value: "GROUP", label: "A client group" },
+                { value: "ALL", label: "All learners" },
+                { value: "CLIENT", label: "One learner" },
+                { value: "GROUP", label: "A learner group" },
               ]}
               value={v.audience}
               onChange={(e) => set("audience", e.target.value as EventInitial["audience"])}
             />
           </FormField>
           {v.audience === "CLIENT" ? (
-            <FormField label="Client" htmlFor="e-client">
-              <SelectInput id="e-client" placeholder="Select a client…" options={clients} value={v.clientId} onChange={(e) => set("clientId", e.target.value)} />
+            <FormField label="Learner" htmlFor="e-client">
+              <SelectInput id="e-client" placeholder="Choose a learner…" options={clients} value={v.clientId} onChange={(e) => set("clientId", e.target.value)} />
             </FormField>
           ) : v.audience === "GROUP" ? (
-            <FormField label="Client group" htmlFor="e-group">
-              <SelectInput id="e-group" placeholder="Select a group…" options={groups} value={v.clientGroupId} onChange={(e) => set("clientGroupId", e.target.value)} />
+            <FormField
+              label="Learner group"
+              htmlFor="e-group"
+              hint={groups.length === 0 ? "There are no learner groups yet." : undefined}
+            >
+              <SelectInput id="e-group" placeholder="Choose a group…" options={groups} value={v.clientGroupId} onChange={(e) => set("clientGroupId", e.target.value)} />
             </FormField>
           ) : null}
         </div>
       ) : (
-        <div className="text-sm">
-          <span className="text-stone-500">Audience: </span>
-          <span className="font-semibold">{audienceLabel}</span>
-        </div>
+        <p className="text-sm font-medium">
+          <span className="text-muted-foreground">Who it is for: </span>
+          <span className="font-bold text-foreground">{audienceLabel}</span>
+          <span className="block text-xs text-muted-foreground">
+            This cannot be changed once the event exists. To send it to someone else, create a new
+            event.
+          </span>
+        </p>
       )}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       {canWrite ? (
-        <div className="flex gap-3">
-          <Button type="button" onClick={submit} disabled={pending}>
-            {pending ? "Saving…" : mode === "create" ? "Create event" : "Save"}
+        // The destructive action sits apart from Save, at the far end.
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="button" onClick={submit} disabled={pending || deleting}>
+            {pending ? "Saving…" : mode === "create" ? "Add to calendar" : "Save changes"}
           </Button>
           {mode === "edit" ? (
-            <Button type="button" variant="destructive" onClick={onDelete}>Delete</Button>
+            <Button type="button" variant="destructive" onClick={onDelete} disabled={deleting || pending}>
+              {deleting ? "Deleting…" : "Delete event"}
+            </Button>
           ) : null}
         </div>
       ) : null}

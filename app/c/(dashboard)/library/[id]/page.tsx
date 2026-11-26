@@ -1,6 +1,6 @@
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { PageHeader } from "@/components/shell";
-import { MediaDetail } from "./media-detail";
+import { LibraryItemView } from "./item-view";
 
 export default async function LearnerLibraryItemPage(ctx: { params: Promise<{ id: string }> }) {
   await requireClientPage();
@@ -8,8 +8,10 @@ export default async function LearnerLibraryItemPage(ctx: { params: Promise<{ id
 
   return (
     <div>
-      <PageHeader title="Library" backHref="/library" backLabel="Back to library" />
-      <MediaDetail id={id} />
+      {/* The item's own name is the page heading; it arrives with the item, in
+          MediaDetail. This is only the way back. */}
+      <PageHeader title="Library" backHref="/library" backLabel="All library items" />
+      <LibraryItemView id={id} />
     </div>
   );
 }

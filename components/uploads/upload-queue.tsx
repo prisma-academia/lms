@@ -66,7 +66,7 @@ export function UploadQueue({
       </div>
 
       <div className="mt-3">
-        <ProgressBar value={pct} aria-label="Overall upload progress" />
+        <ProgressBar value={pct} label="Overall upload progress" />
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-2 border-t-2 border-border pt-3">

@@ -8,13 +8,16 @@ import { sendEmail } from "@/lib/email/send";
 import { enrollmentConfirmationEmail } from "@/lib/email/templates";
 import { loadTenantBrandingById } from "@/lib/email/branding";
 import { logger } from "@/lib/logger";
-import { billingConfigured } from "@/lib/env";
-import { paystackProvider } from "@/lib/billing/paystack";
-import { flutterwaveProvider, flutterwaveReference } from "@/lib/billing/flutterwave";
+import { requireActiveGateway, requireSaleSplit, startCheckout } from "@/lib/billing/providers";
+import { checkoutReturnUrl } from "@/lib/billing/redirect";
 import { billingReference } from "@/lib/billing/reference";
+import { recordEnrollmentReferral } from "@/lib/referrals/attribution";
+import { readReferralCookie } from "@/lib/referrals/cookie";
 
 const EnrollBody = z.object({
-  provider: z.enum(["paystack", "flutterwave"]).optional(),
+  // Older pages let the learner pick a gateway. The platform chooses now
+  // (lib/billing/providers.ts), so this is accepted and not read.
+  provider: z.string().optional(),
 });
 
 /**
@@ -28,7 +31,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
     await requireCsrf(request);
     const actor = await requireClientActor();
     const { slug } = await ctx.params;
-    const body = EnrollBody.parse(await request.json().catch(() => ({})));
+    EnrollBody.parse(await request.json().catch(() => ({})));
 
     const programme = await prisma.programme.findFirst({
       where: { tenantId: actor.tenantId, slug, status: "PUBLISHED", visibility: "PUBLIC" },
@@ -56,10 +59,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
       }
       // Programme-level membership. Course enrollments alone cannot express it,
       // and library items assigned to a programme resolve through here.
-      await prisma.programmeEnrollment.upsert({
+      const membership = await prisma.programmeEnrollment.upsert({
         where: { programmeId_clientId: { programmeId: programme.id, clientId: actor.clientId } },
         create: { tenantId: actor.tenantId, programmeId: programme.id, clientId: actor.clientId },
         update: {},
+        select: { id: true },
+      });
+      // Credit whoever sent this learner, if anyone did. Never throws, and a
+      // repeat enrolment records nothing new.
+      await recordEnrollmentReferral({
+        tenantId: actor.tenantId,
+        clientId: actor.clientId,
+        enrollmentId: membership.id,
+        programmeId: programme.id,
+        cookieCode: await readReferralCookie(),
       });
       // Enrollment confirmation — best-effort.
       try {
@@ -90,71 +103,50 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
       return ok({ enrolledCourses: enrolled, checkoutUrl: null }, undefined, 201);
     }
 
-    // Paid programme — go through provider checkout.
-    if (!billingConfigured()) {
-      throw new DomainError(503, "billing_unconfigured", "Payments are not available.");
-    }
-
+    // Paid programme. Which gateway, and whether this academy can be paid
+    // through it, are both decided in lib/billing/providers.ts.
+    const gateway = requireActiveGateway();
     const subaccount = await prisma.tenantSubaccount.findUnique({
       where: { tenantId: actor.tenantId },
     });
-    if (!subaccount?.courseSalesEnabled) {
-      throw new DomainError(400, "sales_disabled", "Course sales are not enabled for this academy.");
-    }
-
-    const providerName =
-      body.provider ?? (subaccount.defaultProvider === "FLUTTERWAVE" ? "flutterwave" : "paystack");
-    const provider = providerName === "paystack" ? paystackProvider : flutterwaveProvider;
-
-    if (providerName === "paystack" && (!subaccount.paystackSubaccountCode || subaccount.paystackStatus !== "ACTIVE")) {
-      throw new DomainError(400, "subaccount_inactive", "Paystack payouts are not active.");
-    }
-    if (providerName === "flutterwave" && (!subaccount.flutterwaveSubaccountId || subaccount.flutterwaveStatus !== "ACTIVE")) {
-      throw new DomainError(400, "subaccount_inactive", "Flutterwave payouts are not active.");
-    }
+    const split = requireSaleSplit(subaccount, gateway, programme.priceCents);
 
     const client = await prisma.client.findUnique({ where: { id: actor.clientId } });
     if (!client) throw new DomainError(404, "not_found", "Learner not found.");
 
-    const reference =
-      providerName === "flutterwave" ? flutterwaveReference("programme") : billingReference("programme");
-    const platformFeeCents = Math.round((programme.priceCents * subaccount.platformCommissionPct) / 100);
+    const reference = billingReference("programme");
 
+    // Written before the customer is sent to pay: the row a later "payment
+    // succeeded" is checked against, for both the reference and the price.
     await prisma.programmePayment.create({
       data: {
         tenantId: actor.tenantId,
         programmeId: programme.id,
         clientId: actor.clientId,
-        provider: providerName === "paystack" ? "PAYSTACK" : "FLUTTERWAVE",
+        provider: gateway.name,
         amountCents: programme.priceCents,
         currency: programme.currency,
         externalRef: reference,
-        platformFeeCents,
-        tenantPayoutCents: programme.priceCents - platformFeeCents,
+        platformFeeCents: split.platformFeeCents,
+        tenantPayoutCents: programme.priceCents - split.platformFeeCents,
       },
     });
 
-    const host = request.headers.get("host") ?? "localhost:3000";
-    const callbackUrl = `http://${host}/my-courses?checkout=done`;
-
-    const checkout = await provider.initializeCheckout({
+    const checkout = await startCheckout(gateway, {
       email: client.email,
+      customerName: [client.firstName, client.lastName].filter(Boolean).join(" ") || undefined,
+      description: programme.title,
       amountCents: programme.priceCents,
       currency: programme.currency,
       reference,
-      callbackUrl,
+      callbackUrl: checkoutReturnUrl(request, "/my-courses", reference),
       metadata: {
         type: "programme_purchase",
         tenantId: actor.tenantId,
         programmeId: programme.id,
         clientId: actor.clientId,
       },
-      subaccount: {
-        paystackCode: subaccount.paystackSubaccountCode ?? undefined,
-        flutterwaveId: subaccount.flutterwaveSubaccountId ?? undefined,
-        platformFeeCents,
-        commissionPct: subaccount.platformCommissionPct,
-      },
+      subaccount: split,
     });
 
     return ok({ checkoutUrl: checkout.authorizationUrl, reference });

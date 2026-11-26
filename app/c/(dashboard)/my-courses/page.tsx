@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/icon";
 import { courseAccent, courseIcon } from "@/lib/ui/course-color";
 import { CheckoutVerifier } from "@/components/billing/checkout-verifier";
+import { countOf } from "../_lib/labels";
 
 export default async function MyCoursesPage() {
   const actor = await requireClientPage();
@@ -27,11 +28,15 @@ export default async function MyCoursesPage() {
       <CheckoutVerifier successMessage="You're enrolled! 🎉" />
       <PageHeader
         title="My courses"
-        subtitle={`${enrollments.length} enrolled`}
+        subtitle={
+          enrollments.length === 0
+            ? "Courses you enrol in appear here"
+            : `${countOf(enrollments.length, "course")} you're enrolled in`
+        }
         action={
           <Button asChild variant="outline" size="sm">
             <Link href="/courses">
-              <Icon name="search" /> Browse catalog
+              <Icon name="search" aria-hidden /> Browse courses
             </Link>
           </Button>
         }
@@ -44,11 +49,12 @@ export default async function MyCoursesPage() {
             title="No courses yet"
             action={
               <Button asChild size="sm">
-                <Link href="/courses">Explore the catalog</Link>
+                <Link href="/courses">Browse courses</Link>
               </Button>
             }
           >
-            You are not enrolled in any courses yet.
+            Pick a course to start. It will show up here with your progress, so you can carry on
+            where you left off.
           </EmptyState>
         </div>
       ) : (
@@ -63,9 +69,9 @@ export default async function MyCoursesPage() {
             const done = e.completedAt != null;
 
             return (
-              <div
+              <article
                 key={e.id}
-                className="flex flex-col rounded-[14px] border-2 border-border bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="flex min-w-0 flex-col rounded-[14px] border-2 border-border bg-card p-4 transition-transform duration-150 hover:-translate-x-0.5 hover:-translate-y-0.5"
                 style={{ boxShadow: `6px 6px 0 ${accent}` }}
               >
                 <div className="flex items-start gap-3">
@@ -74,10 +80,15 @@ export default async function MyCoursesPage() {
                     <img
                       src={thumb}
                       alt=""
+                      width={96}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
                       className="h-16 w-24 shrink-0 rounded-[10px] border-2 border-border object-cover"
                     />
                   ) : (
                     <span
+                      aria-hidden
                       className="flex size-12 shrink-0 items-center justify-center rounded-[10px] border-2 border-border text-foreground"
                       style={{ background: accent }}
                     >
@@ -85,19 +96,21 @@ export default async function MyCoursesPage() {
                     </span>
                   )}
                   <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/courses/${course.slug}`}
-                      className="line-clamp-2 font-heading text-[15px] leading-tight hover:underline"
-                    >
-                      {course.title}
-                    </Link>
+                    <h2 className="font-heading text-[15px] leading-tight">
+                      <Link
+                        href={`/courses/${course.slug}`}
+                        className="line-clamp-2 break-words rounded-[4px] outline-none hover:underline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        {course.title}
+                      </Link>
+                    </h2>
                     <p className="mt-1 text-[12px] font-medium text-muted-foreground">
-                      {course._count.lessons} lessons
+                      {countOf(course._count.lessons, "lesson")}
                     </p>
                   </div>
                   {done ? (
                     <Badge color="var(--success)" rotate>
-                      Done
+                      Completed
                     </Badge>
                   ) : null}
                 </div>
@@ -107,16 +120,22 @@ export default async function MyCoursesPage() {
                     <span>{done ? "Completed" : "Progress"}</span>
                     <span className="num text-foreground">{e.progressPercent}%</span>
                   </div>
-                  <ProgressBar value={e.progressPercent} color={accent} size="sm" />
+                  <ProgressBar
+                    value={e.progressPercent}
+                    color={accent}
+                    size="sm"
+                    label={`Progress in ${course.title}`}
+                  />
                 </div>
 
-                <Button asChild size="sm" className="mt-4 self-start">
+                <Button asChild className="mt-4 min-h-11 w-full sm:min-h-0 sm:w-auto sm:self-start">
                   <Link href={`/courses/${course.slug}/learn`}>
-                    {done ? "Review course" : "Continue learning"}
-                    <Icon name="arrow-right" />
+                    {done ? "Review course" : e.progressPercent > 0 ? "Continue learning" : "Start course"}
+                    <span className="sr-only">: {course.title}</span>
+                    <Icon name="arrow-right" aria-hidden />
                   </Link>
                 </Button>
-              </div>
+              </article>
             );
           })}
         </div>

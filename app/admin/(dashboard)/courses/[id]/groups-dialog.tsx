@@ -5,6 +5,7 @@ import { apiDelete, apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { FormField, TextInput } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { LessonGroupRow } from "./course-types";
 
 export function GroupsDialog({
@@ -24,6 +25,7 @@ export function GroupsDialog({
   onAdded: (group: LessonGroupRow) => void;
   onRemoved: (groupId: string) => void;
 }) {
+  const confirm = useConfirm();
   const [title, setTitle] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,14 @@ export function GroupsDialog({
   }
 
   async function removeGroup(groupId: string) {
-    if (!confirm("Delete this group? Lessons in it are kept but ungrouped.")) return;
+    const group = groups.find((g) => g.id === groupId);
+    const ok = await confirm({
+      title: group ? `Delete the module “${group.title}”?` : "Delete this module?",
+      description: "Its lessons are kept and simply stop belonging to a module.",
+      confirmLabel: "Delete module",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     const res = await apiDelete(`/api/tenant/courses/${courseId}/lesson-groups/${groupId}`);
     if (res.error) {
@@ -61,15 +70,17 @@ export function GroupsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogTitle>Lesson groups</DialogTitle>
+        <DialogTitle>Modules</DialogTitle>
         <DialogDescription>
-          Organize lessons into groups (e.g. modules). Lessons are assigned to a group when added or
-          edited.
+          Modules group lessons into sections of the course. You choose a lesson&rsquo;s module
+          when you add or edit the lesson.
         </DialogDescription>
 
         <div className="mt-5 flex flex-col gap-4">
           {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No groups yet.</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              No modules yet. Add the first one below.
+            </p>
           ) : (
             <ul className="flex flex-col gap-2">
               {groups.map((g) => (
@@ -77,12 +88,14 @@ export function GroupsDialog({
                   key={g.id}
                   className="flex items-center justify-between gap-3 rounded-[10px] border-2 border-border bg-background px-3 py-2 text-sm"
                 >
-                  <span className="font-semibold text-foreground">{g.title}</span>
+                  <span className="min-w-0 break-words font-bold text-foreground">{g.title}</span>
                   {canWrite ? (
                     <Button
                       type="button"
                       variant="destructive"
                       size="sm"
+                      className="shrink-0"
+                      aria-label={`Delete the module “${g.title}”`}
                       onClick={() => removeGroup(g.id)}
                     >
                       Delete
@@ -94,23 +107,36 @@ export function GroupsDialog({
           )}
 
           {canWrite ? (
-            <div className="flex items-end gap-2">
+            <form
+              className="flex flex-col gap-2 sm:flex-row sm:items-end"
+              onSubmit={(e) => {
+                // Enter in the field adds the module, as people expect.
+                e.preventDefault();
+                void addGroup();
+              }}
+            >
               <div className="flex-1">
-                <FormField label="New group title" htmlFor="groups-dialog-title">
+                <FormField label="New module" htmlFor="groups-dialog-title">
                   <TextInput
                     id="groups-dialog-title"
+                    autoComplete="off"
+                    placeholder="e.g. Week 1…"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                   />
                 </FormField>
               </div>
-              <Button type="button" onClick={addGroup} disabled={pending}>
-                {pending ? "Adding…" : "Add group"}
+              <Button type="submit" disabled={pending || !title.trim()}>
+                {pending ? "Adding…" : "Add module"}
               </Button>
-            </div>
+            </form>
           ) : null}
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="text-sm font-bold text-destructive">
+              {error}
+            </p>
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

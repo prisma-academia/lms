@@ -33,14 +33,18 @@ export function AdminLoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <FormField label={t("email")} htmlFor="email" error={formState.errors.email?.message}>
-        <TextInput id="email" type="email" autoComplete="email" {...register("email")} />
+        <TextInput id="email" type="email" autoComplete="email" spellCheck={false} {...register("email")} />
       </FormField>
       <FormField label={t("password")} htmlFor="password" error={formState.errors.password?.message}>
         <TextInput id="password" type="password" autoComplete="current-password" {...register("password")} />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? t("signingIn") : t("signIn")}
       </Button>

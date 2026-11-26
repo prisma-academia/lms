@@ -25,7 +25,7 @@ export function EditClientGroupForm({
       apiBase="/api/tenant/client-groups"
       membersField="clientIds"
       listHref="/admin/client-groups"
-      memberNoun="client"
+      memberNoun="learner"
     />
   );
 }

@@ -10,10 +10,14 @@ export function LogoutButton({
   endpoint,
   postLogoutPath = "/auth/login",
   logoutContext = "client",
+  className,
+  size = "sm",
 }: {
   endpoint: string;
   postLogoutPath?: string;
   logoutContext?: LogoutContext;
+  className?: string;
+  size?: "sm" | "default" | "lg";
 }) {
   const [pending, setPending] = useState(false);
   async function onClick() {
@@ -22,7 +26,7 @@ export function LogoutButton({
     window.location.href = postLogoutPath;
   }
   return (
-    <Button variant="outline" size="sm" disabled={pending} onClick={onClick}>
+    <Button variant="outline" size={size} className={className} disabled={pending} onClick={onClick}>
       {pending ? "Signing out…" : "Sign out"}
     </Button>
   );

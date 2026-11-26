@@ -32,7 +32,7 @@ export function InviteUserForm({ roles }: { roles: { id: string; name: string }[
   });
 
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-3 gap-4">
+    <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <FormField label="Email" htmlFor="email" error={formState.errors.email?.message}>
         <TextInput id="email" type="email" {...register("email")} />
       </FormField>
@@ -42,7 +42,7 @@ export function InviteUserForm({ roles }: { roles: { id: string; name: string }[
       <FormField label="Role" htmlFor="role" error={formState.errors.roleTemplateId?.message}>
         <select
           id="role"
-          className="rounded border border-stone-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-[10px] border-2 border-border bg-card px-3.5 py-2.5 text-[16px] font-medium text-card-foreground outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60"
           {...register("roleTemplateId")}
         >
           <option value="">Select…</option>
@@ -51,8 +51,12 @@ export function InviteUserForm({ roles }: { roles: { id: string; name: string }[
           ))}
         </select>
       </FormField>
-      {error ? <p className="col-span-3 text-sm text-red-600">{error}</p> : null}
-      <div className="col-span-3">
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive sm:col-span-3">
+          {error}
+        </p>
+      ) : null}
+      <div className="sm:col-span-3">
         <Button type="submit" disabled={formState.isSubmitting}>
           {formState.isSubmitting ? "Inviting…" : "Send invite"}
         </Button>

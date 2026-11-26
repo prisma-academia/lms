@@ -36,14 +36,14 @@ function Feedback({
 }) {
   if (error?.scope === scope) {
     return (
-      <p role="alert" className="text-sm font-medium text-red-600">
+      <p role="alert" className="text-sm font-bold text-destructive">
         {error.message}
       </p>
     );
   }
   if (info?.scope === scope) {
     return (
-      <p role="status" className="text-sm font-medium text-green-700">
+      <p role="status" className="text-sm font-bold text-foreground">
         {info.message}
       </p>
     );
@@ -390,8 +390,8 @@ export function SettingsForm({
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <FormField label="Tenant name" htmlFor="name">
-        <TextInput id="name" value={name} onChange={(e) => setName(e.target.value)} />
+      <FormField label="Academy name" htmlFor="name" hint="Shown to staff and learners across the platform.">
+        <TextInput id="name" name="name" autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} />
       </FormField>
 
       <FormField
@@ -420,7 +420,7 @@ export function SettingsForm({
               type="checkbox"
               checked={themePrimaryOverride}
               onChange={(e) => setThemePrimaryOverride(e.target.checked)}
-              className="size-4"
+              className="size-4 accent-primary"
             />
             Override the theme accent
           </label>
@@ -430,7 +430,7 @@ export function SettingsForm({
             value={primaryColor}
             disabled={!themePrimaryOverride}
             onChange={(e) => setPrimaryColor(e.target.value)}
-            className="h-9 w-16 rounded-[8px] border-2 border-border bg-card disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-9 w-16 cursor-pointer rounded-[8px] border-2 border-border bg-card outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
         </div>
       </FormField>
@@ -486,13 +486,17 @@ export function SettingsForm({
         />
       </FormField>
 
-      <div className="flex flex-col gap-2 text-sm">
-        <span className="text-stone-700">Enabled modules</span>
-        <div className="flex flex-wrap gap-3">
+      <fieldset className="flex flex-col gap-2 text-sm">
+        <legend className="mb-2 text-[13px] font-bold text-foreground">Parts of the platform to use</legend>
+        <p className="text-xs font-medium text-muted-foreground">
+          Untick a part your academy does not use and it disappears from the menus.
+        </p>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
           {MODULE_KEYS.map((key) => (
-            <label key={key} className="flex items-center gap-2 capitalize">
+            <label key={key} className="flex min-h-8 cursor-pointer items-center gap-2 font-medium capitalize">
               <input
                 type="checkbox"
+                className="size-4 accent-primary"
                 checked={enabled.includes(key)}
                 onChange={() => toggleModule(key)}
               />
@@ -500,11 +504,11 @@ export function SettingsForm({
             </label>
           ))}
         </div>
-      </div>
+      </fieldset>
 
       <div className="flex flex-col gap-2 text-sm">
-        <span className="text-stone-700">Site logo</span>
-        <p className="text-xs text-stone-500">
+        <span className="text-[13px] font-bold text-foreground">Site logo</span>
+        <p className="text-xs text-muted-foreground">
           Shown across your admin console, learner portal, sign-in screens, and
           public pages. PNG, JPEG, or WebP up to 2 MB. Min 256×256, aspect
           between 1:3 and 3:1. Favicons and social preview images are generated
@@ -512,27 +516,29 @@ export function SettingsForm({
         </p>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="Tenant logo" className="h-12 w-auto" />
+          <img src={logoUrl} alt="Current logo" className="h-12 w-auto" />
         ) : null}
         {storageEnabled ? (
           <>
             <input
               type="file"
+              aria-label="Upload a logo"
               accept="image/png,image/jpeg,image/webp"
               disabled={busy}
               onChange={onLogoChange}
+              className="max-w-full text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-[8px] file:border-2 file:border-solid file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-card-foreground disabled:cursor-not-allowed disabled:opacity-60"
             />
             {uploading === "logo" ? (
-              <p role="status" className="text-xs text-stone-500">
+              <p role="status" className="text-xs text-muted-foreground">
                 Uploading and generating icons…
               </p>
             ) : null}
             <Feedback scope="logo" error={error} info={info} />
           </>
         ) : (
-          <span className="text-xs text-stone-500">
-            Object storage is not configured, so logo uploads are disabled. Ask
-            your platform administrator to configure the S3 settings.
+          <span className="text-xs text-muted-foreground">
+            File uploads are not set up on this platform yet, so a logo cannot be
+            added here. Ask your platform administrator to switch them on.
           </span>
         )}
         {(icon32Url || apple180Url || og1200Url) && (
@@ -541,21 +547,21 @@ export function SettingsForm({
               <div className="flex flex-col items-center gap-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={icon32Url} alt="" className="size-8" />
-                <span className="text-[10px] text-stone-500">Favicon</span>
+                <span className="text-[11px] font-medium text-muted-foreground">Browser tab</span>
               </div>
             ) : null}
             {apple180Url ? (
               <div className="flex flex-col items-center gap-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={apple180Url} alt="" className="size-12 rounded-lg" />
-                <span className="text-[10px] text-stone-500">Apple</span>
+                <span className="text-[11px] font-medium text-muted-foreground">Phone home screen</span>
               </div>
             ) : null}
             {og1200Url ? (
               <div className="flex flex-col items-center gap-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={og1200Url} alt="" className="h-12 w-auto max-w-[120px] rounded border" />
-                <span className="text-[10px] text-stone-500">OG</span>
+                <img src={og1200Url} alt="" className="h-12 w-auto max-w-[120px] rounded-[6px] border-2 border-border" />
+                <span className="text-[11px] font-medium text-muted-foreground">Link preview</span>
               </div>
             ) : null}
           </div>
@@ -563,8 +569,8 @@ export function SettingsForm({
       </div>
 
       <div className="flex flex-col gap-2 text-sm">
-        <span className="text-stone-700">Landing page hero image (optional)</span>
-        <p className="text-xs text-stone-500">
+        <span className="text-[13px] font-bold text-foreground">Landing page hero image (optional)</span>
+        <p className="text-xs text-muted-foreground">
           A wide photo for the top of your public pages. PNG/JPEG/WebP, max 8 MB. Available in
           the site builder as <code>{"{{ tenant.heroImageUrl }}"}</code>; the starter hero uses
           it automatically.
@@ -582,9 +588,11 @@ export function SettingsForm({
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="file"
+                aria-label="Upload a landing page image"
                 accept="image/png,image/jpeg,image/webp"
                 disabled={busy}
                 onChange={onHeroChange}
+                className="max-w-full text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-[8px] file:border-2 file:border-solid file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-card-foreground disabled:cursor-not-allowed disabled:opacity-60"
               />
               {heroImageKey ? (
                 <Button
@@ -595,15 +603,15 @@ export function SettingsForm({
                   onClick={() => {
                     setHeroImageKey(null);
                     setHeroImageUrl(null);
-                    succeed("hero", "Hero image cleared. Save to apply.");
+                    succeed("hero", "Image removed. Save changes to apply.");
                   }}
                 >
-                  Remove
+                  Remove image
                 </Button>
               ) : null}
             </div>
             {uploading === "hero" ? (
-              <p role="status" className="text-xs text-stone-500">
+              <p role="status" className="text-xs text-muted-foreground">
                 Uploading…
               </p>
             ) : null}
@@ -613,31 +621,34 @@ export function SettingsForm({
       </div>
 
       <div className="flex flex-col gap-2 text-sm">
-        <span className="text-stone-700">Custom favicon (optional)</span>
-        <p className="text-xs text-stone-500">
-          Roughly square PNG/JPEG/WebP, max 512 KB. Overrides generated favicons.
+        <span className="text-[13px] font-bold text-foreground">Browser tab icon (optional)</span>
+        <p className="text-xs text-muted-foreground">
+          The small icon shown in a browser tab. One is made from your logo automatically; upload
+          your own here to replace it. Roughly square PNG, JPEG or WebP, up to 512 KB.
         </p>
         {faviconUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={faviconUrl} alt="Favicon" className="size-8" />
+          <img src={faviconUrl} alt="Current browser tab icon" className="size-8" />
         ) : null}
         {storageEnabled ? (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="file"
+                aria-label="Upload a browser tab icon"
                 accept="image/png,image/jpeg,image/webp"
                 disabled={busy}
                 onChange={onFaviconChange}
+                className="max-w-full text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-[8px] file:border-2 file:border-solid file:border-border file:bg-card file:px-3 file:py-1.5 file:text-sm file:font-bold file:text-card-foreground disabled:cursor-not-allowed disabled:opacity-60"
               />
               {initial.settings.faviconKey || faviconUrl ? (
                 <Button type="button" variant="outline" size="sm" disabled={busy} onClick={clearFavicon}>
-                  Clear override
+                  Use the generated icon
                 </Button>
               ) : null}
             </div>
             {uploading === "favicon" ? (
-              <p role="status" className="text-xs text-stone-500">
+              <p role="status" className="text-xs text-muted-foreground">
                 Uploading…
               </p>
             ) : null}
@@ -649,8 +660,8 @@ export function SettingsForm({
       <div className="flex flex-col gap-3 rounded-[14px] border-2 border-border p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <span className="text-sm text-stone-700">Brand preview</span>
-            <p className="text-xs text-stone-500">
+            <span className="text-[13px] font-bold text-foreground">Brand preview</span>
+            <p className="text-xs text-muted-foreground">
               Your logo, theme and colours on the components the platform is built
               from. Reflects the last save.
             </p>
@@ -678,7 +689,7 @@ export function SettingsForm({
       <Feedback scope="form" error={error} info={info} />
       <div>
         <Button onClick={submit} disabled={pending || busy}>
-          {pending ? "Saving…" : "Save"}
+          {pending ? "Saving…" : "Save changes"}
         </Button>
       </div>
     </div>

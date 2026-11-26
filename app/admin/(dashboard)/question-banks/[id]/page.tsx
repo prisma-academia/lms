@@ -38,6 +38,7 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
     rubric: parseRubric(q.rubricJson),
     points: q.points,
     tagIds: q.tags.map((t) => t.tagId),
+    hint: q.hint,
   }));
 
   return (

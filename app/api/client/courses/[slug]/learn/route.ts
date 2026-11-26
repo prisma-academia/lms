@@ -8,6 +8,14 @@ import { publicUrlForKey, s3Configured } from "@/lib/storage/s3";
 import { isUnlocked } from "@/lib/courses/gating";
 import { requiredDwellSeconds, mediaWatched } from "@/lib/courses/content-gate";
 import { recordLessonCompletion, recordLessonOpen } from "@/lib/courses/complete-lesson";
+import { effectivePassMark, passingAttemptWhere } from "@/lib/assessments/pass-mark";
+import {
+  htmlLessonOutline,
+  renderLessonHtml,
+  textLessonOutline,
+  type OutlineEntry,
+  type RenderedLesson,
+} from "@/lib/content/render-lesson";
 
 const Body = z.object({
   lessonId: z.string().min(1),
@@ -23,6 +31,9 @@ async function loadCourseForLearner(tenantId: string, slug: string) {
   const course = await prisma.course.findFirst({
     where: { tenantId, slug, status: "PUBLISHED" },
     include: {
+      // Module titles for the lesson rail. Titles only: a group carries nothing
+      // a learner who is not yet through the course should not see.
+      lessonGroups: { orderBy: { sortOrder: "asc" }, select: { id: true, title: true } },
       lessons: {
         // sortOrder is not unique (defaults to 0) — the id tiebreak keeps this
         // order identical to lib/courses/gating.ts's orderLessons.
@@ -100,6 +111,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ slug: stri
         durationMin: l.durationMin,
         completed: completed.has(l.id),
         locked,
+        groupId: l.groupId,
       };
 
       // A locked lesson must not ship its content. contentJson carries lesson
@@ -116,7 +128,27 @@ export async function GET(_request: Request, ctx: { params: Promise<{ slug: stri
           startedAt: null,
           requiredSeconds: 0,
           playbackProgress: null,
+          rendered: null,
+          outline: [],
         };
+      }
+
+      // Reading lessons are prepared here rather than in the learner's browser:
+      // HTML is sanitized, its own CSS scoped, and its headings given anchors.
+      // The raw HTML is then left OUT of contentJson — the page has no use for
+      // it, and sending both would double the largest part of the payload.
+      const json = (l.contentJson ?? {}) as Record<string, unknown>;
+      let contentJson: unknown = l.contentJson;
+      let rendered: RenderedLesson | null = null;
+      let outline: OutlineEntry[] = [];
+      if (l.contentType === "HTML" && typeof json.html === "string" && json.html.trim()) {
+        rendered = renderLessonHtml(json.html, l.id);
+        outline = htmlLessonOutline(rendered.html);
+        const { html: _html, ...rest } = json;
+        void _html;
+        contentJson = rest;
+      } else if (l.contentType === "TEXT" && typeof json.body === "string") {
+        outline = textLessonOutline(json.body);
       }
 
       const key = l.libraryItem?.key ?? l.assetKey;
@@ -127,7 +159,9 @@ export async function GET(_request: Request, ctx: { params: Promise<{ slug: stri
 
       return {
         ...base,
-        contentJson: l.contentJson,
+        contentJson,
+        rendered,
+        outline,
         assetKey: l.assetKey,
         libraryItemId: l.libraryItemId,
         assetUrl,
@@ -164,6 +198,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ slug: stri
         progressPercent: enrollment.progressPercent,
         completedAt: enrollment.completedAt,
       },
+      groups: course.lessonGroups,
       lessons,
     });
   } catch (e) {
@@ -304,7 +339,7 @@ async function assertContentConsumed(params: {
   }
 }
 
-/** A QUIZ lesson completes only once the learner has scored 100%. */
+/** A QUIZ lesson completes only once the learner has met the quiz's pass mark. */
 async function assertQuizPassed(clientId: string, contentJson: unknown): Promise<void> {
   const quizId = (contentJson as { quizId?: unknown } | null)?.quizId;
   if (typeof quizId !== "string" || !quizId) {
@@ -315,24 +350,35 @@ async function assertQuizPassed(clientId: string, contentJson: unknown): Promise
     );
   }
 
-  // "Ever scored 100%", not "latest attempt". Completion is monotonic
-  // everywhere else in the app; making this gate non-monotonic would re-lock a
-  // learner who retakes an already-passed quiz out of curiosity.
-  //
-  // gradingStatus GRADED is what closes the essay loophole: an attempt whose AI
-  // grading failed is PENDING and scoreless, so provoking a grader outage
-  // unlocks nothing.
-  const perfect = await prisma.quizAttempt.findFirst({
-    where: {
-      quizId,
-      clientId,
-      submittedAt: { not: null },
-      scorePercent: 100,
-      gradingStatus: "GRADED",
-    },
+  const quiz = await prisma.quiz.findUnique({
+    where: { id: quizId },
+    select: { passingScore: true },
+  });
+  if (!quiz) {
+    throw new DomainError(
+      409,
+      "quiz_unconfigured",
+      "This quiz isn't set up yet — ask your instructor."
+    );
+  }
+  const passMark = effectivePassMark(quiz.passingScore);
+
+  // "Ever passed", not "latest attempt". Completion is monotonic everywhere
+  // else in the app; making this gate non-monotonic would re-lock a learner who
+  // retakes an already-passed quiz out of curiosity. `passingAttemptWhere` also
+  // requires GRADED, which is what closes the essay loophole: an attempt whose
+  // AI grading failed is scoreless, so provoking a grader outage unlocks nothing.
+  const passing = await prisma.quizAttempt.findFirst({
+    where: { quizId, clientId, ...passingAttemptWhere(passMark) },
     select: { id: true },
   });
-  if (!perfect) {
-    throw new DomainError(409, "quiz_not_perfect", "Score 100% on this quiz to continue.");
+  if (!passing) {
+    throw new DomainError(
+      409,
+      "quiz_not_passed",
+      passMark >= 100
+        ? "Score 100% on this quiz to continue."
+        : `Score ${passMark}% or more on this quiz to continue.`
+    );
   }
 }

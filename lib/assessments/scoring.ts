@@ -21,6 +21,12 @@ export type QuestionResult = {
   /** ESSAY only: learner-facing feedback and the per-criterion breakdown. */
   feedback?: string;
   criteria?: { id: string; label: string; score01: number; comment: string }[];
+  /**
+   * ESSAY only: identity of the (question, rubric, answer, grader) this grade
+   * was produced for. A later attempt with the same key reuses the grade
+   * instead of asking the model again — see `essayGradeKey`.
+   */
+  gradeKey?: string;
 };
 
 /**
@@ -76,7 +82,9 @@ export type EssayGradeMap = Record<string, EssayGrade | null>;
 export function scoreAttempt(
   questions: (ScorableQuestion & { effectivePoints: number })[],
   answers: Record<string, Response>,
-  essayGrades?: EssayGradeMap
+  essayGrades?: EssayGradeMap,
+  /** Passed straight through onto each graded essay's result; never read here. */
+  essayGradeKeys?: Record<string, string>
 ): {
   scorePercent: number;
   earned: number;
@@ -96,10 +104,13 @@ export function scoreAttempt(
     let fraction: number;
     let feedback: string | undefined;
     let criteria: QuestionResult["criteria"];
+    let gradeKey: string | undefined;
 
     if (q.type === "ESSAY") {
       const rubric = parseRubric(q.rubricJson);
       const grade = essayGrades?.[q.id] ?? null;
+      // Only a grade that actually exists is worth reusing later.
+      gradeKey = grade ? essayGradeKeys?.[q.id] : undefined;
       // No rubric means the question is misauthored. Score 0 rather than
       // guessing — a silent full mark would gate nothing at all.
       fraction = rubric ? rubricFraction(rubric, grade) : 0;
@@ -130,6 +141,7 @@ export function scoreAttempt(
       correct,
       ...(feedback ? { feedback } : {}),
       ...(criteria ? { criteria } : {}),
+      ...(gradeKey ? { gradeKey } : {}),
     };
   }
 

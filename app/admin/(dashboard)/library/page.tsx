@@ -5,6 +5,7 @@ import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { s3Configured } from "@/lib/storage/s3";
 import { PageHeader } from "@/components/shell";
 import { Spinner } from "@/components/spinner";
+import { parseTenantSettings } from "@/lib/tenant/settings";
 import { LibraryClient } from "./library-client";
 
 /**
@@ -29,11 +30,21 @@ export default async function LibraryPage() {
     }),
     prisma.tenant.findUnique({
       where: { id: actor.tenantId },
-      select: { storageUsedBytes: true, storageReservedBytes: true, storageQuotaBytes: true },
+      select: {
+        storageUsedBytes: true,
+        storageReservedBytes: true,
+        storageQuotaBytes: true,
+        settingsJson: true,
+      },
     }),
     prisma.libraryItem.count({ where: { tenantId: actor.tenantId } }),
     prisma.libraryItem.count({ where: { tenantId: actor.tenantId, folderId: null } }),
   ]);
+
+  // The library formats dates in the browser (items are fetched there), so it
+  // is handed the academy's locale and time zone to format them with — never
+  // the browser's own defaults.
+  const settings = parseTenantSettings(tenant?.settingsJson);
 
   return (
     <div>
@@ -54,6 +65,7 @@ export default async function LibraryPage() {
             quota: Number(tenant?.storageQuotaBytes ?? 0),
           }}
           storageConfigured={s3Configured()}
+          formatContext={{ locale: settings.locale, timeZone: settings.timezone }}
           canWrite={hasPermission(actor, PERMISSIONS.TENANT_LIBRARY_WRITE.key)}
           canAssign={hasPermission(actor, PERMISSIONS.TENANT_LIBRARY_ASSIGN.key)}
           totalCount={totalCount}

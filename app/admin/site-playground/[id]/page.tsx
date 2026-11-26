@@ -3,6 +3,7 @@ import { requireTenantPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS, hasPermission } from "@/lib/auth/permissions";
 import { prisma } from "@/lib/db/client";
 import { toRow } from "@/lib/site/pages";
+import { aiStatus } from "@/lib/ai/config";
 import { SitePlayground } from "./playground";
 
 /**
@@ -37,6 +38,7 @@ export default async function SitePlaygroundPage({
     <SitePlayground
       page={toRow(page)}
       canWrite={hasPermission(actor, PERMISSIONS.TENANT_SITE_WRITE.key)}
+      aiConfigured={aiStatus().configured}
     />
   );
 }

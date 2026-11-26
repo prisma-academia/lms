@@ -46,7 +46,12 @@ export type PresignKind =
   | "course_thumbnail"
   | "lesson_asset"
   | "library"
-  | "submission";
+  | "submission"
+  // A learner's own profile uploads. Both live under that learner's prefix
+  // (tenants/{tenant}/clients/{client}/) and are only ever read back through a
+  // short-lived signed link — never through `publicUrlForKey`.
+  | "avatar"
+  | "profile_document";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ...CONTENT_TYPE_EXT,
@@ -102,6 +107,12 @@ const LIBRARY_CONTENT_TYPES: Record<string, string> = {
   "application/x-tar": "tar",
 };
 
+// Proof of a certification: a scan or the PDF the issuer sent. Nothing else.
+const PROFILE_DOCUMENT_CONTENT_TYPES: Record<string, string> = {
+  ...CONTENT_TYPE_EXT,
+  "application/pdf": "pdf",
+};
+
 export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   logo: 2 * 1024 * 1024,
   favicon: 512 * 1024,
@@ -113,6 +124,11 @@ export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   lesson_asset: 100 * 1024 * 1024,
   library: 2 * 1024 * 1024 * 1024, // 2 GB — resumable multipart, see below.
   submission: 25 * 1024 * 1024,
+  // The browser crops and resizes a profile photo to 512px before sending it,
+  // so a real one is well under 200 KB; the cap leaves room for a browser that
+  // could not resize and sent the original.
+  avatar: 2 * 1024 * 1024,
+  profile_document: 5 * 1024 * 1024,
 };
 
 /** Min shortest side for tenant logos before favicon/OG generation. */
@@ -144,6 +160,8 @@ function contentTypeMapFor(kind: PresignKind): Record<string, string> {
   // the reason in the file header.
   if (kind === "logo" || kind === "favicon" || kind === "site_asset") return CONTENT_TYPE_EXT;
   if (kind === "library" || kind === "submission") return LIBRARY_CONTENT_TYPES;
+  if (kind === "avatar") return CONTENT_TYPE_EXT;
+  if (kind === "profile_document") return PROFILE_DOCUMENT_CONTENT_TYPES;
   return ASSET_CONTENT_TYPES;
 }
 
@@ -212,6 +230,8 @@ export async function createPresignedUpload(input: {
   kind: PresignKind;
   contentLength?: number;
   courseId?: string;
+  /** Required for the learner-owned kinds (`avatar`, `profile_document`). */
+  clientId?: string;
 }): Promise<{ url: string; key: string; publicUrl: string }> {
   const extMap = contentTypeMapFor(input.kind);
   const ext = extMap[input.contentType];
@@ -229,6 +249,13 @@ export async function createPresignedUpload(input: {
     key = `tenants/${input.tenantId}/library/${rand}.${ext}`;
   } else if (input.kind === "submission") {
     key = `tenants/${input.tenantId}/submissions/${rand}.${ext}`;
+  } else if (input.kind === "avatar" || input.kind === "profile_document") {
+    // The learner's id is part of the key, and that is the whole access rule:
+    // a profile may only reference keys under its own learner's prefix (see
+    // `isOwnAvatarKey` / `isOwnDocumentKey` in lib/schemas/client-profile.ts).
+    if (!input.clientId) throw new Error("A learner id is required for profile uploads.");
+    const base = `tenants/${input.tenantId}/clients/${input.clientId}`;
+    key = input.kind === "avatar" ? `${base}/avatar-${rand}.${ext}` : `${base}/documents/${rand}.${ext}`;
   } else if (input.courseId) {
     key = `tenants/${input.tenantId}/courses/${input.courseId}/${input.kind}-${rand}.${ext}`;
   } else {

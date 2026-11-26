@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FormField, TextInput, TextArea } from "@/components/form-field";
 
 const Schema = z.object({
-  name: z.string().min(1).max(200),
+  name: z.string().min(1, "Give the bank a name.").max(200),
   description: z.string().max(2000).optional(),
 });
 type Values = z.infer<typeof Schema>;
@@ -29,14 +29,23 @@ export function CreateBankForm() {
     router.push(`/admin/question-banks/${res.data!.bank.id}`);
   });
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
-      <FormField label="Name" htmlFor="name" error={formState.errors.name?.message}>
-        <TextInput id="name" {...register("name")} />
+    <form onSubmit={onSubmit} noValidate className="grid max-w-xl gap-4">
+      <FormField
+        label="Name"
+        htmlFor="name"
+        hint="Usually the topic the questions cover, such as “Cell biology”."
+        error={formState.errors.name?.message}
+      >
+        <TextInput id="name" autoComplete="off" {...register("name")} />
       </FormField>
       <FormField label="Description (optional)" htmlFor="description" error={formState.errors.description?.message}>
         <TextArea id="description" {...register("description")} />
       </FormField>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div>
         <Button type="submit" disabled={formState.isSubmitting}>
           {formState.isSubmitting ? "Creating…" : "Create bank"}

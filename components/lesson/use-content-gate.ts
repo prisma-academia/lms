@@ -28,7 +28,7 @@ export type ContentGate = {
   sentinelRef: (node: HTMLElement | null) => void;
   reportMedia: (fraction: number) => void;
   reportPage: (page: number, total: number) => void;
-  reportQuizPerfect: () => void;
+  reportQuizPassed: () => void;
 };
 
 /** Content types whose gate is "scrolled to the end". */
@@ -151,7 +151,7 @@ export function useContentGate(opts: {
     [latch]
   );
 
-  const reportQuizPerfect = useCallback(() => latch(), [latch]);
+  const reportQuizPassed = useCallback(() => latch(), [latch]);
 
   const dwellRemaining = Math.max(0, Math.ceil(requiredSeconds - elapsed));
   const satisfied = alreadyComplete || (consumed && dwellRemaining === 0);
@@ -159,7 +159,7 @@ export function useContentGate(opts: {
   const hint = useMemo(() => {
     if (satisfied) return null;
     if (!consumed) {
-      if (contentType === "QUIZ") return "Score 100% on this quiz to continue.";
+      if (contentType === "QUIZ") return "Pass this quiz to continue.";
       if (isTimedMedia) return "Watch to the end to continue.";
       if (isPaged) return "Read to the last page to continue.";
       if (scrollGate) return "Scroll to the end of the lesson to continue.";
@@ -168,5 +168,5 @@ export function useContentGate(opts: {
     return `${dwellRemaining}s left before you can mark this complete.`;
   }, [satisfied, consumed, contentType, isTimedMedia, isPaged, scrollGate, dwellRemaining]);
 
-  return { satisfied, hint, sentinelRef, reportMedia, reportPage, reportQuizPerfect };
+  return { satisfied, hint, sentinelRef, reportMedia, reportPage, reportQuizPassed };
 }

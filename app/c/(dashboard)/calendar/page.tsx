@@ -3,11 +3,17 @@ import { requireClientPage } from "@/lib/auth/page-guards";
 import { expandOccurrences } from "@/lib/calendar/occurrences";
 import { PageHeader } from "@/components/shell";
 import { MonthCalendar } from "@/components/month-calendar";
+import { tenantFormatContext } from "../_lib/format-context";
+import { DAY_MS, zonedParts } from "../_lib/zoned";
 
-function parseMonth(month: string | undefined): { year: number; month: number } {
+function parseMonth(month: string | undefined, timeZone: string): { year: number; month: number } {
   const m = month && /^\d{4}-\d{2}$/.test(month) ? month : null;
-  const now = new Date();
-  if (!m) return { year: now.getFullYear(), month: now.getMonth() };
+  if (!m) {
+    // "This month" is the academy's month: at 00:30 on the 1st in Lagos the
+    // server, on UTC, is still in the month before.
+    const today = zonedParts(new Date(), timeZone);
+    return { year: today.year, month: today.month };
+  }
   const [y, mo] = m.split("-").map(Number);
   return { year: y, month: Math.min(11, Math.max(0, mo - 1)) };
 }
@@ -15,7 +21,8 @@ function parseMonth(month: string | undefined): { year: number; month: number } 
 export default async function ClientCalendarPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const actor = await requireClientPage();
   const { month } = await searchParams;
-  const { year, month: month0 } = parseMonth(month);
+  const format = await tenantFormatContext(actor.tenantId);
+  const { year, month: month0 } = parseMonth(month, format.timeZone);
 
   const memberships = await prisma.clientGroupMembership.findMany({
     where: { clientId: actor.clientId },
@@ -35,8 +42,12 @@ export default async function ClientCalendarPage({ searchParams }: { searchParam
     take: 2000,
   });
 
-  const rangeStart = new Date(year, month0, 1);
-  const rangeEnd = new Date(year, month0 + 1, 0, 23, 59, 59);
+  // A day wider than the month on each side: the month's first and last days in
+  // the academy's zone begin and end at a different instant from UTC's, and an
+  // event in that gap would otherwise be dropped here. The calendar keeps only
+  // what falls inside the month once each event is placed on its local day.
+  const rangeStart = new Date(Date.UTC(year, month0, 1) - DAY_MS);
+  const rangeEnd = new Date(Date.UTC(year, month0 + 1, 1) + DAY_MS);
   const occurrences = expandOccurrences(
     events.map((e) => ({
       id: e.id,
@@ -53,8 +64,15 @@ export default async function ClientCalendarPage({ searchParams }: { searchParam
 
   return (
     <div>
-      <PageHeader title="Calendar" subtitle="Sessions, deadlines and announcements for you." />
-      <MonthCalendar year={year} month={month0} occurrences={occurrences} basePath="/calendar" />
+      <PageHeader title="Calendar" subtitle="Live sessions, deadlines and announcements for you" />
+      <MonthCalendar
+        year={year}
+        month={month0}
+        occurrences={occurrences}
+        basePath="/calendar"
+        timeZone={format.timeZone}
+        locale={format.locale}
+      />
     </div>
   );
 }

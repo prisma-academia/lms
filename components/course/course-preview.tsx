@@ -47,7 +47,7 @@ function lessonText(lesson: PreviewLesson): string | null {
 
 /** How the completion gate will read to a learner on this lesson. */
 function gateSummary(lesson: PreviewLesson): string {
-  if (lesson.contentType === "QUIZ") return "Unlocks on scoring 100%";
+  if (lesson.contentType === "QUIZ") return "Unlocks on passing the quiz";
   if (!lesson.requireDwell || lesson.requiredSeconds === 0) {
     return "No timer — completes as soon as the content is consumed";
   }
@@ -92,6 +92,9 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
     if (lesson.mediaKind === "VIDEO" || lesson.mediaKind === "AUDIO") {
       const Tag = lesson.mediaKind === "VIDEO" ? "video" : "audio";
       return (
+        // `bg-black` is a literal on purpose: it is the letterbox behind a
+        // video, which is black in every theme. A token would turn it pale in
+        // a light theme.
         <Tag
           src={lesson.assetUrl}
           controls
@@ -115,10 +118,11 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
         href={lesson.assetUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded-[10px] border-2 border-border bg-card px-4 py-3 text-sm font-bold"
+        className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border-2 border-border bg-card px-4 py-3 text-sm font-bold outline-none hover:bg-muted focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
-        <Icon name="download" />
-        {lesson.fileName ?? "Download file"}
+        <Icon name="download" aria-hidden />
+        <span className="min-w-0 break-words">{lesson.fileName ?? "Download file"}</span>
+        <span className="sr-only">(opens in a new tab)</span>
       </a>
     );
   }
@@ -129,7 +133,10 @@ function LessonBody({ lesson }: { lesson: PreviewLesson }) {
       <div className="rounded-[10px] border-2 border-dashed border-border p-6 text-sm font-medium text-muted-foreground">
         A quiz runs here. Quizzes are interactive and score against real attempts,
         so they are not played in preview —{" "}
-        <Link href={`/admin/quizzes/${quizId}`} className="font-bold underline">
+        <Link
+          href={`/admin/quizzes/${quizId}`}
+          className="rounded-[4px] font-bold underline outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
           open the quiz
         </Link>{" "}
         to review its questions.
@@ -207,16 +214,16 @@ export function CoursePreview({
                 ) : null}
                 <Link
                   href={`/admin/preview/course/${courseId}?lesson=${lesson.id}`}
-                  aria-current={active ? "true" : undefined}
-                  className={`flex items-start gap-2 rounded-[10px] border-2 px-3 py-2 text-sm font-medium ${
+                  aria-current={active ? "page" : undefined}
+                  className={`flex min-h-11 items-start gap-2 rounded-[10px] border-2 px-3 py-2 text-sm font-medium outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring ${
                     active
                       ? "border-border bg-card shadow-sm"
                       : "border-transparent hover:border-border"
                   }`}
                 >
-                  <Icon name={meta.icon} className="mt-0.5 size-4 shrink-0" />
-                  <span className="flex flex-col">
-                    <span className="font-bold">{lesson.title}</span>
+                  <Icon name={meta.icon} className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="break-words font-bold">{lesson.title}</span>
                     <span className="text-xs text-muted-foreground">
                       {[meta.label, lesson.durationMin != null ? `${lesson.durationMin} min` : null]
                         .filter(Boolean)
@@ -234,7 +241,7 @@ export function CoursePreview({
         {selected ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-border pb-4">
-              <h2 className="font-heading text-2xl">{selected.title}</h2>
+              <h2 className="min-w-0 break-words font-heading text-2xl">{selected.title}</h2>
               <span className="rounded-[8px] border-2 border-border bg-card px-2 py-1 text-xs font-bold text-muted-foreground">
                 {gateSummary(selected)}
               </span>

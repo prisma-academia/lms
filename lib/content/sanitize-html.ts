@@ -26,6 +26,64 @@ import {
  * the video they want is in the middle of a page of prose. sanitize-html
  * enforces the hostname list itself; any other iframe is still dropped whole.
  */
+/**
+ * Inline SVG, for diagrams: shapes, text and gradients, and nothing else.
+ *
+ * What is NOT here is the point. `script` and event attributes are the obvious
+ * ones; the rest are the quieter ways an SVG reaches outside itself:
+ *
+ *  - `foreignObject` embeds arbitrary HTML, re-opening everything the HTML
+ *    allowlist closes;
+ *  - `use` and `image` load other documents by URL (and `use` can pull in a
+ *    remote SVG's scripts in older engines);
+ *  - `a` inside SVG takes `href`/`xlink:href` — links here go through the HTML
+ *    `a` rules instead, and `xlink:href` is allowed nowhere;
+ *  - `style` inside SVG is a stylesheet for the WHOLE page, not the drawing;
+ *  - `animate`/`set` can rewrite attributes (including `href`) over time;
+ *  - `filter`, `mask`, `pattern`, `clipPath`, `marker` reference by URL and
+ *    add a great deal of surface for very little diagram.
+ *
+ * Spelling: inside an `<svg>` the parser reports SVG's camelCase element names
+ * as written (`linearGradient`, `foreignObject`), and lower-cases them
+ * everywhere else — so the two gradient elements are listed both ways, and so
+ * is `foreignObject` where its contents are discarded below. ATTRIBUTE names
+ * are always lower-cased (`viewbox`); a browser reading the result restores
+ * `viewBox` and friends itself (the HTML parser's SVG adjustment tables).
+ */
+const SVG_TAGS = [
+  "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
+  "text", "tspan", "defs", "stop",
+  "linearGradient", "lineargradient", "radialGradient", "radialgradient",
+];
+const SVG_TAG_SET = new Set(SVG_TAGS);
+
+/** Presentation attributes every SVG shape may carry. */
+const SVG_PAINT = [
+  "fill", "fill-opacity", "fill-rule", "stroke", "stroke-width", "stroke-linecap",
+  "stroke-linejoin", "stroke-dasharray", "stroke-dashoffset", "stroke-opacity",
+  "opacity", "transform",
+];
+/** The ones whose value is a paint, which may be a `url(#gradient)` reference. */
+const SVG_PAINT_VALUES = ["fill", "stroke", "stop-color"];
+const SVG_LINEAR_GRADIENT = ["x1", "y1", "x2", "y2", "gradientunits", "gradienttransform"];
+const SVG_RADIAL_GRADIENT = ["cx", "cy", "r", "fx", "fy", "gradientunits", "gradienttransform"];
+const SVG_TEXT = [
+  "x", "y", "dx", "dy", "text-anchor", "dominant-baseline", "font-size", "font-weight",
+  "font-style", "letter-spacing",
+];
+
+/**
+ * A paint is a colour, a keyword, or a reference to a gradient IN THIS
+ * document. `url(https://…)` would make the drawing fetch from wherever it
+ * names; `url(#id)` cannot leave the page.
+ */
+function svgPaintIsSafe(value: string): boolean {
+  const paint = value.trim();
+  if (/[<>"'`\\;{}]/.test(paint)) return false;
+  if (!/url\s*\(/i.test(paint)) return true;
+  return /^url\(\s*#[A-Za-z][\w-]*\s*\)$/.test(paint);
+}
+
 const ALLOWED_TAGS = [
   "p", "br", "hr", "div", "span", "section", "article", "header", "footer",
   "main", "aside", "nav",
@@ -38,6 +96,7 @@ const ALLOWED_TAGS = [
   "audio", "video", "track", "iframe",
   "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
   "details", "summary",
+  ...SVG_TAGS,
 ];
 
 /**
@@ -66,6 +125,26 @@ const ALLOWED_ATTRIBUTES: sanitize.IOptions["allowedAttributes"] = {
   ol: ["start", "type", "reversed"],
   time: ["datetime"],
   details: ["open"],
+
+  // SVG. Geometry and paint only — no `href`, no `xlink:href`, no event
+  // attributes, on any of them. (`id`, `class`, `role`, `aria-*` and a
+  // sanitized `style` come from the `*` entry above.)
+  svg: ["viewbox", "width", "height", "preserveaspectratio", "xmlns", ...SVG_PAINT],
+  g: SVG_PAINT,
+  path: ["d", ...SVG_PAINT],
+  rect: ["x", "y", "width", "height", "rx", "ry", ...SVG_PAINT],
+  circle: ["cx", "cy", "r", ...SVG_PAINT],
+  ellipse: ["cx", "cy", "rx", "ry", ...SVG_PAINT],
+  line: ["x1", "y1", "x2", "y2", ...SVG_PAINT],
+  polyline: ["points", ...SVG_PAINT],
+  polygon: ["points", ...SVG_PAINT],
+  text: [...SVG_TEXT, ...SVG_PAINT],
+  tspan: [...SVG_TEXT, ...SVG_PAINT],
+  linearGradient: SVG_LINEAR_GRADIENT,
+  lineargradient: SVG_LINEAR_GRADIENT,
+  radialGradient: SVG_RADIAL_GRADIENT,
+  radialgradient: SVG_RADIAL_GRADIENT,
+  stop: ["offset", "stop-color", "stop-opacity"],
 };
 
 /**
@@ -92,7 +171,11 @@ export const SANITIZE_OPTIONS: sanitize.IOptions = {
   allowProtocolRelative: false,
   // Drop the contents of stripped tags, not just their markup, so a removed
   // <script> can't leave its source behind as visible text.
-  nonTextTags: ["script", "style", "textarea", "noscript", "option"],
+  // `foreignObject` for the same reason: with the tag gone, the HTML it wrapped
+  // must not be left behind inside the drawing. Both spellings — see SVG_TAGS.
+  nonTextTags: [
+    "script", "style", "textarea", "noscript", "option", "foreignObject", "foreignobject",
+  ],
   transformTags: {
     // One `*` handler rather than a per-tag map: sanitize-html picks exactly one
     // transform per tag (`transformTags[name] ?? transformTags['*']`), so a
@@ -104,6 +187,12 @@ export const SANITIZE_OPTIONS: sanitize.IOptions = {
         const cleaned = sanitizeDeclarations(next.style);
         if (cleaned) next.style = cleaned;
         else delete next.style;
+      }
+
+      if (SVG_TAG_SET.has(tagName)) {
+        for (const name of SVG_PAINT_VALUES) {
+          if (next[name] !== undefined && !svgPaintIsSafe(next[name])) delete next[name];
+        }
       }
 
       // External links opened in a new tab must not hand over window.opener.

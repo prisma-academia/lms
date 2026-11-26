@@ -12,7 +12,7 @@ export default async function ComposeMessagePage() {
   ]);
   return (
     <div>
-      <PageHeader title="Compose message" subtitle="Delivered to the inbox, notification bell, and email (per preferences)." backHref="/admin/messages" backLabel="Messages" />
+      <PageHeader title="Compose message" subtitle="Reaches the learner's inbox and notification bell, and their email if they allow it." backHref="/admin/messages" backLabel="Messages" />
       <Card>
         <ComposeForm
           clients={clients.map((c) => ({ value: c.id, label: `${`${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || c.email} — ${c.email}` }))}

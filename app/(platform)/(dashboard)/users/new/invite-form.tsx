@@ -7,15 +7,15 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { apiPost } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
-import { FormField, TextInput } from "@/components/form-field";
+import { FormField, SelectInput, TextInput } from "@/components/form-field";
 
 const Schema = z.object({
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
+  firstName: z.string().min(1, "Enter a first name.").max(100),
+  lastName: z.string().min(1, "Enter a last name.").max(100),
   otherName: z.string().max(100).optional().or(z.literal("")),
   phone: z.string().max(40).optional().or(z.literal("")),
-  email: z.email(),
-  roleTemplateId: z.string().min(1),
+  email: z.email("Enter a valid email address."),
+  roleTemplateId: z.string().min(1, "Choose a role."),
 });
 type Values = z.infer<typeof Schema>;
 
@@ -37,38 +37,48 @@ export function InviteUserForm({ roles }: { roles: { id: string; name: string }[
   });
 
   return (
-    <form onSubmit={onSubmit} className="grid grid-cols-2 gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
       <FormField label="First name" htmlFor="f" error={formState.errors.firstName?.message}>
-        <TextInput id="f" {...register("firstName")} />
+        <TextInput id="f" autoComplete="off" {...register("firstName")} />
       </FormField>
       <FormField label="Last name" htmlFor="l" error={formState.errors.lastName?.message}>
-        <TextInput id="l" {...register("lastName")} />
+        <TextInput id="l" autoComplete="off" {...register("lastName")} />
       </FormField>
       <FormField label="Other name (optional)" htmlFor="o" error={formState.errors.otherName?.message}>
-        <TextInput id="o" {...register("otherName")} />
+        <TextInput id="o" autoComplete="off" {...register("otherName")} />
       </FormField>
       <FormField label="Phone (optional)" htmlFor="p" error={formState.errors.phone?.message}>
-        <TextInput id="p" type="tel" {...register("phone")} />
+        <TextInput id="p" type="tel" autoComplete="off" {...register("phone")} />
       </FormField>
-      <FormField label="Email" htmlFor="e" error={formState.errors.email?.message}>
-        <TextInput id="e" type="email" {...register("email")} />
+      <FormField
+        label="Email"
+        htmlFor="e"
+        hint="The invitation and a temporary password are sent here."
+        error={formState.errors.email?.message}
+      >
+        <TextInput id="e" type="email" autoComplete="off" spellCheck={false} {...register("email")} />
       </FormField>
-      <FormField label="Role" htmlFor="role" error={formState.errors.roleTemplateId?.message}>
-        <select
+      <FormField
+        label="Role"
+        htmlFor="role"
+        hint="Sets what this person can do. You can adjust it afterwards."
+        error={formState.errors.roleTemplateId?.message}
+      >
+        <SelectInput
           id="role"
-          className="rounded border border-stone-300 bg-white px-3 py-2 text-sm"
+          placeholder="Choose a role…"
+          options={roles.map((r) => ({ value: r.id, label: r.name }))}
           {...register("roleTemplateId")}
-        >
-          <option value="">Select…</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
+        />
       </FormField>
-      {error ? <p className="col-span-2 text-sm text-red-600">{error}</p> : null}
-      <div className="col-span-2">
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive sm:col-span-2">
+          {error}
+        </p>
+      ) : null}
+      <div className="sm:col-span-2">
         <Button type="submit" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Sending invite…" : "Send invite"}
+          {formState.isSubmitting ? "Sending invitation…" : "Send invitation"}
         </Button>
       </div>
     </form>

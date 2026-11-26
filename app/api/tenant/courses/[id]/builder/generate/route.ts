@@ -2,14 +2,30 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { courseBuilderInputSchema, type GeneratedCourse } from "@/lib/schemas/course-builder";
+import {
+  courseBuilderInputSchema,
+  courseTemplateSchema,
+  type CourseBuilderInput,
+  type GeneratedCourse,
+} from "@/lib/schemas/course-builder";
 import {
   sseDataLine,
+  SSE_HEARTBEAT,
   type CourseBuilderProgressEvent,
+  type CourseBuilderWarningEvent,
 } from "@/lib/schemas/course-builder-progress";
+import { requireAiConfigured } from "@/lib/ai/http";
+import { reviveAiError } from "@/lib/ai/run";
+import { logger } from "@/lib/logger";
 
-// Course generation calls an LLM per module and can take a couple of minutes.
+// One model call per lesson, several at a time; a full course takes minutes.
+// The run's own time limits are measured against this number — when it stops
+// starting calls, and how long a late call may run: lib/ai/course-builder-run.ts.
+// `npm run verify:ai` fails if the two stop agreeing.
 export const maxDuration = 300;
+
+/** Comfortably inside the idle timeout of the proxies this stream passes through. */
+const HEARTBEAT_MS = 15_000;
 
 function progressEvent(
   partial: Omit<Extract<CourseBuilderProgressEvent, { type: "progress" }>, "type">
@@ -17,10 +33,23 @@ function progressEvent(
   return { type: "progress", ...partial };
 }
 
-function moduleTitleFromOutput(output: Record<string, unknown> | undefined): string | null {
+/**
+ * An import that already matches the course template is assembled without any
+ * model call, so it must keep working when AI is not configured.
+ */
+function isTemplateImport(body: CourseBuilderInput): boolean {
+  if (body.mode !== "adapt-json" || !body.sourceJson) return false;
+  try {
+    return courseTemplateSchema.safeParse(JSON.parse(body.sourceJson)).success;
+  } catch {
+    return false;
+  }
+}
+
+function titleOf(output: unknown): string | null {
   if (!output || typeof output !== "object") return null;
-  if (typeof output.title === "string" && output.title.trim()) return output.title;
-  return null;
+  const title = (output as { title?: unknown }).title;
+  return typeof title === "string" && title.trim() ? title : null;
 }
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -35,9 +64,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     });
     if (!course) throw new DomainError(404, "not_found", "Course not found.");
 
+    // Say "AI is not set up" now, as a normal error response, rather than after
+    // the progress dialog has opened and the first model call has failed.
+    if (!isTemplateImport(body)) requireAiConfigured();
+
     // Lazy import keeps the Mastra instance (top-level await, native storage deps)
     // out of the module graph until the builder is actually used.
-    const { mastra } = await import("@/src/mastra");
+    const { getMastra } = await import("@/src/mastra");
+    const mastra = await getMastra();
     const workflow = mastra.getWorkflow("courseBuilderWorkflow");
     const run = await workflow.createRun();
 
@@ -46,125 +80,90 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (event: CourseBuilderProgressEvent) => {
+        const write = (text: string) => {
           if (clientStreamClosed) return;
           try {
-            controller.enqueue(encoder.encode(sseDataLine(event)));
+            controller.enqueue(encoder.encode(text));
           } catch {
             clientStreamClosed = true;
           }
         };
+        const send = (event: CourseBuilderProgressEvent) => write(sseDataLine(event));
+
+        // A single lesson can take a minute with nothing to report. Without
+        // traffic an intermediary may decide the connection is dead and close it.
+        const heartbeat = setInterval(() => write(SSE_HEARTBEAT), HEARTBEAT_MS);
+
+        // Lessons are ~85% of the wait; quizzes most of the rest.
+        let lessonTotal = 0;
 
         try {
-          send(
-            progressEvent({
-              percent: 2,
-              phase: "outline",
-              label: "Designing outline…",
-            })
-          );
+          send(progressEvent({ percent: 2, phase: "outline", label: "Designing the outline…" }));
 
           const workflowStream = run.stream({ inputData: body });
 
-          for await (const chunk of workflowStream) {
+          for await (const chunk of workflowStream.fullStream) {
             if (clientStreamClosed) break;
 
             switch (chunk.type) {
               case "workflow-step-start": {
                 const id = chunk.payload?.id;
-                if (id === "generate-outline") {
-                  send(
-                    progressEvent({
-                      percent: 5,
-                      phase: "outline",
-                      label: "Designing outline…",
-                    })
-                  );
-                } else if (id === "generate-module") {
-                  send(
-                    progressEvent({
-                      percent: 15,
-                      phase: "modules",
-                      label: "Writing modules…",
-                    })
-                  );
+                if (id === "write-lesson") {
+                  send(progressEvent({ percent: 12, phase: "lessons", label: "Writing lessons…" }));
+                } else if (id === "write-quiz") {
+                  send(progressEvent({ percent: 85, phase: "quizzes", label: "Writing quizzes…" }));
                 } else if (id === "assemble-course") {
-                  send(
-                    progressEvent({
-                      percent: 96,
-                      phase: "assemble",
-                      label: "Assembling course…",
-                    })
-                  );
-                }
-                break;
-              }
-              case "workflow-step-output": {
-                const payload = chunk.payload as Record<string, unknown>;
-                const candidates = [payload, payload.output].filter(
-                  (v): v is Record<string, unknown> => !!v && typeof v === "object"
-                );
-                for (const obj of candidates) {
-                  if (obj.phase === "outline") {
-                    send(
-                      progressEvent({
-                        percent: 8,
-                        phase: "outline",
-                        label: typeof obj.label === "string" ? obj.label : "Designing outline…",
-                      })
-                    );
-                    break;
-                  }
+                  send(progressEvent({ percent: 97, phase: "assemble", label: "Assembling the course…" }));
                 }
                 break;
               }
               case "workflow-step-result": {
-                const id = chunk.payload?.id;
-                const status = chunk.payload?.status;
-                if (id === "generate-outline" && status === "success") {
+                if (chunk.payload?.id === "generate-outline" && chunk.payload?.status === "success") {
                   send(
-                    progressEvent({
-                      percent: 15,
-                      phase: "outline",
-                      label: "Outline ready — writing lessons…",
-                    })
+                    progressEvent({ percent: 10, phase: "outline", label: "Outline ready — writing lessons…" })
                   );
-                } else if (status === "failed") {
-                  send({
-                    type: "error",
-                    message: `Course generation failed: step "${id ?? "unknown"}" failed.`,
-                  });
                 }
+                // A failed step is reported once, below, with its real cause.
                 break;
               }
               case "workflow-step-progress": {
-                const { completedCount, totalCount, iterationStatus, iterationOutput, currentIndex } =
-                  chunk.payload;
-                if (iterationStatus === "failed") {
-                  send({
-                    type: "error",
-                    message: `Course generation failed while writing module ${currentIndex + 1} of ${totalCount}.`,
-                  });
-                  break;
+                const { id, completedCount, totalCount, iterationOutput } = chunk.payload;
+                const title = titleOf(iterationOutput);
+                const failed =
+                  !!iterationOutput &&
+                  typeof iterationOutput === "object" &&
+                  (iterationOutput as { ok?: unknown }).ok === false;
+
+                if (id === "write-lesson") {
+                  lessonTotal = totalCount;
+                  const percent =
+                    totalCount > 0 ? Math.round(12 + (72 * completedCount) / totalCount) : 12;
+                  send(
+                    progressEvent({
+                      percent: Math.min(84, percent),
+                      phase: "lessons",
+                      label: title
+                        ? `${failed ? "Could not write" : "Wrote"} lesson ${completedCount} of ${totalCount}: ${title}`
+                        : `Lesson ${completedCount} of ${totalCount}`,
+                      completed: completedCount,
+                      total: totalCount,
+                    })
+                  );
+                } else if (id === "write-quiz") {
+                  const percent =
+                    totalCount > 0 ? Math.round(85 + (11 * completedCount) / totalCount) : 85;
+                  send(
+                    progressEvent({
+                      percent: Math.min(96, percent),
+                      phase: "quizzes",
+                      label: title
+                        ? `${failed ? "Could not write" : "Wrote"} quiz ${completedCount} of ${totalCount}: ${title}`
+                        : `Quiz ${completedCount} of ${totalCount}`,
+                      completed: completedCount,
+                      total: totalCount,
+                    })
+                  );
                 }
-                const title = moduleTitleFromOutput(
-                  iterationOutput as Record<string, unknown> | undefined
-                );
-                const percent =
-                  totalCount > 0
-                    ? Math.min(95, Math.round(15 + (80 * completedCount) / totalCount))
-                    : 15;
-                send(
-                  progressEvent({
-                    percent,
-                    phase: "modules",
-                    label: title
-                      ? `Wrote module ${completedCount} of ${totalCount}: ${title}`
-                      : `Wrote module ${completedCount} of ${totalCount}`,
-                    completed: completedCount,
-                    total: totalCount,
-                  })
-                );
                 break;
               }
               default:
@@ -175,28 +174,32 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
           const result = await workflowStream.result;
 
           if (result.status !== "success") {
-            const detail =
-              result.status === "failed" && result.error instanceof Error
-                ? result.error.message
-                : `Workflow ended with status "${result.status}".`;
-            send({ type: "error", message: `Course generation failed: ${detail}` });
+            // `result.error` is a plain object, not an Error — see reviveAiError.
+            const error = reviveAiError(
+              result.status === "failed"
+                ? result.error
+                : `Workflow ended with status "${result.status}".`
+            );
+            logger.error(
+              { courseId, code: error.code, detail: error.detail, lessonTotal },
+              "course_builder_failed"
+            );
+            send({ type: "error", code: error.code, message: error.userMessage });
             return;
           }
 
-          const generated = (result.result as { course: GeneratedCourse }).course;
-          send(
-            progressEvent({
-              percent: 100,
-              phase: "done",
-              label: "Course ready",
-            })
-          );
-          send({ type: "done", course: generated });
+          const output = result.result as {
+            course: GeneratedCourse;
+            warnings?: CourseBuilderWarningEvent[];
+          };
+          send(progressEvent({ percent: 100, phase: "done", label: "Course ready" }));
+          send({ type: "done", course: output.course, warnings: output.warnings ?? [] });
         } catch (e) {
-          const message =
-            e instanceof Error ? e.message : "Course generation failed unexpectedly.";
-          send({ type: "error", message: `Course generation failed: ${message}` });
+          const error = reviveAiError(e);
+          logger.error({ err: e, courseId, code: error.code }, "course_builder_crashed");
+          send({ type: "error", code: error.code, message: error.userMessage });
         } finally {
+          clearInterval(heartbeat);
           if (!clientStreamClosed) {
             try {
               controller.close();
@@ -216,6 +219,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
+        // Tell nginx-style proxies not to buffer the stream into one late lump.
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (e) {

@@ -47,7 +47,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
     <div>
       <DataTableToolbar
         title="Calendar"
-        description="Schedule sessions, deadlines, reminders and announcements."
+        description="Live sessions, deadlines, reminders and announcements. Learners see these on their own calendar."
         createHref={canWrite ? "/admin/events/new" : undefined}
         createLabel="New event"
       />

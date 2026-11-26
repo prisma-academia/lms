@@ -106,7 +106,11 @@ export function MediaCard({
         </button>
       ) : null}
 
-      <button type="button" onClick={onOpen} className="flex flex-col gap-2 text-left outline-none">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex flex-col gap-2 rounded-[8px] text-left outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
         <MediaThumb item={item} className="aspect-[4/3] w-full" />
         <span className="min-w-0">
           <span className="block truncate text-sm font-bold" title={label}>

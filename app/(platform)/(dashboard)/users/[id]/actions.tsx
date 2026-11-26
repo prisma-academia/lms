@@ -3,9 +3,17 @@
 import { useState } from "react";
 import { apiPost, apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
+import { FormField, SelectInput } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
+import { PermissionPicker } from "../../role-templates/permission-picker";
 
+/**
+ * What one person can do, and the two account actions an administrator needs.
+ * Shared by the platform console and by an academy's own staff page — the
+ * endpoints passed in decide which kind of user is being changed.
+ */
 export function UserDetailActions({
-  scope,
   permissions,
   allPermissions,
   roles,
@@ -22,24 +30,17 @@ export function UserDetailActions({
   permissionsEndpoint: string;
   resetPasswordEndpoint: string;
 }) {
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set(permissions));
   const [roleId, setRoleId] = useState("");
-  const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-
-  function toggle(p: string) {
-    const next = new Set(selected);
-    if (next.has(p)) next.delete(p);
-    else next.add(p);
-    setSelected(next);
-  }
 
   async function applyRole() {
     if (!roleId) return;
     setPending("apply");
     setError(null);
-    setInfo(null);
     const res = await apiPost<{ permissions: string[] }>(applyRoleEndpoint, { roleTemplateId: roleId });
     setPending(null);
     if (res.error) {
@@ -48,14 +49,13 @@ export function UserDetailActions({
     }
     if (res.data?.permissions) {
       setSelected(new Set(res.data.permissions));
-      setInfo("Role permissions applied.");
+      toast("Role applied");
     }
   }
 
   async function savePermissions() {
     setPending("save");
     setError(null);
-    setInfo(null);
     const res = await apiPatch<{ permissions: string[] }>(permissionsEndpoint, {
       permissions: Array.from(selected),
     });
@@ -64,72 +64,81 @@ export function UserDetailActions({
       setError(res.error.message);
       return;
     }
-    setInfo("Permissions saved.");
+    toast("Permissions saved");
   }
 
   async function resetPassword() {
-    if (!confirm("Reset this user's password and revoke their sessions?")) return;
+    const yes = await confirm({
+      title: "Reset this person's password?",
+      description:
+        "They are signed out everywhere and emailed a temporary password, which they must change the next time they sign in.",
+      confirmLabel: "Reset password",
+      destructive: true,
+    });
+    if (!yes) return;
     setPending("reset");
     setError(null);
-    setInfo(null);
     const res = await apiPost(resetPasswordEndpoint, {});
     setPending(null);
     if (res.error) {
       setError(res.error.message);
       return;
     }
-    setInfo("Password reset emailed.");
+    toast("Temporary password emailed");
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-4 text-sm">
-      <div>
-        <label className="text-xs uppercase text-stone-500" htmlFor="role">
-          Apply role
-        </label>
-        <div className="mt-1 flex gap-2">
-          <select
+    <div className="mt-4 flex flex-col gap-6 text-sm">
+      <div className="flex flex-wrap items-end gap-2">
+        <FormField
+          label="Apply a role"
+          htmlFor="role"
+          hint="Replaces this person's permissions with the role's."
+          className="min-w-0 flex-1 basis-56"
+        >
+          <SelectInput
             id="role"
-            className="flex-1 rounded border border-stone-300 bg-white px-3 py-2 text-sm"
+            placeholder="Choose a role…"
+            options={roles.map((r) => ({ value: r.id, label: r.name }))}
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-          >
-            <option value="">Select template…</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-          <Button onClick={applyRole} disabled={pending !== null || !roleId}>
-            {pending === "apply" ? "Applying…" : "Apply"}
-          </Button>
-        </div>
+          />
+        </FormField>
+        <Button onClick={applyRole} disabled={pending !== null || !roleId}>
+          {pending === "apply" ? "Applying…" : "Apply role"}
+        </Button>
       </div>
 
       <div>
-        <div className="text-xs uppercase text-stone-500">Permissions ({scope})</div>
-        <div className="mt-2 grid grid-cols-1 gap-1 rounded border border-stone-200 p-3">
-          {allPermissions.map((p) => (
-            <label key={p} className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={selected.has(p)} onChange={() => toggle(p)} />
-              <span className="font-mono">{p}</span>
-            </label>
-          ))}
-        </div>
-        <div className="mt-2">
+        <h3 className="mb-2 text-[13px] font-bold text-foreground">Permissions</h3>
+        <PermissionPicker
+          permissions={allPermissions}
+          selected={selected}
+          onChange={setSelected}
+          disabled={pending !== null}
+        />
+        <div className="mt-3">
           <Button onClick={savePermissions} disabled={pending !== null}>
             {pending === "save" ? "Saving…" : "Save permissions"}
           </Button>
         </div>
       </div>
 
-      <div>
-        <Button variant="outline" onClick={resetPassword} disabled={pending !== null}>
-          {pending === "reset" ? "Resetting…" : "Reset password & sign out"}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="border-t-2 border-dashed border-border pt-4">
+        <h3 className="text-[13px] font-bold text-foreground">Sign-in</h3>
+        <p className="mt-1 text-[13px] font-medium text-muted-foreground">
+          Use this if they are locked out or their account may be compromised.
+        </p>
+        <Button className="mt-3" variant="outline" onClick={resetPassword} disabled={pending !== null}>
+          {pending === "reset" ? "Resetting…" : "Reset password and sign out"}
         </Button>
       </div>
-
-      {info ? <p className="text-sm text-green-700">{info}</p> : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }

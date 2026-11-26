@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { requireClientPage } from "@/lib/auth/page-guards";
 import { PageHeader } from "@/components/shell";
+import { tenantFormatContext } from "../_lib/format-context";
 import { LibraryBrowse } from "./library-browse";
 
 export default async function LearnerLibraryPage() {
@@ -15,10 +16,12 @@ export default async function LearnerLibraryPage() {
     take: 40,
   });
 
+  const { locale } = await tenantFormatContext(actor.tenantId);
+
   return (
     <div>
-      <PageHeader title="Library" subtitle="Media shared with you." />
-      <LibraryBrowse tags={tags} />
+      <PageHeader title="Library" subtitle="Videos, documents and recordings shared with you" />
+      <LibraryBrowse tags={tags} locale={locale} />
     </div>
   );
 }

@@ -139,7 +139,8 @@ export function SettlementBankFields({
         />
         {banksUnavailable && !banksLoading ? (
           <span className="text-xs font-medium text-muted-foreground">
-            Bank verification requires Paystack or Flutterwave keys to be configured.
+            The list of banks could not be loaded. Bank accounts can be added once online payments
+            are set up on this platform.
           </span>
         ) : null}
       </FormField>
@@ -166,13 +167,22 @@ export function SettlementBankFields({
           {verifyPending ? "Verifying…" : "Verify account"}
         </Button>
 
+        {/* Semantic tokens, so both stay readable on the dark theme — the fixed
+            green-on-pale-green this replaced did not. */}
         {isVerified && verifiedAccountName ? (
-          <p className="rounded-[10px] border-2 border-green-700/30 bg-green-50 px-3.5 py-2.5 text-sm font-medium text-green-800">
-            Account name: {verifiedAccountName}
+          <p
+            role="status"
+            className="rounded-[10px] border-2 border-success bg-success/15 px-3.5 py-2.5 text-sm font-medium text-foreground"
+          >
+            Account name: <span className="font-bold">{verifiedAccountName}</span>
           </p>
         ) : null}
 
-        {verifyError ? <p className="text-sm text-red-600">{verifyError}</p> : null}
+        {verifyError ? (
+          <p role="alert" className="text-sm font-bold text-destructive">
+            {verifyError}
+          </p>
+        ) : null}
       </div>
     </div>
   );

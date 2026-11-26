@@ -69,6 +69,26 @@ enum PaymentProvider {
   PAYSTACK
   FLUTTERWAVE
   MANUAL
+  /// The active gateway. PAYSTACK and FLUTTERWAVE remain for historical rows.
+  MONNIFY
+}
+
+/// What a site-builder page is for. PAGE is an ordinary CMS page; the others
+/// replace a built-in screen when a valid page of that kind is published.
+enum SitePageKind {
+  PAGE
+  LOGIN
+  REGISTER
+  FORGOT_PASSWORD
+  COURSES
+  COURSE_DETAIL
+  PROGRAMME_DETAIL
+}
+
+enum ReferralEventType {
+  SIGNUP
+  ENROLLMENT
+  PURCHASE
 }
 
 enum PaymentStatus {
@@ -266,6 +286,9 @@ model Tenant {
   libraryPayments            LibraryPayment[]
   programmeEnrollments       ProgrammeEnrollment[]
   sitePages                  SitePage[]
+  siteLayout                 SiteLayout?
+  referralCodes              ReferralCode[]
+  referralEvents             ReferralEvent[]
 
   @@index([status])
   @@index([plan, trialEndsAt])
@@ -302,6 +325,10 @@ model TenantSubaccount {
   flutterwaveSubaccountId  String?
   flutterwaveStatus        SubaccountStatus @default(PENDING)
   flutterwaveProvisionedAt DateTime?
+  /// Monnify sub-account that receives this academy's share of each sale.
+  monnifySubaccountCode    String?
+  monnifyStatus            SubaccountStatus @default(PENDING)
+  monnifyProvisionedAt     DateTime?
   courseSalesEnabled       Boolean          @default(false)
   platformCommissionPct    Int              @default(10)
   defaultProvider          PaymentProvider?
@@ -384,28 +411,30 @@ model Course {
 }
 
 model Lesson {
-  id            String            @id @default(cuid())
-  courseId      String
-  course        Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  tenantId      String
-  groupId       String?
-  group         LessonGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  title         String
-  sortOrder     Int               @default(0)
-  contentType   LessonContentType @default(TEXT)
-  contentJson   Json              @default("{}")
-  assetKey      String?
+  id               String            @id @default(cuid())
+  courseId         String
+  course           Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tenantId         String
+  groupId          String?
+  group            LessonGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  title            String
+  sortOrder        Int               @default(0)
+  contentType      LessonContentType @default(TEXT)
+  contentJson      Json              @default("{}")
+  assetKey         String?
   /// FK to library item for FILE lessons (preferred over assetKey alone).
-  libraryItemId String?
-  libraryItem   LibraryItem?      @relation(fields: [libraryItemId], references: [id], onDelete: SetNull)
-  durationMin   Int?
+  libraryItemId    String?
+  libraryItem      LibraryItem?      @relation(fields: [libraryItemId], references: [id], onDelete: SetNull)
+  durationMin      Int?
   /// When false, the completion gate skips the dwell timer for this lesson — the
   /// learner may mark it complete as soon as the content-consumed signal (scroll
   /// / playback / quiz) is satisfied. Defaults true so lessons authored before
   /// the toggle existed keep the timer they were written under.
-  requireDwell  Boolean           @default(true)
-  createdAt     DateTime          @default(now())
-  progress      LessonProgress[]
+  requireDwell     Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  progress         LessonProgress[]
+  /// Quiz questions that were drawn from this lesson (their "read up" target).
+  sourcedQuestions Question[]        @relation("QuestionSource")
 
   @@index([courseId, sortOrder])
   @@index([tenantId])
@@ -714,27 +743,40 @@ model QuestionTag {
 }
 
 model Question {
-  id          String            @id @default(cuid())
-  tenantId    String
-  bankId      String
-  bank        QuestionBank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  type        QuestionType      @default(SINGLE_CHOICE)
-  prompt      String
-  optionsJson Json              @default("[]")
-  answerJson  Json              @default("[]")
+  id             String            @id @default(cuid())
+  tenantId       String
+  bankId         String
+  bank           QuestionBank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  type           QuestionType      @default(SINGLE_CHOICE)
+  prompt         String
+  optionsJson    Json              @default("[]")
+  answerJson     Json              @default("[]")
   /// ESSAY only; NULL for every other type. Shape: lib/schemas/essay-grading.ts
   /// `essayRubricSchema` — weighted criteria, an optional model answer, word bounds.
   /// A separate column rather than overloading answerJson, whose "option indices
   /// or accepted strings" meaning the scorer, seeds and export path all rely on.
-  rubricJson  Json?
-  points      Int               @default(1)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  tags        QuestionTagLink[]
-  quizLinks   QuizQuestion[]
+  rubricJson     Json?
+  points         Int               @default(1)
+  /// A nudge shown on request while answering. Never the answer itself.
+  hint           String?
+  /// Where this question's answer is taught, so a learner who gets it wrong can
+  /// be sent back to read it. Only honoured when the lesson is in the course
+  /// the learner is taking the quiz through, and unlocked for them.
+  sourceLessonId String?
+  sourceLesson   Lesson?           @relation("QuestionSource", fields: [sourceLessonId], references: [id], onDelete: SetNull)
+  /// The `id` of the heading inside that lesson. May go stale if the heading
+  /// is removed; the reader then falls back to `sourceExcerpt`.
+  sourceAnchor   String?
+  /// A short phrase from the passage, used to find it when the anchor is gone.
+  sourceExcerpt  String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  tags           QuestionTagLink[]
+  quizLinks      QuizQuestion[]
 
   @@index([tenantId])
   @@index([bankId])
+  @@index([sourceLessonId])
 }
 
 model QuestionTagLink {
@@ -750,17 +792,24 @@ model QuestionTagLink {
 }
 
 model Quiz {
-  id           String         @id @default(cuid())
-  tenantId     String
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  title        String
-  description  String?
-  passingScore Int?
-  timeLimitMin Int?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  questions    QuizQuestion[]
-  attempts     QuizAttempt[]
+  id              String         @id @default(cuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  /// Percent needed to pass. NULL means 100 — every answer correct — which is
+  /// how every quiz behaved before pass marks were enforced.
+  passingScore    Int?
+  timeLimitMin    Int?
+  /// Whether learners may reveal a question's hint while answering.
+  hintsEnabled    Boolean        @default(true)
+  /// Whether a failed attempt names the questions that were wrong and links
+  /// each to the lesson passage it tests.
+  showReviewLinks Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  questions       QuizQuestion[]
+  attempts        QuizAttempt[]
 
   @@index([tenantId])
 }
@@ -781,31 +830,42 @@ model QuizQuestion {
 }
 
 model QuizAttempt {
-  id           String    @id @default(cuid())
-  tenantId     String
-  quizId       String
-  quiz         Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  clientId     String
-  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  startedAt    DateTime  @default(now())
-  submittedAt  DateTime?
-  scorePercent Int?
-  passed       Boolean?
+  id              String        @id @default(cuid())
+  tenantId        String
+  quizId          String
+  quiz            Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  startedAt       DateTime      @default(now())
+  submittedAt     DateTime?
+  scorePercent    Int?
+  passed          Boolean?
   /// The learner's submission, keyed by questionId. Immutable once written.
-  answersJson  Json      @default("{}")
+  answersJson     Json          @default("{}")
   /// Grader output keyed by questionId: earned points, per-criterion essay
   /// scores and feedback. Kept apart from answersJson so a re-grade can be
   /// rewritten without ever touching what the learner actually submitted.
-  resultsJson   Json          @default("{}")
-  gradingStatus GradingStatus @default(GRADED)
-  gradingError  String?
-  gradedAt      DateTime?
+  resultsJson     Json          @default("{}")
+  gradingStatus   GradingStatus @default(GRADED)
+  gradingError    String?
+  gradedAt        DateTime?
+  /// The quiz's pass mark at the moment this attempt was graded. Lets an
+  /// attempt that passed keep counting if the author later raises the mark.
+  /// NULL on attempts graded before pass marks were enforced.
+  passMarkApplied Int?
+  /// How many times AI grading has been tried for this attempt. Bounds retries
+  /// before the attempt is marked FAILED and handed to staff.
+  gradingAttempts Int           @default(0)
+  /// Staff user who marked the essays by hand, when the AI grader could not.
+  gradedByUserId  String?
 
   @@index([tenantId])
   @@index([quizId])
   @@index([clientId])
-  /// Serves the quiz-completion gate: "has this learner ever scored 100% here?"
+  /// Serves the quiz-completion gate: "has this learner ever passed here?"
   @@index([clientId, quizId])
+  /// Serves the staff list of attempts waiting on a grade.
+  @@index([quizId, gradingStatus])
 }
 
 /// A certificate template (design stored as contentJson for the WYSIWYG editor),
@@ -1240,6 +1300,7 @@ model TenantUser {
   failedLoginAttempts Int                         @default(0)
   lockedUntil         DateTime?
   groupMemberships    TenantUserGroupMembership[]
+  referralCode        ReferralCode?
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1258,10 +1319,15 @@ model Client {
   otherName            String?
   phone                String?
   profileJson          Json                     @default("{}")
+  /// The staff referral code this learner signed up through, if any.
+  referralCodeId       String?
+  referralCode         ReferralCode?            @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+  referredAt           DateTime?
   createdAt            DateTime                 @default(now())
   lastLoginAt          DateTime?
   failedLoginAttempts  Int                      @default(0)
   lockedUntil          DateTime?
+  referralEvents       ReferralEvent[]
   enrollments          Enrollment[]
   programmeEnrollments ProgrammeEnrollment[]
   coursePayments       CoursePayment[]
@@ -1284,6 +1350,7 @@ model Client {
 
   @@unique([tenantId, email])
   @@index([tenantId])
+  @@index([referralCodeId])
 }
 
 /// A cohort/group of tenant staff users (many-to-many via TenantUserGroupMembership).
@@ -1375,6 +1442,9 @@ model PendingClientRegistration {
   otherName    String?
   phone        String?
   profileJson  Json     @default("{}")
+  /// Referral code captured when registration started (from the `?ref=` cookie
+  /// or the form). Resolved against ReferralCode when the account is created.
+  referralCode String?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 
@@ -1467,6 +1537,65 @@ model Template {
 }
 
 /// Public CMS page for a tenant landing site (home + extra pages).
+/// A staff member's referral code. Learners who arrive through it are
+/// attributed to them; there is no reward logic, only tracking.
+model ReferralCode {
+  id           String          @id @default(cuid())
+  tenantId     String
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// What appears in `?ref=`. Unique within the tenant; stored upper-case.
+  code         String
+  tenantUserId String          @unique
+  tenantUser   TenantUser      @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  events       ReferralEvent[]
+  clients      Client[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+/// One attributed outcome: a sign-up, an enrolment or a purchase.
+model ReferralEvent {
+  id             String            @id @default(cuid())
+  tenantId       String
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  referralCodeId String
+  referralCode   ReferralCode      @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+  type           ReferralEventType
+  clientId       String
+  client         Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  courseId       String?
+  programmeId    String?
+  libraryItemId  String?
+  amountCents    Int?
+  currency       String?
+  /// What makes this event unique, so a replayed webhook or a double submit
+  /// records it once: the client id for SIGNUP, the enrolment id for
+  /// ENROLLMENT, the payment reference for PURCHASE.
+  reference      String
+  createdAt      DateTime          @default(now())
+
+  @@unique([type, reference])
+  @@index([tenantId, createdAt])
+  @@index([referralCodeId, type])
+  @@index([clientId])
+}
+
+/// The site's shared chrome. No row means the built-in header and footer.
+model SiteLayout {
+  tenantId    String   @id
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Empty string = built-in default. Same template + sanitizer pipeline as a page.
+  headerHtml  String   @default("")
+  footerHtml  String   @default("")
+  /// CSS applied to every page of the site, scoped like page CSS.
+  sharedCss   String   @default("")
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+}
+
 model SitePage {
   id             String         @id @default(cuid())
   tenantId       String
@@ -1474,6 +1603,9 @@ model SitePage {
   /// Empty string = home page.
   slug           String         @default("")
   title          String
+  /// PAGE for ordinary pages. Any other kind replaces a built-in screen and
+  /// uses a reserved slug, so `@@unique([tenantId, slug])` allows one per kind.
+  kind           SitePageKind   @default(PAGE)
   status         SitePageStatus @default(DRAFT)
   isHome         Boolean        @default(false)
   showInNav      Boolean        @default(true)
@@ -1493,6 +1625,7 @@ model SitePage {
   @@unique([tenantId, slug])
   @@index([tenantId, status])
   @@index([tenantId, isHome])
+  @@index([tenantId, kind, status])
 }
 
 model PasswordHistory {

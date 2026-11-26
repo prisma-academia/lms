@@ -4,23 +4,22 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { billingConfigured } from "@/lib/env";
-import { paystackProvider } from "@/lib/billing/paystack";
-import { flutterwaveProvider } from "@/lib/billing/flutterwave";
+import { requireActiveGateway, startCheckout } from "@/lib/billing/providers";
+import { checkoutReturnUrl } from "@/lib/billing/redirect";
 import { billingReference } from "@/lib/billing/reference";
 
 const Body = z.object({
   planId: z.string().min(1),
-  provider: z.enum(["paystack", "flutterwave"]),
+  // Sent by older pages that let staff pick a gateway. There is one gateway
+  // now, chosen by the platform, so this is accepted and not read.
+  provider: z.string().optional(),
 });
 
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
     const actor = await requireTenantActor(PERMISSIONS.TENANT_BILLING_WRITE.key);
-    if (!billingConfigured()) {
-      throw new DomainError(503, "billing_unconfigured", "Billing is not configured on this platform.");
-    }
+    const gateway = requireActiveGateway();
 
     const body = Body.parse(await request.json());
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: body.planId } });
@@ -38,27 +37,29 @@ export async function POST(request: Request) {
       data: {
         tenantId: actor.tenantId,
         planId: plan.id,
-        provider: body.provider === "paystack" ? "PAYSTACK" : "FLUTTERWAVE",
+        provider: gateway.name,
         amountCents: plan.priceMonthlyCents,
         currency: plan.currency,
         externalRef: reference,
       },
     });
 
-    const host = request.headers.get("host") ?? "localhost:3000";
-    const callbackUrl = `http://${host}/admin/billing?checkout=done`;
+    const checkout = await startCheckout(
+      gateway,
+      {
+        email: owner.email,
+        customerName: [owner.firstName, owner.lastName].filter(Boolean).join(" ") || undefined,
+        description: `${plan.name} plan — monthly subscription`,
+        amountCents: plan.priceMonthlyCents,
+        currency: plan.currency,
+        reference,
+        callbackUrl: checkoutReturnUrl(request, "/admin/billing", reference),
+        metadata: { type: "platform_subscription", tenantId: actor.tenantId, planId: plan.id },
+      },
+      "staff"
+    );
 
-    const provider = body.provider === "paystack" ? paystackProvider : flutterwaveProvider;
-    const checkout = await provider.initializeCheckout({
-      email: owner.email,
-      amountCents: plan.priceMonthlyCents,
-      currency: plan.currency,
-      reference,
-      callbackUrl,
-      metadata: { type: "platform_subscription", tenantId: actor.tenantId, planId: plan.id },
-    });
-
-    return ok({ checkoutUrl: checkout.authorizationUrl, reference: checkout.reference });
+    return ok({ checkoutUrl: checkout.authorizationUrl, reference });
   } catch (e) {
     return handleError(e);
   }

@@ -16,9 +16,10 @@ export function CreateCertificateForm({ courses, programmes }: { courses: Option
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  async function submit() {
-    if (!name.trim()) return setError("Name is required.");
-    if (linkType !== "none" && !link) return setError(`Select a ${linkType}.`);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return setError("Give the certificate a name.");
+    if (linkType !== "none" && !link) return setError(`Choose a ${linkType}.`);
     setError(null);
     setPending(true);
     const res = await apiPost<{ certificate: { id: string } }>("/api/tenant/certificates", {
@@ -32,17 +33,27 @@ export function CreateCertificateForm({ courses, programmes }: { courses: Option
   }
 
   return (
-    <div className="grid max-w-xl gap-4">
-      <FormField label="Name" htmlFor="c-name">
-        <TextInput id="c-name" value={name} onChange={(e) => setName(e.target.value)} />
+    <form onSubmit={submit} className="grid max-w-xl gap-4">
+      <FormField label="Name" htmlFor="c-name" hint="Learners see this name in their list of certificates.">
+        <TextInput
+          id="c-name"
+          name="name"
+          autoComplete="off"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Award on completion of" htmlFor="c-link-type">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Award it when a learner finishes"
+          htmlFor="c-link-type"
+          hint={linkType === "none" ? "You award it to learners yourself." : undefined}
+        >
           <SelectInput
             id="c-link-type"
             allowEmpty={false}
             options={[
-              { value: "none", label: "Standalone (manual only)" },
+              { value: "none", label: "Nothing — I will award it by hand" },
               { value: "course", label: "A course" },
               { value: "programme", label: "A programme" },
             ]}
@@ -57,7 +68,7 @@ export function CreateCertificateForm({ courses, programmes }: { courses: Option
           <FormField label={linkType === "course" ? "Course" : "Programme"} htmlFor="c-link">
             <SelectInput
               id="c-link"
-              placeholder={`Select a ${linkType}…`}
+              placeholder={`Choose a ${linkType}…`}
               options={linkType === "course" ? courses : programmes}
               value={link}
               onChange={(e) => setLink(e.target.value)}
@@ -65,12 +76,16 @@ export function CreateCertificateForm({ courses, programmes }: { courses: Option
           </FormField>
         ) : null}
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <div>
-        <Button type="button" onClick={submit} disabled={pending}>
+        <Button type="submit" disabled={pending}>
           {pending ? "Creating…" : "Create certificate"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

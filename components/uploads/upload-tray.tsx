@@ -23,7 +23,11 @@ export function UploadTray() {
 
   return (
     <div className="safe-b fixed bottom-4 right-4 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-[12px] border-2 border-border bg-card p-3 shadow-lg">
-      <Link href="/admin/library" className="flex items-center gap-2">
+      <Link
+        href="/admin/library"
+        aria-label={`Uploading ${activeCount} of ${tasks.length}. Open the library to see the queue.`}
+        className="flex items-center gap-2 rounded-[8px] outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
         <Icon name="upload" className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-bold">
           Uploading {activeCount} of {tasks.length}
@@ -31,7 +35,7 @@ export function UploadTray() {
         <Icon name="chevron-right" className="size-4 shrink-0 text-muted-foreground" />
       </Link>
       <div className="mt-2">
-        <ProgressBar value={pct} size="sm" color="var(--info)" aria-label="Upload progress" />
+        <ProgressBar value={pct} size="sm" color="var(--info)" label="Upload progress" />
       </div>
       <p className="num mt-1 text-xs text-muted-foreground">
         {formatBytes(sentBytes)} of {formatBytes(totalBytes)} · {pct}%

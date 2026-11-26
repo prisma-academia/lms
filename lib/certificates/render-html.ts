@@ -33,6 +33,35 @@ export function renderCertificateHtml(
 }
 
 /**
+ * `@page` is a document-level rule that no scoping applies to. On a learner's
+ * certificate page that is the point; on an admin screen showing several
+ * designs at once it would set the paper size of the admin page itself.
+ */
+export function withoutPageRules(css: string): string {
+  return css
+    .split("\n")
+    .filter((line) => !/^\s*@page\b/i.test(line))
+    .join("\n");
+}
+
+/**
+ * A certificate source rendered for display inside the admin app — a gallery
+ * thumbnail, or a design the AI has proposed.
+ *
+ * Exactly the learner pipeline above (interpolate, then sanitize and scope),
+ * minus the page rule. It takes the source rather than a whole design because
+ * the things it previews are not saved designs yet.
+ */
+export function renderCertificatePreview(
+  htmlSource: string,
+  data: Record<string, unknown>,
+  scopeId: string
+): ScopedHtml {
+  const rendered = sanitizeHtmlWithStyles(renderTemplate(htmlSource, data as VariableContext), scopeId);
+  return { ...rendered, css: withoutPageRules(rendered.css) };
+}
+
+/**
  * Award data as a template context.
  *
  * Kept next to the renderer because the field names here are the contract the

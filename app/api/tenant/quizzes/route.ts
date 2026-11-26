@@ -12,6 +12,8 @@ const CreateBody = z.object({
   description: z.string().max(2000).optional(),
   passingScore: z.number().int().min(0).max(100).nullable().optional(),
   timeLimitMin: z.number().int().min(1).max(600).nullable().optional(),
+  hintsEnabled: z.boolean().optional(),
+  showReviewLinks: z.boolean().optional(),
 });
 
 export async function GET(request: Request) {
@@ -44,6 +46,8 @@ export async function POST(request: Request) {
         description: body.description ?? null,
         passingScore: body.passingScore ?? null,
         timeLimitMin: body.timeLimitMin ?? null,
+        ...(body.hintsEnabled !== undefined ? { hintsEnabled: body.hintsEnabled } : {}),
+        ...(body.showReviewLinks !== undefined ? { showReviewLinks: body.showReviewLinks } : {}),
       },
     });
     await audit({

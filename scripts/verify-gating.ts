@@ -13,6 +13,12 @@ import { requiredDwellSeconds, mediaWatched } from "../lib/courses/content-gate"
 import { scoreAttempt, gradeObjective, type ScorableQuestion } from "../lib/assessments/scoring";
 import { rubricFraction, type EssayRubric, type EssayGrade } from "../lib/schemas/essay-grading";
 import { parseVideoUrl } from "../lib/media/video-embed";
+import {
+  attemptPasses,
+  effectivePassMark,
+  passingAttemptWhere,
+  passMarkLabel,
+} from "../lib/assessments/pass-mark";
 
 let failed = 0;
 
@@ -380,6 +386,153 @@ check(
     "   ",
   ].map((u) => parseVideoUrl(u)),
   [null, null, null, null, null, null]
+);
+
+/* -------------------------------------------------------------------------- */
+/* Pass marks                                                                  */
+/* -------------------------------------------------------------------------- */
+
+// An unset pass mark has always behaved as "every answer correct". It must keep
+// doing so now that the stored value is what actually gates.
+check(
+  "an unset pass mark means 100, so existing quizzes gate exactly as before",
+  [effectivePassMark(null), effectivePassMark(undefined)],
+  [100, 100]
+);
+
+check(
+  "a stored pass mark is used as written, and clamped to 0-100",
+  [effectivePassMark(70), effectivePassMark(0), effectivePassMark(100), effectivePassMark(140), effectivePassMark(-5), effectivePassMark(69.6)],
+  [70, 0, 100, 100, 0, 70]
+);
+
+check(
+  "the pass mark is met at exactly the mark, not one below",
+  [attemptPasses(69, 70), attemptPasses(70, 70), attemptPasses(71, 70)],
+  [false, true, true]
+);
+
+check(
+  "an ungraded attempt (no score) never passes, even at a pass mark of 0",
+  [attemptPasses(null, 0), attemptPasses(undefined, 70)],
+  [false, false]
+);
+
+// The scorer reports 100 only when every point was earned and clamps anything
+// less to 99. That is what keeps a 100% pass mark meaning "all correct" once
+// essays can contribute fractions of a point.
+const almost: (ScorableQuestion & { effectivePoints: number })[] = Array.from({ length: 300 }, (_, i) => ({
+  id: `q${i}`,
+  type: "SINGLE_CHOICE",
+  answerJson: [0],
+  points: 1,
+  effectivePoints: 1,
+}));
+const almostAnswers = Object.fromEntries(almost.map((q, i) => [q.id, i === 0 ? [1] : [0]]));
+const almostScore = scoreAttempt(almost, almostAnswers);
+check(
+  "299 of 300 correct rounds to 100 but is reported as 99, so it does not pass a 100% mark",
+  [almostScore.scorePercent, attemptPasses(almostScore.scorePercent, effectivePassMark(null))],
+  [99, false]
+);
+check(
+  "…and does pass a 99% mark",
+  attemptPasses(almostScore.scorePercent, effectivePassMark(99)),
+  true
+);
+
+// With a pass mark below 100, partial credit on an essay can be enough. This is
+// the case that used to be impossible: one criterion short of full marks.
+const mixed: (ScorableQuestion & { effectivePoints: number })[] = [
+  { id: "mc", type: "SINGLE_CHOICE", answerJson: [1], points: 1, effectivePoints: 1 },
+  {
+    id: "essay",
+    type: "ESSAY",
+    answerJson: [],
+    rubricJson: {
+      criteria: [
+        { id: "a", label: "A", description: "", weight: 1 },
+        { id: "b", label: "B", description: "", weight: 1 },
+      ],
+      modelAnswer: null,
+      minWords: null,
+      maxWords: null,
+    },
+    points: 3,
+    effectivePoints: 3,
+  },
+];
+const mixedScore = scoreAttempt(
+  mixed,
+  { mc: [1], essay: "an answer" },
+  {
+    essay: {
+      questionId: "essay",
+      criteria: [
+        { id: "a", score01: 1, comment: "ok" },
+        { id: "b", score01: 0.8, comment: "nearly" },
+      ],
+      feedback: "Good.",
+      flags: [],
+    },
+  }
+);
+check(
+  "an essay one level short of full marks scores 93% — a fail at 100, a pass at 70",
+  [mixedScore.scorePercent, attemptPasses(mixedScore.scorePercent, 100), attemptPasses(mixedScore.scorePercent, 70)],
+  [93, false, true]
+);
+
+// The database filter the lesson gate uses.
+check(
+  "the gate accepts a graded attempt that meets today's mark, or one recorded as a pass under the mark it was graded at",
+  passingAttemptWhere(80),
+  {
+    submittedAt: { not: null },
+    gradingStatus: "GRADED",
+    OR: [{ scorePercent: { gte: 80 } }, { passed: true, passMarkApplied: { not: null } }],
+  }
+);
+
+/** The gate, applied in memory to the same fields the filter reads. */
+function gateAccepts(
+  attempt: { scorePercent: number | null; passed: boolean | null; passMarkApplied: number | null; gradingStatus: string },
+  passMark: number
+): boolean {
+  return (
+    attempt.gradingStatus === "GRADED" &&
+    (attemptPasses(attempt.scorePercent, passMark) || (attempt.passed === true && attempt.passMarkApplied != null))
+  );
+}
+
+check(
+  "a learner who passed at 80 under a 70 mark is not re-locked when the mark is raised to 90",
+  gateAccepts({ scorePercent: 80, passed: true, passMarkApplied: 70, gradingStatus: "GRADED" }, 90),
+  true
+);
+check(
+  "an old attempt flagged `passed` before pass marks were enforced does not count on that flag alone",
+  gateAccepts({ scorePercent: 60, passed: true, passMarkApplied: null, gradingStatus: "GRADED" }, 100),
+  false
+);
+check(
+  "an old 100% attempt still passes any mark",
+  [100, 70, 0].map((mark) => gateAccepts({ scorePercent: 100, passed: null, passMarkApplied: null, gradingStatus: "GRADED" }, mark)),
+  [true, true, true]
+);
+check(
+  "an attempt whose essay grading failed unlocks nothing, whatever the mark",
+  [
+    gateAccepts({ scorePercent: null, passed: null, passMarkApplied: null, gradingStatus: "PENDING" }, 0),
+    gateAccepts({ scorePercent: null, passed: null, passMarkApplied: null, gradingStatus: "FAILED" }, 0),
+  ],
+  [false, false]
+);
+
+check(
+  "the bar is described the way a learner would say it",
+  [passMarkLabel(100), passMarkLabel(70)],
+  ["every answer correct (100%)", "70% or more"]
 );
 
 console.log(failed === 0 ? "\nAll gating checks passed." : `\n${failed} check(s) FAILED.`);

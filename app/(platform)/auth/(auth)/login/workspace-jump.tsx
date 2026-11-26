@@ -23,7 +23,7 @@ export function WorkspaceJumpForm() {
         if (list.length > 0) setSlug(list[0].slug);
       })
       .catch(() => {
-        if (active) setError("Could not load workspaces.");
+        if (active) setError("Could not load the list of workspaces. Check your connection and reload the page.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -42,7 +42,7 @@ export function WorkspaceJumpForm() {
 
   function jump() {
     if (!slug) {
-      setError("Select a workspace.");
+      setError("Choose a workspace first.");
       return;
     }
     if (typeof window === "undefined") return;
@@ -63,7 +63,7 @@ export function WorkspaceJumpForm() {
             setSlug(e.target.value);
             setError(null);
           }}
-          className="rounded border border-stone-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-stone-500 disabled:opacity-60"
+          className="w-full rounded-[10px] border-2 border-border bg-card px-3.5 py-2.5 text-[16px] font-medium text-card-foreground outline-none focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? (
             <option value="">Loading…</option>

@@ -22,7 +22,7 @@ export function ThemePicker({
   return (
     <div
       role="radiogroup"
-      aria-label="Theme preset"
+      aria-label="Theme"
       className="grid grid-cols-2 gap-3 sm:grid-cols-3"
     >
       {THEME_PRESETS.map((preset) => {
@@ -39,7 +39,8 @@ export function ThemePicker({
             onClick={() => onChange(preset.id)}
             title={preset.description}
             className={cn(
-              "flex flex-col gap-2 rounded-[12px] border-2 p-2.5 text-left transition-[transform,box-shadow]",
+              "flex flex-col gap-2 rounded-[12px] border-2 p-2.5 text-left outline-none transition-[transform,box-shadow] [touch-action:manipulation]",
+              "focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring",
               active
                 ? "border-foreground shadow-md"
                 : "border-border hover:-translate-x-px hover:-translate-y-px hover:shadow-sm"
@@ -59,8 +60,11 @@ export function ThemePicker({
                 style={{ background: muted }}
               />
             </span>
-            <span className="text-[12px] font-bold leading-tight text-card-foreground">
+            <span className="flex items-center justify-between gap-2 text-[12px] font-bold leading-tight text-card-foreground">
               {preset.label}
+              {/* The chosen theme is marked with a tick as well as a darker
+                  border, so the choice does not rest on telling two borders apart. */}
+              {active ? <span aria-hidden>✓</span> : null}
             </span>
           </button>
         );

@@ -68,7 +68,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setMessage(msg);
     setShow(true);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setShow(false), 2400);
+    // Long enough to read: a fixed 2.4s cut off anything past a few words.
+    // Roughly 60ms a character on top of that, capped so it never lingers.
+    timer.current = setTimeout(() => setShow(false), Math.min(9000, 2400 + msg.length * 60));
   }, []);
 
   const celebrate = useCallback(() => {
@@ -79,15 +81,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast, celebrate }}>
       {children}
       <div
+        role="status"
         aria-live="polite"
         className={cn(
-          "pointer-events-none fixed inset-x-0 z-[1000] flex justify-center px-4 transition-all duration-300",
+          "pointer-events-none fixed inset-x-0 z-[1000] flex justify-center px-4 transition-[translate,opacity] duration-300 print:hidden",
           "bottom-[max(1.5rem,env(safe-area-inset-bottom))]",
           show ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
         )}
       >
         {message ? (
-          <div className="pointer-events-auto max-w-[90vw] truncate rounded-[10px] border-2 border-border bg-foreground px-5 py-3 text-sm font-bold text-background shadow-md">
+          // Wraps rather than truncates: a message cut off mid-sentence ("You've
+          // tried this quiz several times in a…") says less than no message.
+          <div className="pointer-events-auto max-w-[min(90vw,32rem)] text-pretty rounded-[10px] border-2 border-border bg-foreground px-5 py-3 text-center text-sm font-bold text-background shadow-md">
             {message}
           </div>
         ) : null}

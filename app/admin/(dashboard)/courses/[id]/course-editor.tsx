@@ -21,9 +21,8 @@ export function CourseEditor({
   enrollments,
   clients,
   canManageEnrollments,
+  initialTab,
 }: CourseEditorProps) {
-  const [tab, setTab] = useState<Tab>("info");
-
   const tabs: { value: Tab; label: string }[] = [
     { value: "info", label: "Basic info" },
     { value: "content", label: "Content" },
@@ -32,13 +31,29 @@ export function CourseEditor({
     ...(enrollments ? [{ value: "enrollments" as Tab, label: "Enrollments" }] : []),
   ];
 
+  // The open tab lives in the address (`?tab=content`), so a link, a refresh or
+  // coming back from the AI builder lands on the same tab instead of always on
+  // the first one. The server reads it for the first render; after that the
+  // address follows the tab without a round trip.
+  const [tab, setTab] = useState<Tab>(() =>
+    tabs.some((t) => t.value === initialTab) ? (initialTab as Tab) : "info"
+  );
+
+  function selectTab(next: Tab) {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === "info") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  }
+
   // Key the content tab on the server data so a builder apply (which calls
   // router.refresh()) reseeds its local state with the newly created rows.
   const lessonsKey = `${initial.lessons.length}:${initial.lessonGroups.length}`;
 
   return (
     <div className="flex flex-col gap-5">
-      <Segmented<Tab> ariaLabel="Course sections" options={tabs} value={tab} onChange={setTab} />
+      <Segmented<Tab> ariaLabel="Course sections" options={tabs} value={tab} onChange={selectTab} />
 
       {tab === "info" ? (
         <CourseDetailsForm initial={initial} canWrite={canWrite} currencyOptions={currencyOptions} />

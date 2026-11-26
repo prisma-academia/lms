@@ -33,7 +33,8 @@ export function Segmented<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "px-4 py-2 text-[13px] font-bold [touch-action:manipulation] transition-colors",
+              "min-h-10 px-4 py-2 text-[13px] font-bold outline-none [touch-action:manipulation] transition-colors",
+              "focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-ring",
               i > 0 && "border-l-2 border-border",
               active
                 ? "bg-primary text-primary-foreground"

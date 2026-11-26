@@ -39,6 +39,12 @@ export type CourseInitial = {
   currency: string;
   enrollmentCount: number;
   publishedAt: string | null;
+  /**
+   * `publishedAt` as people read it, formatted on the server in the academy's
+   * locale and time zone. Dates are never formatted in these Client Components:
+   * the server and the browser disagree, and React reports the difference.
+   */
+  publishedLabel: string | null;
   lessons: LessonRow[];
   lessonGroups: LessonGroupRow[];
 };
@@ -52,7 +58,12 @@ export type CourseAnalytics = {
   /** Completion counts per lesson (lessons with zero completions may be absent). */
   lessonStats: { lessonId: string; completions: number }[];
   /** Weekly enrollment counts over the last ~90 days, oldest first. */
-  weeklyEnrollments: { weekStart: string; count: number }[];
+  weeklyEnrollments: {
+    weekStart: string;
+    /** "2 Nov 2026" — the week's first day, formatted on the server. */
+    weekLabel: string;
+    count: number;
+  }[];
 };
 
 export type CourseEnrollmentRow = {
@@ -60,8 +71,12 @@ export type CourseEnrollmentRow = {
   clientId: string;
   clientEmail: string;
   clientName: string;
+  /** ISO strings, kept for sorting. */
   enrolledAt: string;
   completedAt: string | null;
+  /** The same moments as people read them, formatted on the server. */
+  enrolledLabel: string;
+  completedLabel: string | null;
   progressPercent: number;
 };
 
@@ -78,6 +93,8 @@ export type CourseEditorProps = {
   enrollments: CourseEnrollmentRow[] | null;
   clients: ClientOption[];
   canManageEnrollments: boolean;
+  /** The tab named in the address (`?tab=content`), if any. */
+  initialTab?: string;
 };
 
 /**

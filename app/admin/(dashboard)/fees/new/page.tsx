@@ -24,7 +24,12 @@ export default async function NewFeePage() {
   const currencyOptions = getCurrencyOptions();
   return (
     <div>
-      <PageHeader title="New fee" backHref="/admin/fees" backLabel="Fees" />
+      <PageHeader
+        title="New fee"
+        subtitle="Charge one learner or a whole group. You record payments on the fee afterwards."
+        backHref="/admin/fees"
+        backLabel="Fees"
+      />
       <Card>
         <CreateFeeForm
           clients={clients.map((c) => ({

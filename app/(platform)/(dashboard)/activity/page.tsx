@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/shell";
+import { formatDateTime } from "@/lib/format";
+import { PLATFORM_FORMAT } from "../format";
 import { ActivityTable } from "./table";
 
 export default async function PlatformActivityPage() {
@@ -20,10 +22,14 @@ export default async function PlatformActivityPage() {
     targetId: r.targetId,
     ip: r.ip,
     createdAt: r.createdAt.toISOString(),
+    createdLabel: formatDateTime(r.createdAt, PLATFORM_FORMAT),
   }));
   return (
     <div>
-      <PageHeader title="System activity" />
+      <PageHeader
+        title="System activity"
+        subtitle="The 200 most recent actions across every academy. Times are in UTC."
+      />
       <ActivityTable data={data} />
     </div>
   );

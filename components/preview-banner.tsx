@@ -22,7 +22,7 @@ export function PreviewBanner({
       className={cn(
         "sticky top-0 z-50 border-b-2 border-border px-4 py-2 text-center text-xs font-bold uppercase tracking-wide",
         tone === "warning"
-          ? "bg-amber-200 text-amber-950"
+          ? "bg-warning text-warning-foreground"
           : "bg-foreground text-background"
       )}
     >

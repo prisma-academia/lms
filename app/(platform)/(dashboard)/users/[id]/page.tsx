@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PageHeader, Card } from "@/components/shell";
+import { Badge } from "@/components/ui/badge";
 import { ALL_PLATFORM_PERMISSION_KEYS, PERMISSIONS } from "@/lib/auth/permissions";
+import { formatDateTime } from "@/lib/format";
+import { PLATFORM_FORMAT } from "../../format";
 import { UserDetailActions } from "./actions";
 
 export default async function PlatformUserDetailPage({
@@ -21,31 +24,54 @@ export default async function PlatformUserDetailPage({
     }),
   ]);
   if (!user) notFound();
+
+  const facts: { label: string; value: React.ReactNode }[] = [
+    { label: "Email", value: <span className="break-all">{user.email}</span> },
+    { label: "First name", value: user.firstName ?? "—" },
+    { label: "Last name", value: user.lastName ?? "—" },
+    { label: "Other name", value: user.otherName ?? "—" },
+    { label: "Phone", value: user.phone ?? "—" },
+    {
+      label: "Status",
+      value: user.status === "ACTIVE" ? "Active" : <Badge color="var(--warning)">Suspended</Badge>,
+    },
+    {
+      label: "Access",
+      value: user.isSuperAdmin ? <Badge>Super admin</Badge> : "By permission",
+    },
+    {
+      label: "Last signed in",
+      value: `${formatDateTime(user.lastLoginAt, PLATFORM_FORMAT, "Never")}${user.lastLoginAt ? " UTC" : ""}`,
+    },
+  ];
+
   return (
     <div>
-      <PageHeader title={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email} backHref="/users" backLabel="Users" />
-      <div className="grid grid-cols-2 gap-4">
+      <PageHeader
+        title={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
+        subtitle="Platform user"
+        backHref="/users"
+        backLabel="Platform users"
+      />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <Card>
-          <h2 className="text-sm font-semibold uppercase text-stone-500">Profile</h2>
-          <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-stone-500">Email</dt>
-            <dd>{user.email}</dd>
-            <dt className="text-stone-500">First name</dt>
-            <dd>{user.firstName ?? "—"}</dd>
-            <dt className="text-stone-500">Last name</dt>
-            <dd>{user.lastName ?? "—"}</dd>
-            <dt className="text-stone-500">Other name</dt>
-            <dd>{user.otherName ?? "—"}</dd>
-            <dt className="text-stone-500">Phone</dt>
-            <dd>{user.phone ?? "—"}</dd>
-            <dt className="text-stone-500">Status</dt>
-            <dd>{user.status}</dd>
-            <dt className="text-stone-500">Super admin</dt>
-            <dd>{user.isSuperAdmin ? "yes" : "no"}</dd>
+          <h2 className="font-heading text-lg leading-tight">Profile</h2>
+          <dl className="mt-4 flex flex-col gap-3 text-sm">
+            {facts.map((fact) => (
+              <div key={fact.label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3">
+                <dt className="font-medium text-muted-foreground">{fact.label}</dt>
+                <dd className="min-w-0 font-medium">{fact.value}</dd>
+              </div>
+            ))}
           </dl>
         </Card>
         <Card>
-          <h2 className="text-sm font-semibold uppercase text-stone-500">Permissions & actions</h2>
+          <h2 className="font-heading text-lg leading-tight">Permissions and actions</h2>
+          {user.isSuperAdmin ? (
+            <p className="mt-2 text-[13px] font-medium text-muted-foreground">
+              A super admin can do everything, whatever is ticked below.
+            </p>
+          ) : null}
           <UserDetailActions
             userId={user.id}
             scope="platform"

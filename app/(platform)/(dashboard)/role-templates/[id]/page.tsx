@@ -16,7 +16,12 @@ export default async function PlatformRoleDetailPage({
   if (!role || role.scope !== "PLATFORM") notFound();
   return (
     <div>
-      <PageHeader title={role.name} backHref="/role-templates" backLabel="Roles" />
+      <PageHeader
+        title={role.name}
+        subtitle={role.isSystem ? "Built-in role" : "Custom role"}
+        backHref="/role-templates"
+        backLabel="Platform roles"
+      />
       <Card>
         <RoleDetailEditor
           id={role.id}

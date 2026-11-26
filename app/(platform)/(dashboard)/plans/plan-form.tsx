@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiPost, apiPatch, apiDelete } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { FormField, TextInput, SelectInput } from "@/components/form-field";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import type { SelectOption } from "@/lib/geo/options";
 
 const GB = 1024 ** 3;
@@ -41,24 +43,26 @@ export function PlanForm({
   currencyOptions: SelectOption[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const { toast } = useToast();
   const [v, setV] = useState(initial);
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function set<K extends keyof PlanInitial>(key: K, value: PlanInitial[K]) {
     setV((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function submit() {
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
-    setInfo(null);
     const priceMonthlyCents = Math.round(parseFloat(v.priceMonthly) * 100);
     const storageBytes = Math.round(parseFloat(v.storageGb) * GB);
     if (mode === "create" && !/^[a-z0-9_-]+$/.test(v.code)) {
-      return setError("Code must be lowercase letters, numbers, - or _.");
+      return setError("The code can only use lowercase letters, numbers, hyphens and underscores.");
     }
-    if (!v.name.trim()) return setError("Name is required.");
+    if (!v.name.trim()) return setError("Give the plan a name.");
     if (Number.isNaN(priceMonthlyCents) || priceMonthlyCents < 0) return setError("Enter a valid price.");
     if (Number.isNaN(storageBytes) || storageBytes < 0) return setError("Enter a valid storage quota.");
 
@@ -85,41 +89,65 @@ export function PlanForm({
       return;
     }
     if (mode === "create") {
+      toast("Plan created");
       router.push("/plans");
     } else {
-      setInfo("Saved.");
+      toast("Plan saved");
       router.refresh();
     }
   }
 
   async function onDelete() {
-    if (!confirm("Delete this plan?")) return;
+    const yes = await confirm({
+      title: `Delete the ${v.name.trim() || "plan"} plan?`,
+      description:
+        "Academies can no longer choose it. A plan that academies are subscribed to cannot be deleted. This cannot be undone.",
+      confirmLabel: "Delete plan",
+      destructive: true,
+    });
+    if (!yes) return;
+    setDeleting(true);
     const res = await apiDelete(`/api/platform/plans/${id}`);
+    setDeleting(false);
     if (res.error) {
       setError(res.error.message);
       return;
     }
+    toast("Plan deleted");
     router.push("/plans");
   }
 
   return (
-    <div className="grid max-w-xl gap-4">
-      <FormField label="Code" htmlFor="p-code" hint={mode === "edit" ? "Code cannot be changed." : undefined}>
+    <form onSubmit={submit} className="grid max-w-xl gap-4">
+      <FormField
+        label="Code"
+        htmlFor="p-code"
+        hint={
+          mode === "edit"
+            ? "The code cannot be changed once a plan exists."
+            : "A short identifier used in links and records, such as “starter”. Lowercase, no spaces."
+        }
+      >
         <TextInput
           id="p-code"
+          name="code"
+          autoComplete="off"
+          spellCheck={false}
           value={v.code}
           onChange={(e) => set("code", e.target.value)}
           disabled={mode === "edit"}
         />
       </FormField>
       <FormField label="Name" htmlFor="p-name">
-        <TextInput id="p-name" value={v.name} onChange={(e) => set("name", e.target.value)} />
+        <TextInput id="p-name" name="name" autoComplete="off" value={v.name} onChange={(e) => set("name", e.target.value)} />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Monthly price" htmlFor="p-price">
           <TextInput
             id="p-price"
+            name="priceMonthly"
             type="number"
+            inputMode="decimal"
             min="0"
             step="0.01"
             value={v.priceMonthly}
@@ -146,19 +174,23 @@ export function PlanForm({
           onChange={(e) => set("storageGb", e.target.value)}
         />
       </FormField>
-      <div className="grid grid-cols-3 gap-4">
-        <FormField label="Max learners" htmlFor="p-learners" hint="blank = unlimited">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <FormField label="Max learners" htmlFor="p-learners" hint="Leave blank for no limit.">
           <TextInput id="p-learners" type="number" min="0" value={v.maxLearners} onChange={(e) => set("maxLearners", e.target.value)} />
         </FormField>
-        <FormField label="Max instructors" htmlFor="p-instructors" hint="blank = unlimited">
+        <FormField label="Max instructors" htmlFor="p-instructors" hint="Leave blank for no limit.">
           <TextInput id="p-instructors" type="number" min="0" value={v.maxInstructors} onChange={(e) => set("maxInstructors", e.target.value)} />
         </FormField>
-        <FormField label="Max courses" htmlFor="p-courses" hint="blank = unlimited">
+        <FormField label="Max courses" htmlFor="p-courses" hint="Leave blank for no limit.">
           <TextInput id="p-courses" type="number" min="0" value={v.maxCourses} onChange={(e) => set("maxCourses", e.target.value)} />
         </FormField>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Visibility" htmlFor="p-public">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Visibility"
+          htmlFor="p-public"
+          hint="Hidden plans are not offered to academies, but stay on those already using them."
+        >
           <SelectInput
             id="p-public"
             allowEmpty={false}
@@ -170,22 +202,26 @@ export function PlanForm({
             onChange={(e) => set("isPublic", e.target.value === "true")}
           />
         </FormField>
-        <FormField label="Sort order" htmlFor="p-sort">
+        <FormField label="Sort order" htmlFor="p-sort" hint="Lower numbers are listed first.">
           <TextInput id="p-sort" type="number" value={v.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} />
         </FormField>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {info ? <p className="text-sm text-muted-foreground">{info}</p> : null}
-      <div className="flex gap-3">
-        <Button type="button" onClick={submit} disabled={pending}>
-          {pending ? "Saving…" : mode === "create" ? "Create plan" : "Save"}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {/* The destructive action sits apart from the primary one, never beside it. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button type="submit" disabled={pending || deleting}>
+          {pending ? "Saving…" : mode === "create" ? "Create plan" : "Save changes"}
         </Button>
         {mode === "edit" ? (
-          <Button type="button" variant="destructive" onClick={onDelete}>
-            Delete
+          <Button type="button" variant="destructive" onClick={onDelete} disabled={pending || deleting}>
+            {deleting ? "Deleting…" : "Delete plan"}
           </Button>
         ) : null}
       </div>
-    </div>
+    </form>
   );
 }

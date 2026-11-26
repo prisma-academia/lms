@@ -1,18 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { autocompletion } from "@codemirror/autocomplete";
-import { apiGet, apiPatch } from "@/lib/client/api";
+import { apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/icon";
 import { SiteLivePreview, type PreviewDevice } from "@/components/site-live-preview";
 import { SiteVariablePanel } from "@/components/site-variable-panel";
-import { siteVariableCompletion } from "@/lib/site/variable-completion";
-import { sampleContext } from "@/lib/site/variables";
-import { SNIPPETS } from "@/lib/site/html-sections";
-import type { VariableContext } from "@/lib/site/template";
+import { SiteFormsPanel } from "@/components/site/site-forms-panel";
+import { SectionOutline } from "@/components/site/section-outline";
+import { PublishChecklist } from "@/components/site/publish-checklist";
+import { SiteAiPanel } from "@/components/site/site-ai-panel";
+import { useSitePreviewContext } from "@/components/site/use-site-preview-context";
+import { siteVariableCompletionFor } from "@/lib/site/variable-completion";
+import { analyzeSource } from "@/lib/site/source";
+import { findPageKind } from "@/lib/site/site-api";
 import type { CodeEditorHandle } from "@/components/code-editor";
 import type { SitePageRow } from "@/lib/site/pages";
 import { cn } from "@/lib/utils";
@@ -26,7 +31,7 @@ const CodeEditor = dynamic(
 );
 
 type Layout = "split" | "editor" | "preview";
-type Rail = "variables" | "snippets" | null;
+type Rail = "variables" | "forms" | "sections" | "ai" | null;
 
 const DEVICES: { id: PreviewDevice; icon: "monitor" | "tablet" | "smartphone"; label: string }[] = [
   { id: "desktop", icon: "monitor", label: "Desktop" },
@@ -34,47 +39,56 @@ const DEVICES: { id: PreviewDevice; icon: "monitor" | "tablet" | "smartphone"; l
   { id: "mobile", icon: "smartphone", label: "Mobile" },
 ];
 
+const RAILS: { id: Exclude<Rail, null>; label: string }[] = [
+  { id: "variables", label: "Variables" },
+  { id: "forms", label: "Forms" },
+  { id: "sections", label: "Sections" },
+  { id: "ai", label: "AI" },
+];
+
 export function SitePlayground({
   page,
   canWrite,
+  aiConfigured,
 }: {
   page: SitePageRow;
   canWrite: boolean;
+  aiConfigured: boolean;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  const kindDef = findPageKind(page.kind);
+  const kind = kindDef.kind;
+  const special = kind !== "PAGE";
 
   const [source, setSource] = useState(page.htmlSource);
   const [savedSource, setSavedSource] = useState(page.htmlSource);
   const [status, setStatus] = useState(page.status);
+  const [savedStatus, setSavedStatus] = useState(page.status);
   const [layout, setLayout] = useState<Layout>("split");
   const [rail, setRail] = useState<Rail>("variables");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
-  const [ctx, setCtx] = useState<VariableContext | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [beforeAi, setBeforeAi] = useState<string | null>(null);
 
+  const { context } = useSitePreviewContext(kind);
   const editorRef = useRef<CodeEditorHandle>(null);
-  const dirty = source !== savedSource;
-
-  useEffect(() => {
-    let cancelled = false;
-    apiGet<{ context: VariableContext }>("/api/tenant/site/preview-context").then((res) => {
-      if (cancelled) return;
-      setCtx(res.data?.context ?? (sampleContext() as VariableContext));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const dirty = source !== savedSource || status !== savedStatus;
 
   const completion = useMemo(
-    () => autocompletion({ override: [siteVariableCompletion] }),
-    []
+    () => autocompletion({ override: [siteVariableCompletionFor(kind)] }),
+    [kind]
   );
 
+  // The server's own publish check, run as you type.
+  const deferred = useDeferredValue(source);
+  const problems = useMemo(() => analyzeSource(deferred, "check", kind).problems, [deferred, kind]);
+  const blocked = special && status === "PUBLISHED" && problems.length > 0;
+
   const save = useCallback(async () => {
-    if (!canWrite || pending) return;
+    if (!canWrite || pending || blocked) return;
     setPending(true);
     setError(null);
     setMessage(null);
@@ -91,19 +105,32 @@ export function SitePlayground({
     }
     if (res.data?.page) {
       setSavedSource(res.data.page.htmlSource);
+      setSavedStatus(res.data.page.status);
+      const n = res.data.removedTagCount ?? 0;
       setMessage(
-        res.data.removedTagCount
-          ? `Saved — ${res.data.removedTagCount} disallowed element${res.data.removedTagCount === 1 ? "" : "s"} will be stripped on render.`
-          : "Saved."
+        n > 0
+          ? `Saved. ${n} element${n === 1 ? " is" : "s are"} left out when the page is shown (scripts, frames, forms the platform does not run).`
+          : res.data.page.status === "PUBLISHED"
+            ? "Saved and published."
+            : "Saved as a draft."
       );
       router.refresh();
     }
-  }, [canWrite, pending, page.id, source, status, router]);
+  }, [canWrite, pending, blocked, page.id, source, status, router]);
 
-  const exit = useCallback(() => {
-    if (dirty && !confirm("You have unsaved changes. Leave the playground?")) return;
+  const exit = useCallback(async () => {
+    if (dirty) {
+      const ok = await confirm({
+        title: "Leave without saving?",
+        description: "Your changes to this page have not been saved and will be lost.",
+        confirmLabel: "Leave without saving",
+        cancelLabel: "Keep editing",
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     router.push(`/admin/site/pages/${page.id}`);
-  }, [dirty, router, page.id]);
+  }, [dirty, confirm, router, page.id]);
 
   // Esc exits, but not while a completion popup or a dialog is open — CodeMirror
   // handles Esc itself in those cases, and stealing it would make dismissing the
@@ -111,8 +138,8 @@ export function SitePlayground({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (document.querySelector(".cm-tooltip-autocomplete")) return;
-      exit();
+      if (document.querySelector(".cm-tooltip-autocomplete, [role='dialog'], [role='alertdialog']")) return;
+      void exit();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -150,44 +177,61 @@ export function SitePlayground({
     <div className="flex h-dvh flex-col overflow-hidden bg-background">
       {/* Top bar. */}
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b-2 border-border px-3 py-2">
-        <Button type="button" size="sm" variant="ghost" onClick={exit}>
-          <Icon name="arrow-left" />
+        <Button type="button" size="sm" variant="ghost" onClick={() => void exit()}>
+          <Icon name="arrow-left" aria-hidden />
           Exit
         </Button>
 
         <div className="min-w-0">
-          <span className="truncate font-heading text-sm">{page.title}</span>
+          <h1 className="inline truncate font-heading text-sm">{page.title}</h1>
           <span className="ml-2 text-xs text-muted-foreground">
-            {page.isHome ? "/" : `/${page.slug}`}
+            <code translate="no" className="font-mono">
+              {special ? kindDef.path : page.isHome ? "/" : `/${page.slug}`}
+            </code>
             {dirty ? " · unsaved" : ""}
           </span>
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-1">
-          <RailToggle rail={rail} setRail={setRail} />
+          <div className="hidden gap-1 lg:flex" role="group" aria-label="Side panel">
+            {RAILS.map((r) => (
+              <Button
+                key={r.id}
+                type="button"
+                size="sm"
+                variant={rail === r.id ? "default" : "ghost"}
+                onClick={() => setRail(rail === r.id ? null : r.id)}
+                aria-pressed={rail === r.id}
+              >
+                {r.label}
+              </Button>
+            ))}
+          </div>
 
-          <span className="mx-1 h-5 w-px bg-border" />
+          <span className="mx-1 hidden h-5 w-px bg-border lg:block" aria-hidden />
 
           <LayoutToggle layout={layout} setLayout={setLayout} />
 
-          <span className="mx-1 h-5 w-px bg-border" />
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
 
-          {DEVICES.map((d) => (
-            <Button
-              key={d.id}
-              type="button"
-              size="sm"
-              variant={device === d.id ? "default" : "ghost"}
-              onClick={() => setDevice(d.id)}
-              title={d.label}
-              aria-label={d.label}
-              aria-pressed={device === d.id}
-            >
-              <Icon name={d.icon} />
-            </Button>
-          ))}
+          <div className="flex gap-1" role="group" aria-label="Preview width">
+            {DEVICES.map((d) => (
+              <Button
+                key={d.id}
+                type="button"
+                size="sm"
+                variant={device === d.id ? "default" : "ghost"}
+                onClick={() => setDevice(d.id)}
+                title={d.label}
+                aria-label={d.label}
+                aria-pressed={device === d.id}
+              >
+                <Icon name={d.icon} aria-hidden />
+              </Button>
+            ))}
+          </div>
 
-          <span className="mx-1 h-5 w-px bg-border" />
+          <span className="mx-1 h-5 w-px bg-border" aria-hidden />
 
           {canWrite ? (
             <>
@@ -196,11 +240,12 @@ export function SitePlayground({
                 size="sm"
                 variant="outline"
                 onClick={() => setStatus(status === "PUBLISHED" ? "DRAFT" : "PUBLISHED")}
-                title="Saved with the next save"
+                aria-pressed={status === "PUBLISHED"}
+                title="Takes effect when you save"
               >
                 {status === "PUBLISHED" ? "Published" : "Draft"}
               </Button>
-              <Button type="button" size="sm" onClick={save} disabled={pending || !dirty}>
+              <Button type="button" size="sm" onClick={() => void save()} disabled={pending || !dirty || blocked}>
                 {pending ? "Saving…" : "Save"}
               </Button>
             </>
@@ -210,48 +255,60 @@ export function SitePlayground({
         </div>
       </header>
 
-      {(error || message) && (
+      {error || message ? (
         <div
+          role={error ? "alert" : "status"}
           className={cn(
-            "shrink-0 border-b-2 border-border px-3 py-1.5 text-xs",
-            error ? "text-red-600" : "text-green-700"
+            "shrink-0 border-b-2 border-border px-3 py-1.5 text-xs font-bold",
+            error ? "text-destructive" : "text-foreground"
           )}
         >
           {error ?? message}
         </div>
-      )}
+      ) : null}
+
+      {blocked ? (
+        <PublishChecklist kind={kind} problems={problems} className="m-2 shrink-0" />
+      ) : null}
 
       {/* Body. */}
       <div className="flex min-h-0 flex-1">
         {rail ? (
-          <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-y-auto border-r-2 border-border p-3 lg:flex">
+          <aside
+            aria-label={RAILS.find((r) => r.id === rail)?.label}
+            className={cn(
+              "hidden shrink-0 flex-col gap-3 overflow-y-auto border-r-2 border-border p-3 lg:flex",
+              rail === "ai" ? "w-[26rem]" : "w-80"
+            )}
+          >
             {rail === "variables" ? (
-              <SiteVariablePanel
-                context={ctx}
-                onInsert={canWrite ? insert : undefined}
-                className="min-h-0"
-              />
+              <SiteVariablePanel context={context} kind={kind} onInsert={canWrite ? insert : undefined} className="min-h-0" />
+            ) : rail === "forms" ? (
+              <SiteFormsPanel kind={kind} onInsert={canWrite ? insert : undefined} />
+            ) : rail === "sections" ? (
+              <SectionOutline source={source} onChange={setSource} canWrite={canWrite} />
             ) : (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-muted-foreground">
-                  Click to insert at the cursor. Start with “Base styles” — the other
-                  snippets use its classes.
-                </p>
-                {SNIPPETS.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={!canWrite}
-                    onClick={() => insert(`${s.html}\n\n`)}
-                    className="rounded-[10px] border-2 border-border p-2 text-left transition hover:bg-muted/50 disabled:opacity-50"
-                  >
-                    <span className="block text-sm font-medium">{s.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {s.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <SiteAiPanel
+                target="page"
+                kind={kind}
+                pageId={page.id}
+                pageTitle={page.title}
+                source={source}
+                onApply={(html) => {
+                  setBeforeAi(source);
+                  setSource(html);
+                }}
+                onUndo={
+                  beforeAi !== null
+                    ? () => {
+                        setSource(beforeAi);
+                        setBeforeAi(null);
+                      }
+                    : undefined
+                }
+                canWrite={canWrite}
+                aiConfigured={aiConfigured}
+              />
             )}
           </aside>
         ) : null}
@@ -263,7 +320,7 @@ export function SitePlayground({
                 ref={editorRef}
                 value={source}
                 onChange={setSource}
-                onSave={save}
+                onSave={() => void save()}
                 extraCompletion={completion}
                 readOnly={!canWrite}
                 height="100%"
@@ -281,7 +338,8 @@ export function SitePlayground({
             >
               <SiteLivePreview
                 source={source}
-                context={ctx}
+                context={context}
+                kind={kind}
                 device={device}
                 height={10000}
                 className="h-full border-0 bg-transparent p-0"
@@ -290,33 +348,6 @@ export function SitePlayground({
           ) : null}
         </main>
       </div>
-    </div>
-  );
-}
-
-function RailToggle({ rail, setRail }: { rail: Rail; setRail: (r: Rail) => void }) {
-  return (
-    <div className="hidden gap-1 lg:flex">
-      <Button
-        type="button"
-        size="sm"
-        variant={rail === "variables" ? "default" : "ghost"}
-        onClick={() => setRail(rail === "variables" ? null : "variables")}
-        aria-pressed={rail === "variables"}
-      >
-        <Icon name="code" />
-        Variables
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant={rail === "snippets" ? "default" : "ghost"}
-        onClick={() => setRail(rail === "snippets" ? null : "snippets")}
-        aria-pressed={rail === "snippets"}
-      >
-        <Icon name="plus" />
-        Snippets
-      </Button>
     </div>
   );
 }
@@ -334,7 +365,7 @@ function LayoutToggle({
     { id: "preview", label: "Preview" },
   ];
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1" role="group" aria-label="Layout">
       {options.map((o) => (
         <Button
           key={o.id}

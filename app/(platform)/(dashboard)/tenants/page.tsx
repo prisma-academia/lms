@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
-import { TenantsTable } from "./table";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
+import { formatDate } from "@/lib/format";
+import { PLATFORM_FORMAT } from "../format";
+import { TenantsTable } from "./table";
 
 export default async function TenantsPage() {
   await requirePlatformPage(PERMISSIONS.PLATFORM_TENANTS_READ.key);
@@ -23,11 +25,18 @@ export default async function TenantsPage() {
   const rows = tenants.map((t) => ({
     ...t,
     trialEndsAt: t.trialEndsAt?.toISOString() ?? null,
+    trialEndsLabel: formatDate(t.trialEndsAt, PLATFORM_FORMAT),
     createdAt: t.createdAt.toISOString(),
+    createdLabel: formatDate(t.createdAt, PLATFORM_FORMAT),
   }));
   return (
     <div>
-      <DataTableToolbar title="Tenants" createHref="/tenants/new" createLabel="New tenant" />
+      <DataTableToolbar
+        title="Academies"
+        description="Every organisation on the platform. Open one to manage its plan, payouts and staff."
+        createHref="/tenants/new"
+        createLabel="New academy"
+      />
       <TenantsTable data={rows} />
     </div>
   );

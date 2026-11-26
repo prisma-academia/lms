@@ -5,7 +5,7 @@ import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
-import { assertLessonContent } from "@/lib/courses/lesson-content";
+import { assertLessonContent, withLessonAnchors } from "@/lib/courses/lesson-content";
 
 const PatchBody = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -65,7 +65,9 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
         ...(body.title !== undefined ? { title: body.title } : {}),
         ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
         ...(body.contentType !== undefined ? { contentType: body.contentType } : {}),
-        ...(body.contentJson ? { contentJson: body.contentJson as object } : {}),
+        ...(body.contentJson
+          ? { contentJson: withLessonAnchors(contentType, body.contentJson) as object }
+          : {}),
         ...(body.durationMin !== undefined ? { durationMin: body.durationMin } : {}),
         ...(body.requireDwell !== undefined ? { requireDwell: body.requireDwell } : {}),
         ...(body.groupId !== undefined ? { groupId: body.groupId } : {}),

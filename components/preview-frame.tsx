@@ -80,16 +80,17 @@ export function PreviewFrame({
               aria-pressed={device === d.id}
               onClick={() => setDevice(d.id)}
             >
-              <Icon name={d.icon} />
+              <Icon name={d.icon} aria-hidden />
               {d.label}
             </Button>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          {loading ? (
-            <span className="text-xs font-medium text-muted-foreground">Loading…</span>
-          ) : null}
+          {/* Always in the page, so a screen reader hears the change of state. */}
+          <span role="status" className="text-xs font-medium text-muted-foreground">
+            {loading ? "Loading preview…" : ""}
+          </span>
           <Button
             type="button"
             size="xs"
@@ -99,13 +100,14 @@ export function PreviewFrame({
               frameRef.current?.contentWindow?.location.reload();
             }}
           >
-            <Icon name="refresh" />
+            <Icon name="refresh" aria-hidden />
             Refresh
           </Button>
           <Button asChild size="xs" variant="outline">
             <a href={frameSrc} target="_blank" rel="noopener noreferrer">
-              <Icon name="external-link" />
+              <Icon name="external-link" aria-hidden />
               {openLabel}
+              <span className="sr-only">(opens in a new tab)</span>
             </a>
           </Button>
         </div>

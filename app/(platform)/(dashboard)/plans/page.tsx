@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { requirePlatformPage } from "@/lib/auth/page-guards";
 import { PERMISSIONS } from "@/lib/auth/permissions";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
+import { formatPlatformMoney } from "../format";
 import { PlansTable } from "./table";
 
 const GB = 1024 ** 3;
@@ -16,10 +17,7 @@ export default async function PlansPage() {
     id: p.id,
     code: p.code,
     name: p.name,
-    price: (p.priceMonthlyCents / 100).toLocaleString(undefined, {
-      style: "currency",
-      currency: p.currency,
-    }),
+    price: formatPlatformMoney(p.priceMonthlyCents, p.currency),
     storageGb: `${(Number(p.storageQuotaBytes) / GB).toFixed(0)} GB`,
     isPublic: p.isPublic ? "Public" : "Hidden",
     tenants: p._count.tenants,
@@ -28,7 +26,7 @@ export default async function PlansPage() {
     <div>
       <DataTableToolbar
         title="Subscription plans"
-        description="Plans tenants can subscribe to."
+        description="What an academy can subscribe to, and the limits each plan sets."
         createHref="/plans/new"
         createLabel="New plan"
       />

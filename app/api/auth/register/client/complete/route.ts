@@ -16,17 +16,21 @@ import { sendEmail } from "@/lib/email/send";
 import { welcomeEmail } from "@/lib/email/templates";
 import { tenantBranding } from "@/lib/email/branding";
 import { logger } from "@/lib/logger";
+import { safeNextPath } from "@/lib/auth/next-path";
+import { recordSignupReferral } from "@/lib/referrals/attribution";
 import type { Prisma } from "@/lib/generated/prisma/client";
 
 const Body = z.object({
   email: z.email(),
   code: z.string().regex(/^\d{6}$/),
+  /** Where the visitor was heading before they were asked to sign up. */
+  next: z.string().max(2048).optional(),
 });
 
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
-    const { email, code } = Body.parse(await request.json());
+    const { email, code, next } = Body.parse(await request.json());
     const meta = requestMeta(request);
     await enforceRateLimit(RATE_PRESETS.REGISTER, [meta.ip, email.toLowerCase()]);
     const h = await headers();
@@ -104,6 +108,15 @@ export async function POST(request: Request) {
       userAgent: meta.userAgent,
     });
 
+    // Credit whoever's link brought them, and remember it on the learner. This
+    // cannot fail the registration: it never throws, and an unknown or
+    // switched-off code is simply not credited.
+    await recordSignupReferral({
+      tenantId: tenant.id,
+      clientId: client.id,
+      code: pending.referralCode,
+    });
+
     // Welcome email — best-effort, never fail registration on delivery error.
     const branding = tenantBranding(tenant);
     await sendEmail({
@@ -118,7 +131,11 @@ export async function POST(request: Request) {
     }).catch((err) => logger.error({ err, to: client.email }, "welcome_email_failed"));
 
     const profileIncomplete = clientProfileIncomplete(client.profileJson);
-    return ok({ redirect: profileIncomplete ? "/profile" : "/dashboard" });
+    // Back to the course they came for, if they came for one. They enrol there
+    // themselves — creating an account never enrols anyone in anything.
+    return ok({
+      redirect: safeNextPath(next) ?? (profileIncomplete ? "/profile" : "/dashboard"),
+    });
   } catch (e) {
     return handleError(e);
   }

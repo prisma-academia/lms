@@ -7,6 +7,8 @@ import {
   generatedLessonSchema,
   lessonGenerateInputSchema,
 } from "@/lib/schemas/course-builder";
+import { aiDomainError, requireAiConfigured } from "@/lib/ai/http";
+import { writeLesson } from "@/lib/ai/lesson-writer";
 
 // One LLM call — much faster than full course generation, but still minutes-scale worst case.
 export const maxDuration = 120;
@@ -56,35 +58,39 @@ export async function POST(
         .map((l) => `- [${l.contentType}] ${l.title}`),
     ].join("\n");
 
-    const prompt = `Write the full content for ONE lesson of an existing course.
-
-Course: ${course.title}${course.description ? `\nCourse description: ${course.description}` : ""}
-
-Course outline (for context — write content ONLY for the lesson below):
-${outline}
-
-Lesson to write: "${lesson.title}"${groupTitle(lesson.groupId) ? ` (module: "${groupTitle(lesson.groupId)}")` : ""}
-Content type: ${lesson.contentType}${lesson.durationMin ? `\nTarget duration: ~${lesson.durationMin} min` : ""}
-${body.instructions ? `\nInstructions from the course admin:\n${body.instructions}` : ""}
-
-Keep the exact lesson title and contentType. Fill in body (TEXT) or html (HTML) as appropriate.
-Do not generate a quiz or placeholders.
-
-For an HTML lesson, apply the lesson design rules from your instructions: open with a
-.lesson-objectives block and use the structural classes that fit the material.`;
+    requireAiConfigured();
 
     // Lazy import keeps the Mastra instance (top-level await, native storage deps)
     // out of the module graph until AI generation is actually used.
-    const { mastra } = await import("@/src/mastra");
+    const { getMastra } = await import("@/src/mastra");
+    const mastra = await getMastra();
     const agent = mastra.getAgent("courseBuilderAgent");
-    const result = await agent.generate([{ role: "user", content: prompt }], {
-      structuredOutput: { schema: generatedLessonSchema, errorStrategy: "strict" },
-    });
-    if (!result.object) {
-      throw new DomainError(502, "generation_failed", "Lesson generation returned no content.");
+
+    let written;
+    try {
+      written = await writeLesson(agent, {
+        courseContext: `Course: ${course.title}${
+          course.description ? `\nCourse description: ${course.description}` : ""
+        }\n\nCourse outline (for context — write content ONLY for the one lesson named below):\n${outline}`,
+        title: lesson.title,
+        contentType: lesson.contentType,
+        moduleTitle: groupTitle(lesson.groupId),
+        durationMin: lesson.durationMin,
+        instructions: body.instructions,
+      });
+    } catch (e) {
+      throw aiDomainError(e, "lesson_generate_existing");
     }
 
-    return ok({ lesson: generatedLessonSchema.parse(result.object) });
+    return ok({
+      lesson: generatedLessonSchema.parse({
+        title: lesson.title,
+        contentType: lesson.contentType,
+        body: written.body,
+        html: written.html,
+        durationMin: lesson.durationMin,
+      }),
+    });
   } catch (e) {
     return handleError(e);
   }

@@ -32,6 +32,10 @@ import { cn } from "@/lib/utils";
  *  - Paging state was never reconciled with the rows. Filtering while on page 3,
  *    or deleting the last row of the last page, left the viewer on a page that
  *    no longer exists — an empty table that looks like "no results".
+ *
+ * And on what a phone gets: a card per row carrying EVERY column, each value
+ * under its column's name. It used to show the first three and drop the rest,
+ * which on most tables meant the row's actions were simply not there.
  */
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
@@ -77,6 +81,11 @@ export type DataTableProps<TData> = {
   getRowId?: (row: TData) => string;
   /** Optional inline style per row (e.g. viewTransitionName). */
   rowStyle?: (row: TData) => CSSProperties | undefined;
+  /**
+   * What this table lists, e.g. "Learners". Read out as the table's name and
+   * used to name its scrolling region; not shown.
+   */
+  caption?: string;
 };
 
 export function DataTable<TData>({
@@ -97,6 +106,7 @@ export function DataTable<TData>({
   className,
   getRowId,
   rowStyle,
+  caption,
 }: DataTableProps<TData>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -173,9 +183,12 @@ export function DataTable<TData>({
                 /* Not type="search": Chrome's native clear affordance would sit
                    next to the themed one below. */
                 type="text"
-                className="h-11 w-full rounded-[10px] border-2 border-border bg-card pl-9 pr-9 text-[16px] font-medium text-card-foreground shadow-sm outline-none placeholder:font-normal placeholder:text-muted-foreground focus:-translate-x-px focus:-translate-y-px focus:shadow-md"
+                name="table-search"
+                autoComplete="off"
+                spellCheck={false}
+                className="h-11 w-full rounded-[10px] border-2 border-border bg-card pl-9 pr-9 text-[16px] font-medium text-card-foreground shadow-sm outline-none placeholder:font-normal placeholder:text-muted-foreground focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
                 placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
+                aria-label={caption ? `Search ${caption.toLowerCase()}` : searchPlaceholder.replace(/…$/, "")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -184,7 +197,7 @@ export function DataTable<TData>({
                   type="button"
                   aria-label="Clear search"
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-[8px] text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  className="absolute right-1 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-[8px] text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-ring"
                 >
                   <Icon name="x" className="size-4" />
                 </button>
@@ -195,10 +208,13 @@ export function DataTable<TData>({
         </div>
       ) : null}
 
-      {/* Mobile: cards. Same page slice as the table, same scroll viewport. */}
+      {/* Mobile: cards, the same page slice as the table. No inner scroll box
+          here — a scrolling list inside a scrolling page is a trap on a touch
+          screen; the pager below keeps the list short instead. */}
       <div
-        className="flex flex-col gap-2 overflow-y-auto [scrollbar-gutter:stable] md:hidden"
-        style={{ maxHeight }}
+        className="flex flex-col gap-2 md:hidden"
+        role={rows.length > 0 ? "list" : undefined}
+        aria-label={rows.length > 0 ? caption : undefined}
       >
         {rows.length === 0 ? (
           <div className="rounded-[14px] border-2 border-border bg-card px-4 py-6 text-center text-sm font-medium text-muted-foreground shadow-md">
@@ -209,10 +225,10 @@ export function DataTable<TData>({
             const href = rowHref ? rowHref(row.original) : null;
             const cells = row.getVisibleCells();
             const primary = cells[0];
-            const secondary = cells.slice(1, 3);
+            const others = cells.slice(1);
             return (
+              <div key={row.id} role="listitem">
               <div
-                key={row.id}
                 role={href ? "link" : undefined}
                 tabIndex={href ? 0 : undefined}
                 style={rowStyle?.(row.original)}
@@ -231,27 +247,48 @@ export function DataTable<TData>({
                     "cursor-pointer hover:bg-accent focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
                 )}
               >
-                <div className="text-sm font-bold">
+                <div className="min-w-0 break-words text-sm font-bold">
                   {primary ? flexRender(primary.column.columnDef.cell, primary.getContext()) : null}
                 </div>
-                {secondary.length > 0 ? (
-                  <div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
-                    {secondary.map((c) => (
-                      <div key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</div>
-                    ))}
-                  </div>
+                {others.length > 0 ? (
+                  <dl className="mt-2.5 flex flex-col gap-1.5 text-[13px] font-medium">
+                    {others.map((c) => {
+                      // A column named with plain text can label its value; one
+                      // headed by an icon or nothing (an actions column) cannot.
+                      const header = c.column.columnDef.header;
+                      const label = typeof header === "string" && header.trim() ? header : null;
+                      return (
+                        <div key={c.id} className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          {label ? (
+                            <dt className="shrink-0 text-xs font-bold text-muted-foreground">{label}</dt>
+                          ) : null}
+                          <dd className="min-w-0 break-words">
+                            {flexRender(c.column.columnDef.cell, c.getContext())}
+                          </dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
                 ) : null}
+              </div>
               </div>
             );
           })
         )}
       </div>
 
+      {/* Focusable, so a wide or long table can be scrolled from the keyboard
+          — a scroll container nothing inside can take focus in is otherwise
+          unreachable without a mouse. */}
       <div
-        className="hidden overflow-auto rounded-[14px] border-2 border-border bg-card shadow-md [scrollbar-gutter:stable] md:block"
+        role="region"
+        aria-label={caption ?? "Table"}
+        tabIndex={0}
+        className="hidden overflow-auto overscroll-x-contain rounded-[14px] border-2 border-border bg-card shadow-md outline-none [scrollbar-gutter:stable] focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring md:block"
         style={{ maxHeight }}
       >
         <table className="w-full text-left text-sm">
+          {caption ? <caption className="sr-only">{caption}</caption> : null}
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

@@ -17,7 +17,7 @@ export function TrialBanner({
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2 rounded-[14px] border-2 border-border bg-warning px-4 py-3 text-sm font-bold text-warning-foreground shadow-sm">
-      <Icon name="clock" className="size-4" />
+      <Icon name="clock" className="size-4 shrink-0" />
       {days === 0 ? (
         <span>Your trial ends today.</span>
       ) : (
@@ -27,7 +27,7 @@ export function TrialBanner({
       )}
       <Link
         href="/admin/billing"
-        className="underline decoration-2 underline-offset-2 hover:decoration-wavy"
+        className="rounded-[4px] underline decoration-2 underline-offset-2 outline-none hover:decoration-wavy focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         Upgrade your plan
       </Link>

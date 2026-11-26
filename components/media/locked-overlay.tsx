@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icon";
 import type { MediaPayload } from "./types";
 
+// An explicit locale: this renders on the server and again in the browser,
+// and the two must agree on where the separators go.
+const AMOUNT = new Intl.NumberFormat("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 function money(cents: number | null, currency: string | null): string {
   if (cents == null) return "";
-  return `${currency ?? ""} ${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}`.trim();
+  return `${currency ?? ""} ${AMOUNT.format(cents / 100)}`.trim();
 }
 
 /**

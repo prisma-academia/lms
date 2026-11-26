@@ -41,9 +41,19 @@ function prefersDark(): boolean {
 export function ThemeToggle({
   initialMode,
   className,
+  size = "sm",
+  onChange,
 }: {
   initialMode: ThemeMode;
   className?: string;
+  /**
+   * Told when the person picks a mode. For a parent that unmounts this (a
+   * menu that closes) and needs to bring it back showing the current choice
+   * rather than the one the page was rendered with.
+   */
+  onChange?: (mode: ThemeMode) => void;
+  /** `md` gives 44px targets, for menus and sheets used by touch. */
+  size?: "sm" | "md";
 }) {
   const [mode, setMode] = useState<ThemeMode>(initialMode);
 
@@ -86,9 +96,12 @@ export function ThemeToggle({
             onClick={() => {
               setMode(option.value);
               apply(option.value);
+              onChange?.(option.value);
             }}
             className={cn(
-              "flex size-8 items-center justify-center [touch-action:manipulation] transition-colors",
+              "flex items-center justify-center outline-none [touch-action:manipulation] transition-colors",
+              "focus-visible:outline-[3px] focus-visible:-outline-offset-[3px] focus-visible:outline-ring",
+              size === "md" ? "size-11" : "size-8",
               i > 0 && "border-l-2 border-border",
               active
                 ? "bg-primary text-primary-foreground"

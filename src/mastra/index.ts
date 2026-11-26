@@ -1,38 +1,20 @@
 import { Mastra } from '@mastra/core/mastra';
 import { PinoLogger } from '@mastra/loggers';
-import { PostgresStore } from '@mastra/pg';
 import { Observability, MastraStorageExporter, MastraPlatformExporter, SensitiveDataFilter } from '@mastra/observability';
 import { courseBuilderWorkflow } from './workflows/course-builder-workflow';
 import { courseBuilderAgent } from './agents/course-builder-agent';
 import { essayGraderAgent } from './agents/essay-grader-agent';
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __mastraPgStore: PostgresStore | undefined;
-}
-
-function getPgStore(): PostgresStore {
-  if (!globalThis.__mastraPgStore) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL is required for Mastra Postgres storage');
-    }
-
-    globalThis.__mastraPgStore = new PostgresStore({
-      id: 'mastra-storage',
-      connectionString,
-      // Keep Mastra tables out of the Prisma public schema collision surface.
-      schemaName: 'mastra',
-    });
-  }
-
-  return globalThis.__mastraPgStore;
-}
+import { certificateDesignerAgent } from './agents/certificate-designer-agent';
+import { siteBuilderAgent } from './agents/site-builder-agent';
+import { ensureStorageReady, getPgStore } from './storage';
+// Relative, not `@/lib/...` — see the path-alias note in lib/schemas/course-builder.ts.
+import { AiError } from '../../lib/ai/run';
 
 export const mastra = new Mastra({
   workflows: { courseBuilderWorkflow },
-  agents: { courseBuilderAgent, essayGraderAgent },
+  agents: { courseBuilderAgent, essayGraderAgent, certificateDesignerAgent, siteBuilderAgent },
   // Postgres covers memory, workflows, and observability (no LibSQL/DuckDB needed).
+  // Its tables are NOT created automatically — see ./storage.ts.
   storage: getPgStore(),
   logger: new PinoLogger({
     name: 'Mastra',
@@ -53,3 +35,25 @@ export const mastra = new Mastra({
     },
   }),
 });
+
+/**
+ * The Mastra instance, once its storage is ready to be written to.
+ *
+ * Application code must use this rather than the `mastra` export above: the
+ * export exists for the Mastra CLI, and using it directly on a database whose
+ * tables have not been created would fail on the first workflow snapshot.
+ */
+export async function getMastra(): Promise<typeof mastra> {
+  try {
+    await ensureStorageReady();
+  } catch (error) {
+    // The database, not the model, is what failed — and it is worth retrying:
+    // `ensureStorageReady` does not cache a failure.
+    throw new AiError(
+      'unavailable',
+      `AI storage is not ready: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
+    );
+  }
+  return mastra;
+}

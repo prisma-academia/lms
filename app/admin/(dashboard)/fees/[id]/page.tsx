@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/shell";
+import { formatDate, formatMoney } from "@/lib/format";
 import { FeeEditor, type AssignedClient } from "./fee-editor";
+import { tenantFormatContext } from "@/lib/tenant/format-context";
 
 function clientLabel(c: { email: string; firstName: string | null; lastName: string | null }): string {
   return `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim() || c.email;
@@ -34,6 +36,10 @@ export default async function FeeDetailPage({ params }: { params: Promise<{ id: 
     targetClients = memberships.map((m) => m.client);
   }
 
+  // Dates are formatted here, in the academy's locale and time zone; the
+  // editor is a Client Component and receives finished strings.
+  const formatContext = await tenantFormatContext(actor.tenantId);
+
   const paymentByClient = new Map(fee.payments.map((p) => [p.clientId, p]));
   const assigned: AssignedClient[] = targetClients.map((c) => {
     const p = paymentByClient.get(c.id);
@@ -42,7 +48,7 @@ export default async function FeeDetailPage({ params }: { params: Promise<{ id: 
       label: clientLabel(c),
       email: c.email,
       status: p?.status ?? "UNPAID",
-      paidAt: p?.paidAt?.toISOString() ?? null,
+      paidLabel: p?.paidAt ? formatDate(p.paidAt, formatContext) : null,
     };
   });
 
@@ -52,7 +58,9 @@ export default async function FeeDetailPage({ params }: { params: Promise<{ id: 
     <div>
       <PageHeader
         title={fee.name}
-        subtitle={`${paidCount}/${assigned.length} paid · ${(fee.amountCents / 100).toLocaleString(undefined, { style: "currency", currency: fee.currency })}`}
+        subtitle={`${formatMoney(fee.amountCents, fee.currency, formatContext.locale)} · ${paidCount} of ${assigned.length} paid${
+          fee.dueAt ? ` · due ${formatDate(fee.dueAt, formatContext)}` : ""
+        }`}
         backHref="/admin/fees"
         backLabel="Fees"
       />

@@ -3,12 +3,9 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { PageHeader, Card } from "@/components/shell";
+import { toZonedInput } from "@/lib/time/zoned-input";
 import { EventForm } from "../event-form";
-
-function toLocalInput(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+import { tenantFormatContext } from "@/lib/tenant/format-context";
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireTenantPage(PERMISSIONS.TENANT_EVENTS_READ.key);
@@ -19,16 +16,21 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   });
   if (!event) notFound();
 
+  // The form shows and reads times on the academy's own clock — see
+  // lib/time/zoned-input.ts for why the server's and the browser's will not do.
+  const { timeZone } = await tenantFormatContext(actor.tenantId);
+  const toLocalInput = (d: Date) => toZonedInput(d, timeZone);
+
   const audienceLabel =
     event.audience === "ALL"
-      ? "All clients"
+      ? "All learners"
       : event.audience === "CLIENT"
-        ? `Client: ${event.client?.email ?? "—"}`
-        : `Group: ${event.clientGroup?.name ?? "—"}`;
+        ? `One learner: ${event.client?.email ?? "—"}`
+        : `Learner group: ${event.clientGroup?.name ?? "—"}`;
 
   return (
     <div>
-      <PageHeader title={event.title} backHref="/admin/events" backLabel="Events" />
+      <PageHeader title={event.title} backHref="/admin/events" backLabel="Calendar" />
       <Card>
         <EventForm
           mode="edit"
@@ -48,6 +50,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
             recurrence: event.recurrence,
             recurrenceUntil: event.recurrenceUntil ? toLocalInput(event.recurrenceUntil) : "",
           }}
+          timeZone={timeZone}
           clients={[]}
           groups={[]}
           canWrite={hasPermission(actor, PERMISSIONS.TENANT_EVENTS_WRITE.key)}

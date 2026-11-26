@@ -45,7 +45,9 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 -translate-y-1/2",
-          "max-h-[90vh] overflow-y-auto rounded-[14px] border-2 border-border bg-card p-6 shadow-lg",
+          // overscroll-contain: scrolling to the end of a long dialog must not
+          // carry on into the page behind it.
+          "max-h-[90vh] overflow-y-auto overscroll-contain rounded-[14px] border-2 border-border bg-card p-6 shadow-lg",
           "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
           "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           className

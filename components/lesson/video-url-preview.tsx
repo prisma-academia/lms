@@ -32,6 +32,10 @@ export function VideoUrlPreview({ url }: { url: string }) {
         <img
           src={embed.thumbnailUrl}
           alt=""
+          width={71}
+          height={40}
+          loading="lazy"
+          decoding="async"
           className="h-10 w-[71px] shrink-0 rounded border-2 border-border object-cover"
         />
       ) : null}

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { apiPost, apiPatch } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { FormField, TextInput, TextArea, SelectInput } from "@/components/form-field";
 import { Segmented } from "@/components/ui/segmented";
 import { Icon } from "@/components/icon";

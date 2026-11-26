@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { FormField, TextInput } from "@/components/form-field";
 
 const Schema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
+  email: z.email("Enter a valid email address."),
+  password: z.string().min(1, "Enter your password."),
 });
 
 type Values = z.infer<typeof Schema>;
@@ -32,14 +32,18 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <FormField label="Email" htmlFor="email" error={formState.errors.email?.message}>
-        <TextInput id="email" type="email" autoComplete="email" {...register("email")} />
+        <TextInput id="email" type="email" autoComplete="email" spellCheck={false} {...register("email")} />
       </FormField>
       <FormField label="Password" htmlFor="password" error={formState.errors.password?.message}>
         <TextInput id="password" type="password" autoComplete="current-password" {...register("password")} />
       </FormField>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm font-bold text-destructive">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" disabled={formState.isSubmitting}>
         {formState.isSubmitting ? "Signing in…" : "Sign in"}
       </Button>

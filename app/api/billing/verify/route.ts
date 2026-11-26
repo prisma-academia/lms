@@ -1,57 +1,73 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db/client";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
-import { paystackProvider } from "@/lib/billing/paystack";
-import { flutterwaveProvider } from "@/lib/billing/flutterwave";
-import { fulfillPayment, type FulfillProvider } from "@/lib/billing/fulfillment";
-import type { PaymentProvider } from "@/lib/generated/prisma/enums";
+import { resolveRequestContext } from "@/lib/db/resolve-context";
+import { fulfillPayment } from "@/lib/billing/fulfillment";
+import { findPaymentByReference } from "@/lib/billing/payments";
+import { gatewayError, gatewayForPayment } from "@/lib/billing/providers";
+import { isBillingReference } from "@/lib/billing/redirect";
 
 const Body = z.object({
-  reference: z.string().min(1),
+  reference: z.string().min(1).max(100),
 });
 
 /**
- * Callback/redirect fallback. After a checkout the provider redirects back with
- * the transaction reference in the query string; the client posts it here so the
- * purchase fulfills even if the provider webhook is delayed or missed. Fully
- * idempotent — safe to call after the webhook already fulfilled.
+ * Callback/redirect fallback. After a checkout the gateway sends the customer
+ * back with the payment reference in the query string; the page posts it here
+ * so the purchase fulfils even if the gateway's webhook is delayed or missed.
+ * Fully idempotent — safe to call after the webhook has already done the work.
  *
- * The provider is resolved from our own PENDING payment row (not client input),
- * which also proves the reference is one we issued.
+ * Nothing in the request is trusted beyond the reference itself. Which gateway
+ * to ask, what was bought and what it should have cost all come from our own
+ * payment row — and finding that row is also the proof that the reference is
+ * one we issued. The lookup runs under the caller's tenant scope, so a
+ * reference from another academy is simply "unknown".
  */
 export async function POST(request: Request) {
   try {
     await requireCsrf(request);
     const { reference } = Body.parse(await request.json());
 
-    // Find which payment table owns this reference, and its provider + status.
-    const [platform, course, programme] = await Promise.all([
-      prisma.platformPayment.findUnique({ where: { externalRef: reference }, select: { provider: true, status: true } }),
-      prisma.coursePayment.findUnique({ where: { externalRef: reference }, select: { provider: true, status: true } }),
-      prisma.programmePayment.findUnique({ where: { externalRef: reference }, select: { provider: true, status: true } }),
-    ]);
-
-    const record = platform ?? course ?? programme;
+    const found = isBillingReference(reference) ? await findPaymentByReference(reference) : null;
+    // Subscription payments live in a table that is not tenant-scoped, so the
+    // scope the other three get for free is applied here by hand.
+    const scope = await resolveRequestContext();
+    const record = found && (!scope?.tenantId || scope.tenantId === found.tenantId) ? found : null;
     if (!record) throw new DomainError(404, "unknown_reference", "Unknown payment reference.");
 
     // Already fulfilled — nothing to do.
     if (record.status === "SUCCESS") return ok({ status: "success" });
 
-    const providerName = toFulfillProvider(record.provider);
-    const provider = providerName === "PAYSTACK" ? paystackProvider : flutterwaveProvider;
+    const gateway = gatewayForPayment(record.provider);
+    // Recorded by staff, or taken on a gateway that has since been switched
+    // off: there is nobody to ask, so it stays as it is.
+    if (!gateway) return ok({ status: "pending" });
 
-    const event = await provider.verifyTransaction(reference);
+    let event;
+    try {
+      event = await gateway.provider.verifyTransaction(reference);
+    } catch (err) {
+      throw gatewayError(err, "customer", "verify");
+    }
     if (!event) return ok({ status: "pending" });
 
-    await fulfillPayment(event, providerName);
-    return ok({ status: "success" });
+    const result = await fulfillPayment(event, gateway.name);
+    if (result.outcome === "fulfilled" || result.outcome === "already_fulfilled") {
+      return ok({ status: "success" });
+    }
+    if (result.outcome === "rejected") {
+      // Money arrived, but not the amount charged. Say so plainly — "still
+      // processing" would have the customer waiting for something that will
+      // never happen on its own.
+      throw new DomainError(
+        409,
+        "payment_mismatch",
+        "We received a payment, but it does not match the amount due, so it has not been applied. Please contact support and quote your payment reference."
+      );
+    }
+    return ok({ status: "pending" });
   } catch (e) {
     return handleError(e);
   }
-}
-
-function toFulfillProvider(provider: PaymentProvider): FulfillProvider {
-  return provider === "FLUTTERWAVE" ? "FLUTTERWAVE" : "PAYSTACK";
 }
