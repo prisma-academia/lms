@@ -18,6 +18,8 @@ import { publicItemExists } from "@/lib/site/public-catalog";
 import { academyExists } from "@/lib/tenant/exists";
 import { isProd } from "@/lib/env";
 
+const METADATA_IMAGE_PATHS = new Set(["/icon", "/apple-icon", "/opengraph-image", "/twitter-image"]);
+
 // "/…/auth/setup" is where the button in an invitation or reset email lands:
 // it has to open for someone who is not signed in.
 const PUBLIC_PLATFORM = [
@@ -77,6 +79,10 @@ export function proxy(request: NextRequest): NextResponse | Promise<NextResponse
 
   if (path.startsWith("/api/")) return NextResponse.next();
   if (path.startsWith("/_next/") || path === "/favicon.ico") return NextResponse.next();
+  // Root metadata images (app/icon.tsx, apple-icon.tsx, opengraph-image.tsx)
+  // have no file extension, so the matcher lets them in; rewriting them to a
+  // host's section (/m, /c, …) would 404 the tab icon and link previews.
+  if (METADATA_IMAGE_PATHS.has(path)) return NextResponse.next();
   // Maintenance screen must serve on any host without auth/rewrite so the
   // lifecycle redirect (PRD §13) does not loop back to a login redirect.
   if (path === "/maintenance") return NextResponse.next();
