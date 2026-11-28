@@ -17,6 +17,7 @@ import { findQuizCourse, type QuizCourse } from "@/lib/assessments/quiz-access";
 import { effectivePassMark, passingAttemptWhere } from "@/lib/assessments/pass-mark";
 import { enforceRateLimit, RATE_PRESETS } from "@/lib/auth/rate-limit";
 import { parseRubric } from "@/lib/schemas/essay-grading";
+import { candidateView, hashSeed } from "@/lib/assessments/types";
 
 /**
  * A quiz containing essays makes one LLM call on submit. 120s gives ample
@@ -42,8 +43,15 @@ const SubmitBody = z.object({
   answers: z.record(
     z.string(),
     // Text answers are capped: an essay is sent to a model, and an unbounded
-    // string is an unbounded bill. Far above any real answer.
-    z.union([z.array(z.number().int()).max(50), z.string().max(MAX_ESSAY_CHARS)])
+    // string is an unbounded bill. Far above any real answer. The newer types
+    // send small structured answers (pairs, blanks, a click point); each is
+    // validated by the question-type registry when graded, and their size is
+    // bounded here.
+    z.union([
+      z.array(z.number().int()).max(50),
+      z.string().max(MAX_ESSAY_CHARS),
+      z.unknown().refine((v) => v === null || JSON.stringify(v).length <= 20_000, "Answer too large."),
+    ])
   ),
 });
 
@@ -120,6 +128,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
           type: qq.question.type,
           prompt: qq.question.prompt,
           options: qq.question.optionsJson,
+          // The candidate-safe view the shared player renders (no keys). Seeded
+          // by the quiz so a learner sees the same order on every visit.
+          view: candidateView(qq.question, hashSeed(quiz.id)),
+          media: qq.question.mediaJson ?? null,
           points: qq.points ?? qq.question.points,
           minWords: rubric?.minWords ?? null,
           maxWords: rubric?.maxWords ?? null,

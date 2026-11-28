@@ -24,6 +24,7 @@ import { checkPaidAmount, findPaymentByReference, type AmountCheck, type Payment
 import type { GatewayName, WebhookEvent } from "./types";
 import { recordEnrollmentReferral, recordPurchaseReferral } from "@/lib/referrals/attribution";
 import { readReferralCookie } from "@/lib/referrals/cookie";
+import { emitEvent } from "@/lib/integrations/events";
 
 export type FulfillProvider = GatewayName;
 
@@ -340,6 +341,23 @@ async function settlePayment(
     targetId: purchase.itemId,
     after: { clientId: purchase.clientId, reference: record.reference, provider, ...detail } as object,
   });
+
+  // Webhooks, once per purchase. emitEvent never throws and runs after the response.
+  await emitEvent(
+    record.tenantId,
+    "payment.succeeded",
+    {
+      paymentId: record.id,
+      kind: purchase.kind,
+      itemId: purchase.itemId,
+      learnerId: purchase.clientId,
+      amountCents: record.amountCents,
+      currency: record.currency,
+      provider,
+      reference: record.reference,
+    },
+    { learnerId: purchase.clientId }
+  );
 
   // REFERRAL-HOOK: purchase fulfilled
   // Reached once per purchase, never on a replay, and only after the amount

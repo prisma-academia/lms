@@ -4,6 +4,8 @@ import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { expandOccurrences } from "@/lib/calendar/occurrences";
 import { DataTableToolbar } from "@/components/data-table-toolbar";
 import { MonthCalendar } from "@/components/month-calendar";
+import { CalendarFeedCard } from "@/components/calendar-feed-card";
+import { feedStatus } from "@/lib/calendar/feeds";
 
 function parseMonth(month: string | undefined): { year: number; month: number } {
   const m = month && /^\d{4}-\d{2}$/.test(month) ? month : null;
@@ -42,6 +44,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
   ).map((o) => ({ id: o.id, dateISO: o.date.toISOString(), title: o.title, type: o.type }));
 
   const canWrite = hasPermission(actor, PERMISSIONS.TENANT_EVENTS_WRITE.key);
+  const feed = await feedStatus(actor.tenantId, { type: "TENANT", id: actor.userId });
 
   return (
     <div>
@@ -58,6 +61,14 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
         basePath="/admin/events"
         eventHrefPrefix="/admin/events"
       />
+      <div className="mt-6">
+        <CalendarFeedCard
+          endpoint="/api/tenant/calendar-feed"
+          initial={feed}
+          title="Subscribe in your calendar app"
+          description="Every event and published exam in the academy, in Google Calendar, Apple Calendar or Outlook. A private link just for you."
+        />
+      </div>
     </div>
   );
 }

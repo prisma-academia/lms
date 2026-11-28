@@ -7,7 +7,7 @@ export default function ClientChangePasswordPage() {
       title="Choose a new password"
       subtitle="Enter the password you have now, then choose a new one that only you know."
     >
-      <ChangePasswordForm dialogErrors />
+      <ChangePasswordForm surface="tenant_client" dialogErrors />
     </AuthCard>
   );
 }

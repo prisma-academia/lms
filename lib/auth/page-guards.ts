@@ -7,6 +7,7 @@ import { parseTenantSettings } from "@/lib/tenant/settings";
 import { RETURN_PATH_HEADER, SESSION_ENDED, SESSION_PARAM, sessionEndedHref } from "@/lib/auth/next-path";
 import {
   hasPermission,
+  PERMISSIONS,
   type PermissionKey,
   type PlatformActor,
   type TenantActor,
@@ -58,6 +59,9 @@ export async function requirePlatformPage(
   return actor;
 }
 
+/** Being able to change academy settings is what makes the set-up wizard yours to finish. */
+const SETTINGS_WRITE = PERMISSIONS.TENANT_SETTINGS_WRITE.key;
+
 export async function requireTenantPage(
   permission?: PermissionKey,
   opts?: { skipOnboardingGate?: boolean }
@@ -90,11 +94,6 @@ export async function requireTenantPage(
   // Redirecting from the guard fires before the page renders, yielding a clean
   // HTTP redirect. `skipOnboardingGate` exempts the onboarding/setup routes
   // themselves so they don't redirect to their own destination.
-  if (!opts?.skipOnboardingGate && user.isOwner) {
-    const settings = parseTenantSettings(tenant.settingsJson);
-    if (!settings.onboarding?.completedAt) redirect("/admin/onboarding");
-  }
-
   const actor: TenantActor = {
     kind: "tenant",
     userId: user.id,
@@ -102,6 +101,18 @@ export async function requireTenantPage(
     isOwner: user.isOwner,
     permissions: new Set(user.permissions),
   };
+
+  // Who is sent to the wizard: anyone who can actually complete it — the owner,
+  // and staff allowed to change academy settings. Staff who cannot (an
+  // instructor invited before the owner finished) go straight to the dashboard:
+  // sending them to a wizard they are not allowed to save would trap them.
+  // An academy that finished or skipped set-up before this wizard existed has
+  // `completedAt` already and is never sent back through it.
+  if (!opts?.skipOnboardingGate && hasPermission(actor, SETTINGS_WRITE)) {
+    const settings = parseTenantSettings(tenant.settingsJson);
+    if (!settings.onboarding?.completedAt) redirect("/admin/onboarding");
+  }
+
   if (permission && !hasPermission(actor, permission)) {
     redirect("/admin/dashboard");
   }

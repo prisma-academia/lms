@@ -5,6 +5,7 @@ import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { syncLiveSessionMeeting } from "@/lib/integrations/meetings";
 
 const Base = {
   title: z.string().min(1).max(200),
@@ -91,6 +92,10 @@ export async function POST(request: Request) {
       ip: meta.ip,
       userAgent: meta.userAgent,
     });
+    // Integrations hub: a live session without a link gets a Zoom / Meet
+    // meeting when the academy switched that on. Never throws or blocks the save.
+    const joinUrl = await syncLiveSessionMeeting(actor.tenantId, event.id);
+    if (joinUrl) event.url = joinUrl;
     return ok({ event }, undefined, 201);
   } catch (e) {
     return handleError(e);

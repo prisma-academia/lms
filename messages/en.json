@@ -18,6 +18,7 @@
     "assignments": "Assignments",
     "questionBanks": "Question banks",
     "quizzes": "Quizzes",
+    "exams": "Exams (CBT)",
     "certificates": "Certificates",
     "events": "Calendar",
     "messages": "Messages",
@@ -36,7 +37,9 @@
     "groupEngagement": "Engagement",
     "groupPayments": "Payments",
     "groupWebsite": "Website",
-    "groupSystem": "System"
+    "groupSystem": "System",
+    "developers": "Developers",
+    "integrations": "Integrations"
   },
   "auth": {
     "loginTitle": "Sign in",

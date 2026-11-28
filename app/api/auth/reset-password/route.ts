@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db/client";
 import { resolveHost } from "@/lib/auth/context";
 import { hashOpaqueToken } from "@/lib/auth/tokens";
 import { hashPassword, validatePolicy, assertNotReused, recordPassword } from "@/lib/auth/password";
-import { revokeAllSessionsForUser } from "@/lib/auth/session";
+import { createSession, revokeAllSessionsForUser } from "@/lib/auth/session";
+import { clientProfileIncomplete } from "@/lib/auth/client-profile";
+import { isTenantBillingBlocked } from "@/lib/tenant/plan";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
@@ -81,6 +83,18 @@ export async function POST(request: Request) {
         ip: meta.ip,
         userAgent: meta.userAgent,
       });
+      if (user.mustChangePassword) {
+        await prisma.platformUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+        await createSession({
+          userId: user.id,
+          userType: "PLATFORM",
+          tenantId: null,
+          scope: "FULL",
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return ok({ redirect: "/dashboard", signedIn: true });
+      }
       return ok({ redirect: "/auth/login" });
     }
 
@@ -117,6 +131,20 @@ export async function POST(request: Request) {
         ip: meta.ip,
         userAgent: meta.userAgent,
       });
+      // See the note on the learner branch below. The dashboard sends an owner
+      // whose academy is not set up yet on to the setup wizard.
+      if (user.mustChangePassword && tenant.status === "ACTIVE" && !isTenantBillingBlocked(tenant)) {
+        await prisma.tenantUser.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+        await createSession({
+          userId: user.id,
+          userType: "TENANT",
+          tenantId: tenant.id,
+          scope: "FULL",
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return ok({ redirect: "/admin/dashboard", signedIn: true });
+      }
       return ok({ redirect: "/admin/auth/login" });
     }
 
@@ -153,6 +181,22 @@ export async function POST(request: Request) {
         ip: meta.ip,
         userAgent: meta.userAgent,
       });
+      // An account that was waiting for its first password — an invitation or
+      // an administrator's reset — is signed in by setting it: the link proved
+      // the mailbox, and asking for the password again one screen later adds
+      // nothing. A forgotten-password reset still ends at the sign-in page.
+      if (client.mustChangePassword && tenant.status === "ACTIVE") {
+        await prisma.client.update({ where: { id: client.id }, data: { lastLoginAt: new Date() } });
+        await createSession({
+          userId: client.id,
+          userType: "CLIENT",
+          tenantId: tenant.id,
+          scope: "FULL",
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return ok({ redirect: clientProfileIncomplete(client.profileJson) ? "/profile" : "/dashboard", signedIn: true });
+      }
       return ok({ redirect: "/auth/login" });
     }
 

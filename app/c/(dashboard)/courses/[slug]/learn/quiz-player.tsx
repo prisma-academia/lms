@@ -10,6 +10,11 @@ import { useToast } from "@/components/ui/toast";
 import { useApiError } from "@/components/use-api-error";
 import type { QuestionTypeValue } from "@/lib/schemas/question";
 import type { ReviewItem, ReviewSource } from "@/lib/assessments/review-links";
+import { QuestionPlayer, type Media } from "@/components/assessments/question-player";
+import { MathText } from "@/components/assessments/math-text";
+
+/** Rendered inline below; every other type goes through the shared player. */
+const CLASSIC = new Set<string>(["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "SHORT_ANSWER", "ESSAY"]);
 
 type QType = QuestionTypeValue;
 type Q = {
@@ -23,6 +28,9 @@ type Q = {
   maxWords?: number | null;
   /** Present only when the quiz allows hints and this question has one. */
   hint?: string | null;
+  /** Candidate-safe view for the shared player (newer types). */
+  view?: unknown;
+  media?: Media | null;
 };
 type QuizPayload = {
   id: string;
@@ -34,7 +42,7 @@ type QuizPayload = {
   questions: Q[];
 };
 type GradingStatus = "GRADED" | "PENDING" | "FAILED";
-type AnswerMap = Record<string, number[] | string>;
+type AnswerMap = Record<string, unknown>;
 type EssayFeedback = Record<
   string,
   { feedback: string; criteria: { id: string; label: string; score01: number; comment: string }[] }
@@ -433,7 +441,8 @@ export function QuizPlayer({
           <div key={q.id} className="rounded-[10px] border-2 border-border bg-muted p-4">
             <div className="mb-2 flex items-start justify-between gap-2">
               <p className="text-sm font-bold text-foreground">
-                {idx + 1}. {q.prompt}
+                {idx + 1}.{" "}
+                {q.type === "FILL_BLANKS" ? "Fill in the blanks." : <MathText>{q.prompt}</MathText>}
               </p>
               <Badge>{q.points} pt</Badge>
             </div>
@@ -463,6 +472,13 @@ export function QuizPlayer({
                   </div>
                 );
               })()
+            ) : !CLASSIC.has(q.type) ? (
+              <QuestionPlayer
+                question={{ id: q.id, type: q.type, prompt: q.prompt, view: q.view, media: q.media ?? null }}
+                value={answers[q.id]}
+                onChange={(v) => setAnswers((prev) => ({ ...prev, [q.id]: v }))}
+                hidePrompt
+              />
             ) : q.type === "SHORT_ANSWER" ? (
               <input
                 type="text"
@@ -491,7 +507,7 @@ export function QuizPlayer({
                         onChange={() => setChoice(q.id, i, multi)}
                         className="size-5 shrink-0 accent-[var(--primary)]"
                       />
-                      {opt}
+                      <MathText>{opt}</MathText>
                     </label>
                   );
                 })}

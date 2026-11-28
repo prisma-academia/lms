@@ -1,17 +1,26 @@
 import type { QuestionTypeValue } from "@/lib/schemas/question";
 import { parseRubric, rubricFraction, type EssayGrade } from "@/lib/schemas/essay-grading";
+import { gradeQuestion } from "@/lib/assessments/types";
 
 export type ScorableQuestion = {
   id: string;
   type: QuestionTypeValue;
+  /** Needed by types whose key lives in the prompt (fill in the blanks). */
+  prompt?: string;
+  optionsJson?: unknown;
+  partialCredit?: boolean | null;
   answerJson: unknown;
   /** ESSAY only; the rubric the AI grade was produced against. */
   rubricJson?: unknown;
   points: number;
 };
 
-/** A learner's response for one question: selected option indices, or text. */
-export type Response = number[] | string | undefined;
+/**
+ * A learner's response for one question. Selected option indices or text for
+ * the classic types; a type-specific shape for the rest (see the registry in
+ * lib/assessments/types). Validated there, so it is opaque here.
+ */
+export type Response = unknown;
 
 /** Per-question outcome, persisted on the attempt for admin review. */
 export type QuestionResult = {
@@ -37,31 +46,18 @@ export type QuestionResult = {
  * saying so — silently zeroing an ungraded essay would fail an honest learner.
  */
 export function gradeObjective(q: ScorableQuestion, response: Response): number | null {
-  const answer = Array.isArray(q.answerJson) ? q.answerJson : [];
-  switch (q.type) {
-    case "SINGLE_CHOICE":
-    case "TRUE_FALSE": {
-      const correct = answer[0];
-      const resp = Array.isArray(response) ? response[0] : undefined;
-      return resp !== undefined && resp === correct ? 1 : 0;
-    }
-    case "MULTIPLE_CHOICE": {
-      const correctSet = new Set(answer as number[]);
-      const respArr = Array.isArray(response) ? response : [];
-      const respSet = new Set(respArr);
-      const same = correctSet.size === respSet.size && [...correctSet].every((x) => respSet.has(x));
-      return same ? 1 : 0;
-    }
-    case "SHORT_ANSWER": {
-      const accept = (answer as string[]).map((s) => String(s).trim().toLowerCase());
-      const resp = typeof response === "string" ? response.trim().toLowerCase() : "";
-      return resp !== "" && accept.includes(resp) ? 1 : 0;
-    }
-    case "ESSAY":
-      return null;
-    default:
-      return 0;
-  }
+  if (q.type === "ESSAY") return null;
+  // Every rule lives in the type registry, shared with exam grading.
+  return gradeQuestion(
+    {
+      type: q.type,
+      prompt: q.prompt ?? "",
+      optionsJson: q.optionsJson ?? [],
+      answerJson: q.answerJson,
+      partialCredit: q.partialCredit,
+    },
+    response
+  ).fraction;
 }
 
 /** Questions in this quiz that need an AI grade before the score is final. */

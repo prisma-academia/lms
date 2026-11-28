@@ -1,6 +1,6 @@
 import { z } from "zod";
 // Sibling import, not `@/lib/schemas/question` — see the path-alias note below.
-import { questionTypeSchema } from "./question";
+import { classicQuestionTypeSchema as questionTypeSchema } from "./question";
 import { essayRubricSchema } from "./essay-grading";
 
 /**

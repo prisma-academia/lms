@@ -1,7 +1,7 @@
 import type { SelectOption } from "@/lib/geo/options";
 import { lessonTextToHtml } from "@/lib/courses/lesson-markdown";
 
-export type LessonContentType = "TEXT" | "HTML" | "VIDEO_URL" | "FILE" | "QUIZ";
+export type LessonContentType = "TEXT" | "HTML" | "VIDEO_URL" | "FILE" | "QUIZ" | "EXAM";
 
 export type LessonRow = {
   id: string;
@@ -111,6 +111,7 @@ export const CONTENT_TYPE_OPTIONS = [
   { value: "VIDEO_URL", label: "Video (YouTube, Vimeo, or file)" },
   { value: "FILE", label: "Library file" },
   { value: "QUIZ", label: "Quiz" },
+  { value: "EXAM", label: "Exam (CBT)" },
 ];
 
 /**
@@ -126,6 +127,7 @@ export function bodyFieldLabel(type: LessonContentType): string {
   if (type === "TEXT" || type === "HTML") return "Lesson content";
   if (type === "VIDEO_URL") return "Video link";
   if (type === "FILE") return "Library file";
+  if (type === "EXAM") return "Exam";
   return "Quiz";
 }
 
@@ -178,7 +180,7 @@ export function serializeStructureHints(opts: {
  * because both of them write lessons, and two copies of the mapping is two
  * chances for a content type to be saved under the wrong key.
  */
-export function buildContentJson(type: LessonContentType, body: string, quizId: string) {
+export function buildContentJson(type: LessonContentType, body: string, quizId: string, examId = "") {
   return type === "TEXT"
     ? { body }
     : type === "HTML"
@@ -187,7 +189,9 @@ export function buildContentJson(type: LessonContentType, body: string, quizId: 
         ? { url: body.trim() }
         : type === "QUIZ"
           ? { quizId }
-          : {};
+          : type === "EXAM"
+            ? { examId }
+            : {};
 }
 
 export function getLessonBody(lesson: LessonRow): string {
@@ -204,6 +208,6 @@ export function getLessonBody(lesson: LessonRow): string {
   if (lesson.contentType === "HTML") {
     return typeof lesson.contentJson.html === "string" ? lesson.contentJson.html : "";
   }
-  if (lesson.contentType === "QUIZ") return "";
+  if (lesson.contentType === "QUIZ" || lesson.contentType === "EXAM") return "";
   return lesson.assetKey ?? "";
 }

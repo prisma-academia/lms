@@ -11,10 +11,8 @@ import {
 import { isValidSlug, RESERVED_SLUGS } from "@/lib/auth/context";
 import { TENANT_BUILTIN_ROLES, ALL_TENANT_PERMISSION_KEYS } from "@/lib/auth/permissions";
 import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/password";
-import { sendEmail } from "@/lib/email/send";
-import { inviteEmail } from "@/lib/email/templates";
+import { sendInvitation } from "@/lib/auth/setup-email";
 import { loadTenantBrandingById } from "@/lib/email/branding";
-import { env } from "@/lib/env";
 import { requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
@@ -23,7 +21,6 @@ import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { isValidCountryCode } from "@/lib/geo/countries";
 import { tenantCreateDefaults } from "@/lib/tenant/bootstrap";
 import { getDefaultTenantSettings } from "@/lib/tenant/defaults";
-import { appScheme } from "@/lib/url/scheme";
 
 const QUARANTINE_DAYS = 90;
 
@@ -88,8 +85,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    // Nobody is ever told this password. It only fills the column until the
+    // person chooses their own through the link in their invitation.
+    const passwordHash = await hashPassword(generateTempPassword());
     const defaults = tenantCreateDefaults();
     const defaultSettings = await getDefaultTenantSettings();
 
@@ -168,22 +166,18 @@ export async function POST(request: Request) {
 
     await recordPassword("TENANT", created.owner.id, passwordHash);
 
-    const loginUrl = `${appScheme()}://${body.slug}.${env.APP_DOMAIN}/admin/auth/login`;
     const branding = await loadTenantBrandingById(created.tenant.id);
-    await sendEmail({
-      to: body.ownerEmail,
-      subject: `You're invited to ${body.name}`,
-      replyTo: branding.isPlatform ? undefined : branding.supportEmail,
-      fromName: branding.name,
-      html: inviteEmail(branding, {
-        name: `${body.ownerFirstName} ${body.ownerLastName}`,
-        loginUrl,
-        tempPassword,
-        subjectLabel: `${body.name} as the owner`,
-      }),
+    const invitation = await sendInvitation({
+      userType: "TENANT",
+      userId: created.owner.id,
+      tenantId: created.tenant.id,
+      tenantSlug: created.tenant.slug,
+      branding,
+      to: body.ownerEmail.toLowerCase(),
+      name: `${body.ownerFirstName} ${body.ownerLastName}`,
+      role: "owner",
     });
-
-    return ok({ tenant: created.tenant });
+    return ok({ tenant: created.tenant, invitationSent: invitation.sent });
   } catch (e) {
     return handleError(e);
   }

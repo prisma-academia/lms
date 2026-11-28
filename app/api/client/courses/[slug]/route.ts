@@ -9,6 +9,7 @@ import { checkoutReturnUrl } from "@/lib/billing/redirect";
 import { billingReference } from "@/lib/billing/reference";
 import { recordEnrollmentReferral } from "@/lib/referrals/attribution";
 import { readReferralCookie } from "@/lib/referrals/cookie";
+import { emitEvent } from "@/lib/integrations/events";
 
 const EnrollBody = z.object({
   // Older pages let the learner pick a gateway. The platform chooses now
@@ -83,6 +84,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ slug: stri
         courseId: course.id,
         cookieCode: await readReferralCookie(),
       });
+      // Webhook; never throws, runs after the response.
+      await emitEvent(
+        actor.tenantId,
+        "enrollment.created",
+        { enrollmentId: enrollment.id, learnerId: actor.clientId, courseId: course.id, enrolledAt: enrollment.enrolledAt.toISOString(), source: "self" },
+        { learnerId: actor.clientId }
+      );
       return ok({ enrollment, checkoutUrl: null }, undefined, 201);
     }
 

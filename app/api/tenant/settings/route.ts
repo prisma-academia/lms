@@ -7,6 +7,8 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { tenantSettingsSchema, parseTenantSettings } from "@/lib/tenant/settings";
 import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
+import { listInWords, onboardingMissing } from "@/lib/tenant/onboarding";
+import { isValidCountryCode } from "@/lib/geo/countries";
 
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -18,7 +20,12 @@ const PatchBody = z.object({
   city: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),
   postalCode: z.string().max(40).nullable().optional(),
-  country: z.string().max(2).nullable().optional(),
+  country: z
+    .string()
+    .max(2)
+    .nullable()
+    .optional()
+    .refine((v) => !v || isValidCountryCode(v), "Choose a country from the list."),
   settings: tenantSettingsSchema.partial().optional(),
 });
 
@@ -59,7 +66,37 @@ export async function PATCH(request: Request) {
     const merged = tenantSettingsSchema.parse({
       ...current,
       ...(body.settings ?? {}),
+      // `onboarding` is merged a level deeper than the rest. It also carries
+      // the trial-reminder stamps written by the billing job, and a wizard step
+      // that sends only `completedSteps` must not wipe them.
+      ...(body.settings?.onboarding
+        ? { onboarding: { ...(current.onboarding ?? {}), ...body.settings.onboarding } }
+        : {}),
     });
+
+    // An academy is only marked as set up when what set-up asks for is really
+    // there — not because a client sent the flag. Checked once, at the moment
+    // the flag is first set; an academy already marked is left alone.
+    if (merged.onboarding?.completedAt && !current.onboarding?.completedAt) {
+      const me = await prisma.tenantUser.findUnique({
+        where: { id: actor.userId },
+        select: { firstName: true, lastName: true },
+      });
+      const missing = onboardingMissing({
+        firstName: me?.firstName,
+        lastName: me?.lastName,
+        academyName: body.name ?? before.name,
+        companyEmail: body.companyEmail !== undefined ? body.companyEmail : before.companyEmail,
+        country: body.country !== undefined ? body.country : before.country,
+      });
+      if (missing.length > 0) {
+        throw new DomainError(
+          400,
+          "onboarding_incomplete",
+          `Set-up cannot be finished yet. Still needed: ${listInWords(missing)}.`
+        );
+      }
+    }
 
     const updated = await prisma.tenant.update({
       where: { id: actor.tenantId },

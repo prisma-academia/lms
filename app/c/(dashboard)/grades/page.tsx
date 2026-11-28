@@ -19,7 +19,7 @@ const RECENT_LIMIT = 20;
 export default async function GradesPage() {
   const actor = await requireClientPage();
 
-  const [grades, format] = await Promise.all([
+  const [grades, format, examAttempts, quizAttempts] = await Promise.all([
     prisma.grade.findMany({
       where: { clientId: actor.clientId },
       orderBy: { gradedAt: "desc" },
@@ -30,7 +30,37 @@ export default async function GradesPage() {
       },
     }),
     tenantFormatContext(actor.tenantId),
+    // Released CBT results only: an unreleased score is not the learner's yet.
+    prisma.examAttempt.findMany({
+      where: { candidate: { clientId: actor.clientId }, releasedAt: { not: null }, gradingStatus: "GRADED" },
+      orderBy: { submittedAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        examId: true,
+        scorePercent: true,
+        grade: true,
+        passed: true,
+        submittedAt: true,
+        exam: { select: { title: true, reviewMode: true } },
+      },
+    }),
+    prisma.quizAttempt.findMany({
+      where: { clientId: actor.clientId, gradingStatus: "GRADED", submittedAt: { not: null } },
+      orderBy: { submittedAt: "desc" },
+      take: 200,
+      select: { quizId: true, scorePercent: true, passed: true, submittedAt: true, quiz: { select: { title: true } } },
+    }),
   ]);
+
+  // Best score per quiz.
+  const bestQuiz = new Map<string, (typeof quizAttempts)[number]>();
+  for (const a of quizAttempts) {
+    const cur = bestQuiz.get(a.quizId);
+    if (!cur || (a.scorePercent ?? 0) > (cur.scorePercent ?? 0)) bestQuiz.set(a.quizId, a);
+  }
+  const quizzes = [...bestQuiz.values()];
+  const exams = examAttempts.filter((a) => a.exam.reviewMode !== "NONE");
 
   const courseIds = Array.from(new Set(grades.map((g) => g.courseId)));
   const courses = courseIds.length
@@ -66,7 +96,55 @@ export default async function GradesPage() {
     <div>
       <PageHeader title="Grades" subtitle="Your marks across every course" />
 
-      {grades.length === 0 ? (
+      {exams.length > 0 || quizzes.length > 0 ? (
+        <div className="mb-4 grid gap-4 lg:grid-cols-2">
+          {exams.length > 0 ? (
+            <section aria-labelledby="grades-exams" className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
+              <h2 id="grades-exams" className={SECTION_HEADING}>
+                Exam results
+              </h2>
+              <ul className="divide-dash">
+                {exams.map((a) => (
+                  <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <a href={`/exam/${a.examId}/done?attempt=${a.id}`} className="min-w-0">
+                      <span className="block break-words text-[13.5px] font-bold underline-offset-4 hover:underline">{a.exam.title}</span>
+                      <span className="text-[12px] font-medium text-muted-foreground">
+                        {a.submittedAt ? formatDate(a.submittedAt, format) : ""} · {a.passed ? "Passed" : "Not passed"}
+                      </span>
+                    </a>
+                    <span className="num shrink-0 rounded-[8px] border-2 border-border bg-background px-2 py-1 text-[13px] font-bold">
+                      {a.scorePercent != null ? `${Math.round(a.scorePercent)}%` : "—"}
+                      {a.grade ? ` · ${a.grade}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {quizzes.length > 0 ? (
+            <section aria-labelledby="grades-quizzes" className="rounded-[14px] border-2 border-border bg-card p-5 shadow-md">
+              <h2 id="grades-quizzes" className={SECTION_HEADING}>
+                Quizzes (best score)
+              </h2>
+              <ul className="divide-dash">
+                {quizzes.map((a) => (
+                  <li key={a.quizId} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="min-w-0">
+                      <span className="block break-words text-[13.5px] font-bold">{a.quiz.title}</span>
+                      <span className="text-[12px] font-medium text-muted-foreground">{a.passed ? "Passed" : "Not passed yet"}</span>
+                    </span>
+                    <span className="num shrink-0 rounded-[8px] border-2 border-border bg-background px-2 py-1 text-[13px] font-bold">
+                      {a.scorePercent ?? 0}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      ) : null}
+
+      {grades.length === 0 && (exams.length > 0 || quizzes.length > 0) ? null : grades.length === 0 ? (
         <div className="rounded-[14px] border-2 border-border bg-card p-4 shadow-md">
           <EmptyState
             icon="award"

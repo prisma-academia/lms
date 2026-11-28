@@ -23,7 +23,18 @@ const Schema = z
 
 type Values = z.infer<typeof Schema>;
 
-export function ChangePasswordForm({ dialogErrors = false }: { dialogErrors?: boolean }) {
+export function ChangePasswordForm({
+  surface,
+  dialogErrors = false,
+}: {
+  /**
+   * Which sign-in this form is on. Sent with the request so the server changes
+   * the password of that account and not of another one the browser also holds
+   * a session for.
+   */
+  surface: "platform" | "tenant_admin" | "tenant_client";
+  dialogErrors?: boolean;
+}) {
   const { register, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(Schema),
   });
@@ -35,6 +46,7 @@ export function ChangePasswordForm({ dialogErrors = false }: { dialogErrors?: bo
     const res = await apiPost<{ redirect: string }>("/api/auth/change-password", {
       currentPassword: values.currentPassword,
       newPassword: values.newPassword,
+      surface,
     });
     if (res.error) {
       if (dialogErrors) report(res, () => onSubmit());

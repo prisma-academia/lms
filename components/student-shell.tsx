@@ -32,6 +32,7 @@ const GRADES: Tab = { href: "/grades", label: "Grades", icon: "award" };
 const PRIMARY_TABS: Tab[] = [HOME, COURSES, TASKS, GRADES];
 
 const MY_LEARNING: Tab[] = [
+  { href: "/my-exams", label: "Exams", icon: "monitor" },
   { href: "/certificates", label: "Certificates", icon: "award" },
   { href: "/calendar", label: "Calendar", icon: "calendar" },
 ];

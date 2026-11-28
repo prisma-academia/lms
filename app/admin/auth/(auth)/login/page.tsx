@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminLoginForm } from "./form";
 import { AuthCard } from "@/components/auth-card";
+import { SsoButtons } from "@/components/sso-buttons";
 
 export default function AdminLoginPage() {
   return (
@@ -17,6 +18,7 @@ export default function AdminLoginPage() {
       }
     >
       <AdminLoginForm />
+      <SsoButtons audience="staff" />
     </AuthCard>
   );
 }

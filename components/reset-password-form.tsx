@@ -30,11 +30,14 @@ export function ResetPasswordForm({
   token,
   backHref,
   backLabel,
+  submitLabel = "Save new password",
   dialogErrors = false,
 }: {
   token: string;
-  backHref: string;
-  backLabel: string;
+  /** Omit both to leave the link out (the invitation page has nowhere to go "back" to). */
+  backHref?: string;
+  backLabel?: string;
+  submitLabel?: string;
   /** Route API errors to the global error dialog instead of inline text. */
   dialogErrors?: boolean;
 }) {
@@ -87,13 +90,15 @@ export function ResetPasswordForm({
         </p>
       ) : null}
       <Button type="submit" size="lg" disabled={formState.isSubmitting}>
-        {formState.isSubmitting ? "Saving…" : "Save new password"}
+        {formState.isSubmitting ? "Saving…" : submitLabel}
       </Button>
-      <p className="text-center text-[13px] font-medium text-muted-foreground">
-        <Link href={backHref} className={TEXT_LINK}>
-          {backLabel}
-        </Link>
-      </p>
+      {backHref && backLabel ? (
+        <p className="text-center text-[13px] font-medium text-muted-foreground">
+          <Link href={backHref} className={TEXT_LINK}>
+            {backLabel}
+          </Link>
+        </p>
+      ) : null}
     </form>
   );
 }

@@ -2,17 +2,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/password";
-import { sendEmail } from "@/lib/email/send";
-import { inviteEmail } from "@/lib/email/templates";
+import { sendInvitation } from "@/lib/auth/setup-email";
 import { tenantBranding } from "@/lib/email/branding";
-import { env } from "@/lib/env";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
 import { ALL_TENANT_PERMISSION_KEYS } from "@/lib/auth/permissions";
-import { appScheme } from "@/lib/url/scheme";
 
 const InviteBody = z.object({
   email: z.email(),
@@ -62,8 +59,9 @@ export async function POST(request: Request) {
     const tenant = await prisma.tenant.findUnique({ where: { id: actor.tenantId } });
     if (!tenant) throw new DomainError(404, "not_found", "Tenant not found.");
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    // Nobody is ever told this password. It only fills the column until the
+    // person chooses their own through the link in their invitation.
+    const passwordHash = await hashPassword(generateTempPassword());
     const user = await prisma.tenantUser.create({
       data: {
         tenantId: actor.tenantId,
@@ -90,21 +88,23 @@ export async function POST(request: Request) {
       userAgent: meta.userAgent,
     });
 
-    const loginUrl = `${appScheme()}://${tenant.slug}.${env.APP_DOMAIN}/admin/auth/login`;
-    const branding = tenantBranding(tenant);
-    await sendEmail({
-      to: body.email,
-      subject: `You're invited to ${tenant.name}`,
-      replyTo: branding.supportEmail,
-      fromName: branding.name,
-      html: inviteEmail(branding, {
-        name: `${body.firstName} ${body.lastName}`,
-        loginUrl,
-        tempPassword,
-        subjectLabel: tenant.name,
-      }),
+    const inviter = await prisma.tenantUser.findUnique({
+      where: { id: actor.userId },
+      select: { firstName: true, lastName: true },
     });
-    return ok({ user });
+    const invitation = await sendInvitation({
+      userType: "TENANT",
+      userId: user.id,
+      tenantId: actor.tenantId,
+      tenantSlug: tenant.slug,
+      branding: tenantBranding(tenant),
+      to: user.email,
+      name: `${body.firstName} ${body.lastName}`,
+      role: "staff",
+      roleLabel: role.name,
+      invitedBy: [inviter?.firstName, inviter?.lastName].filter(Boolean).join(" ") || null,
+    });
+    return ok({ user, invitationSent: invitation.sent });
   } catch (e) {
     return handleError(e);
   }

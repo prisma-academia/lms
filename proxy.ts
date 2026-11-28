@@ -18,17 +18,21 @@ import { publicItemExists } from "@/lib/site/public-catalog";
 import { academyExists } from "@/lib/tenant/exists";
 import { isProd } from "@/lib/env";
 
+// "/…/auth/setup" is where the button in an invitation or reset email lands:
+// it has to open for someone who is not signed in.
 const PUBLIC_PLATFORM = [
   "/auth/login",
   "/auth/change-password",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/auth/setup",
 ];
 const PUBLIC_ADMIN = [
   "/admin/auth/login",
   "/admin/auth/change-password",
   "/admin/auth/forgot-password",
   "/admin/auth/reset-password",
+  "/admin/auth/setup",
 ];
 const PUBLIC_CLIENT = [
   "/auth/login",
@@ -36,6 +40,7 @@ const PUBLIC_CLIENT = [
   "/auth/forgot-password",
   "/auth/reset-password",
   "/auth/change-password",
+  "/auth/setup",
 ];
 
 const APEX_MARKETING = ["/", "/pricing", "/how-it-works", "/register"];
@@ -157,6 +162,10 @@ const RESERVED_CLIENT_PREFIXES = [
   "/my-courses",
   "/inbox",
   "/assignments",
+  "/my-exams",
+  // The CBT window and the Exam ID + PIN sign-in. Not behind the learner
+  // session: an external candidate has none (see handleClient).
+  "/exam",
 ];
 
 function isReservedClientPath(path: string): boolean {
@@ -326,6 +335,12 @@ function handleClient(
   const url = request.nextUrl;
   const path = url.pathname;
   const hasSession = !!request.cookies.get(COOKIE_NAMES.client)?.value;
+
+  // Exam pages sign the candidate in themselves: with the learner session, or
+  // with the exam-only session an Exam ID + PIN gives. The page decides.
+  if (path === "/exam" || path.startsWith("/exam/")) {
+    return NextResponse.rewrite(new URL(`/c${path}${url.search}`, url));
+  }
 
   if (inList(path, PUBLIC_CLIENT)) {
     // A cookie being present is all the proxy can see. A page that found the

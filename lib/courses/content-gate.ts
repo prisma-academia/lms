@@ -25,7 +25,8 @@ import { lessonPlainText, wordCount } from "@/lib/courses/lesson-text";
  * 409s is worse than a button that stays disabled.
  */
 
-export type GateContentType = z.infer<typeof lessonContentTypeSchema>;
+/** The AI builder's types plus EXAM, which only staff can place in a course. */
+export type GateContentType = z.infer<typeof lessonContentTypeSchema> | "EXAM";
 
 export type GateableLesson = {
   contentType: GateContentType;
@@ -59,7 +60,8 @@ export function requiredDwellSeconds(lesson: GateableLesson): number {
 
   switch (lesson.contentType) {
     case "QUIZ":
-      // Scoring 100% is the gate; a timer on top would only punish fast learners.
+    case "EXAM":
+      // Passing is the gate; a timer on top would only punish fast learners.
       return 0;
     case "TEXT":
     case "HTML": {

@@ -86,6 +86,14 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   AI_MODEL: z.string().min(3).optional(),
+  // Encryption at rest for webhook / integration secrets (lib/crypto/secret-box.ts).
+  // 32 random bytes, base64. Optional so the app boots without it; anything that
+  // needs it fails with a clear message instead.
+  APP_ENCRYPTION_KEY: z.string().min(1).optional(),
+  // Integrations hub: the PLATFORM's Google OAuth client (Google Calendar + Meet).
+  // Redirect URI to register: https://<APP_DOMAIN>/api/integrations/google/callback
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

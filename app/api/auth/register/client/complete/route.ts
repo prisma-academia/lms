@@ -18,6 +18,7 @@ import { tenantBranding } from "@/lib/email/branding";
 import { logger } from "@/lib/logger";
 import { safeNextPath } from "@/lib/auth/next-path";
 import { recordSignupReferral } from "@/lib/referrals/attribution";
+import { emitEvent } from "@/lib/integrations/events";
 import type { Prisma } from "@/lib/generated/prisma/client";
 
 const Body = z.object({
@@ -116,6 +117,8 @@ export async function POST(request: Request) {
       clientId: client.id,
       code: pending.referralCode,
     });
+    // Webhook; never throws, runs after the response.
+    await emitEvent(tenant.id, "learner.created", { learnerId: client.id, source: "self_registration" }, { learnerId: client.id });
 
     // Welcome email — best-effort, never fail registration on delivery error.
     const branding = tenantBranding(tenant);

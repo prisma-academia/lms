@@ -325,6 +325,11 @@ async function assertContentConsumed(params: {
     return;
   }
 
+  if (lesson.contentType === "EXAM") {
+    await assertExamPassed(clientId, lesson.contentJson);
+    return;
+  }
+
   if (lesson.contentType === "FILE" && lesson.libraryItemId && lesson.libraryItem?.durationSeconds) {
     const saved = await prisma.libraryProgress.findUnique({
       where: { itemId_clientId: { itemId: lesson.libraryItemId, clientId } },
@@ -337,6 +342,23 @@ async function assertContentConsumed(params: {
       throw new DomainError(409, "not_watched", "Watch to the end before marking this complete.");
     }
   }
+}
+
+/**
+ * An EXAM lesson completes only on a passing result that has been RELEASED
+ * and fully marked — an unreleased pass must not show itself by unlocking
+ * the next lesson.
+ */
+async function assertExamPassed(clientId: string, contentJson: unknown): Promise<void> {
+  const examId = (contentJson as { examId?: unknown } | null)?.examId;
+  if (typeof examId !== "string" || !examId) {
+    throw new DomainError(409, "exam_unconfigured", "This exam isn't set up yet — ask your instructor.");
+  }
+  const passing = await prisma.examAttempt.findFirst({
+    where: { examId, candidate: { clientId }, passed: true, gradingStatus: "GRADED", releasedAt: { not: null } },
+    select: { id: true },
+  });
+  if (!passing) throw new DomainError(409, "exam_not_passed", "Pass this exam to continue. Results count once they are released.");
 }
 
 /** A QUIZ lesson completes only once the learner has met the quiz's pass mark. */

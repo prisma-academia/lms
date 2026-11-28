@@ -1,5 +1,6 @@
 import { ClientLoginForm } from "./form";
 import { AuthCard } from "@/components/auth-card";
+import { SsoButtons } from "@/components/sso-buttons";
 import { SESSION_ENDED, safeNextPath } from "@/lib/auth/next-path";
 import { requireExistingTenant } from "@/lib/auth/tenant-page";
 import { renderDesignedPage } from "@/lib/site/render-page";
@@ -43,6 +44,7 @@ export default async function ClientLoginPage({ searchParams }: Props) {
       }
     >
       <ClientLoginForm next={next} />
+      <SsoButtons audience="learner" next={next} />
     </AuthCard>
   );
 }

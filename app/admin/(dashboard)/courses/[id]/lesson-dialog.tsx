@@ -27,6 +27,7 @@ import {
   type LessonGroupRow,
   type LessonRow,
 } from "./course-types";
+import { ExamLessonPicker } from "./exam-lesson-picker";
 
 /**
  * What the timer actually does for this content type, in the author's terms.
@@ -36,6 +37,7 @@ import {
  */
 function dwellHint(type: LessonContentType): string {
   if (type === "QUIZ") return "Quizzes are gated by their pass mark, so no timer is applied.";
+  if (type === "EXAM") return "Exams are gated by their own pass mark and window, so no timer is applied.";
   if (type === "TEXT" || type === "HTML")
     return "Scaled to the length of the content, between 15 seconds and 3 minutes.";
   return "Half the stated duration, between 15 seconds and 2 minutes.";
@@ -98,6 +100,11 @@ function LessonForm({
   const [quizId, setQuizId] = useState(
     lesson?.contentType === "QUIZ" && typeof lesson.contentJson.quizId === "string"
       ? lesson.contentJson.quizId
+      : ""
+  );
+  const [examId, setExamId] = useState(
+    lesson?.contentType === "EXAM" && typeof lesson.contentJson.examId === "string"
+      ? lesson.contentJson.examId
       : ""
   );
   const [libraryItemId, setLibraryItemId] = useState(
@@ -208,6 +215,10 @@ function LessonForm({
       setError("Select a quiz for this lesson.");
       return;
     }
+    if (type === "EXAM" && !examId) {
+      setError("Select an exam for this lesson.");
+      return;
+    }
     if (type === "FILE" && !libraryItemId) {
       setError("Select a library file for this lesson.");
       return;
@@ -218,11 +229,12 @@ function LessonForm({
     const payload = {
       title: title.trim(),
       contentType: type,
-      contentJson: buildContentJson(type, body, quizId),
+      contentJson: buildContentJson(type, body, quizId, examId),
       assetKey: null as string | null,
       libraryItemId: type === "FILE" ? libraryItemId || null : null,
       durationMin: duration.trim() ? parseInt(duration, 10) : null,
-      requireDwell,
+      // An exam has its own clock; a reading timer on top of it means nothing.
+      requireDwell: type === "EXAM" ? false : requireDwell,
       groupId: groupId || null,
     };
 
@@ -304,6 +316,8 @@ function LessonForm({
               </p>
             )}
           </FormField>
+        ) : type === "EXAM" ? (
+          <ExamLessonPicker courseId={courseId} value={examId} onChange={setExamId} />
         ) : type === "FILE" ? (
           <FormField label="Library file" htmlFor="lesson-dialog-library">
             {libraryOptions.length > 0 ? (
@@ -443,6 +457,7 @@ function LessonForm({
           </div>
         ) : null}
 
+        {type === "EXAM" ? null : (
         <label
           htmlFor="lesson-dialog-dwell"
           className="flex items-start gap-3 rounded-[10px] border-2 border-border bg-background p-3"
@@ -464,6 +479,7 @@ function LessonForm({
             </span>
           </span>
         </label>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField

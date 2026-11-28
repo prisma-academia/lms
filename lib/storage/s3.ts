@@ -51,7 +51,11 @@ export type PresignKind =
   // (tenants/{tenant}/clients/{client}/) and are only ever read back through a
   // short-lived signed link — never through `publicUrlForKey`.
   | "avatar"
-  | "profile_document";
+  | "profile_document"
+  // CBT: a picture, diagram or listening clip on a question (staff), and a
+  // candidate's uploaded working or recorded answer (exam-only, signed reads).
+  | "question_asset"
+  | "exam_response";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ...CONTENT_TYPE_EXT,
@@ -107,6 +111,31 @@ const LIBRARY_CONTENT_TYPES: Record<string, string> = {
   "application/x-tar": "tar",
 };
 
+const AUDIO_CONTENT_TYPES: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "audio/webm": "weba",
+};
+
+// Question stimulus: images, listening clips, short videos.
+const QUESTION_ASSET_CONTENT_TYPES: Record<string, string> = {
+  ...CONTENT_TYPE_EXT,
+  "image/gif": "gif",
+  ...AUDIO_CONTENT_TYPES,
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+};
+
+// A candidate's answer: a scan or PDF of working, or a recording.
+const EXAM_RESPONSE_CONTENT_TYPES: Record<string, string> = {
+  ...CONTENT_TYPE_EXT,
+  "application/pdf": "pdf",
+  ...AUDIO_CONTENT_TYPES,
+};
+
 // Proof of a certification: a scan or the PDF the issuer sent. Nothing else.
 const PROFILE_DOCUMENT_CONTENT_TYPES: Record<string, string> = {
   ...CONTENT_TYPE_EXT,
@@ -129,6 +158,8 @@ export const MAX_ASSET_BYTES: Record<PresignKind, number> = {
   // could not resize and sent the original.
   avatar: 2 * 1024 * 1024,
   profile_document: 5 * 1024 * 1024,
+  question_asset: 25 * 1024 * 1024,
+  exam_response: 25 * 1024 * 1024,
 };
 
 /** Min shortest side for tenant logos before favicon/OG generation. */
@@ -161,6 +192,8 @@ function contentTypeMapFor(kind: PresignKind): Record<string, string> {
   if (kind === "logo" || kind === "favicon" || kind === "site_asset") return CONTENT_TYPE_EXT;
   if (kind === "library" || kind === "submission") return LIBRARY_CONTENT_TYPES;
   if (kind === "avatar") return CONTENT_TYPE_EXT;
+  if (kind === "question_asset") return QUESTION_ASSET_CONTENT_TYPES;
+  if (kind === "exam_response") return EXAM_RESPONSE_CONTENT_TYPES;
   if (kind === "profile_document") return PROFILE_DOCUMENT_CONTENT_TYPES;
   return ASSET_CONTENT_TYPES;
 }
@@ -247,6 +280,10 @@ export async function createPresignedUpload(input: {
     // `tenants/{id}/resources/`. Those keys keep resolving — only the prefix
     // for NEW uploads changes.
     key = `tenants/${input.tenantId}/library/${rand}.${ext}`;
+  } else if (input.kind === "question_asset") {
+    key = `tenants/${input.tenantId}/exams/questions/${rand}.${ext}`;
+  } else if (input.kind === "exam_response") {
+    key = `tenants/${input.tenantId}/exams/responses/${rand}.${ext}`;
   } else if (input.kind === "submission") {
     key = `tenants/${input.tenantId}/submissions/${rand}.${ext}`;
   } else if (input.kind === "avatar" || input.kind === "profile_document") {

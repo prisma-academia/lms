@@ -55,6 +55,16 @@ export const PERMISSIONS = {
   // without either of these. These two are about everyone else's.
   TENANT_REFERRALS_READ: { key: "tenant.referrals:read", module: "tenant.referrals", description: "View every staff member's referral code and results" },
   TENANT_REFERRALS_WRITE: { key: "tenant.referrals:write", module: "tenant.referrals", description: "Switch staff referral codes on and off" },
+  TENANT_EXAMS_READ: { key: "tenant.exams:read", module: "tenant.exams", description: "View exams, candidates and results" },
+  TENANT_EXAMS_WRITE: { key: "tenant.exams:write", module: "tenant.exams", description: "Create / modify exams, candidates and sittings" },
+  TENANT_EXAMS_PROCTOR: { key: "tenant.exams:proctor", module: "tenant.exams", description: "Invigilate live exams: extend time, pause, unlock, force submit" },
+  TENANT_EXAMS_GRADE: { key: "tenant.exams:grade", module: "tenant.exams", description: "Mark exam answers and release results" },
+  // Developer API keys, webhooks and request logs. Write is Owner/Admin only:
+  // a key is a standing credential with up to full access to the academy.
+  TENANT_DEVELOPERS_READ: { key: "tenant.developers:read", module: "tenant.developers", description: "View API keys, webhooks and API request logs" },
+  TENANT_DEVELOPERS_WRITE: { key: "tenant.developers:write", module: "tenant.developers", description: "Create / revoke API keys and manage webhooks" },
+  TENANT_INTEGRATIONS_READ: { key: "tenant.integrations:read", module: "tenant.integrations", description: "View connected integrations" },
+  TENANT_INTEGRATIONS_WRITE: { key: "tenant.integrations:write", module: "tenant.integrations", description: "Connect / disconnect integrations" },
   CLIENT_COURSES_READ: { key: "client.courses:read", module: "client.courses", description: "View course catalog" },
   CLIENT_PROGRESS_WRITE: { key: "client.progress:write", module: "client.progress", description: "Track lesson progress" },
   CLIENT_ASSIGNMENTS_READ: { key: "client.assignments:read", module: "client.assignments", description: "View assignments and grades" },
@@ -104,6 +114,19 @@ export const TENANT_BUILTIN_ROLES = [
       PERMISSIONS.TENANT_LIBRARY_READ.key,
       PERMISSIONS.TENANT_LIBRARY_WRITE.key,
       PERMISSIONS.TENANT_LIBRARY_ASSIGN.key,
+      PERMISSIONS.TENANT_EXAMS_READ.key,
+      PERMISSIONS.TENANT_EXAMS_WRITE.key,
+      PERMISSIONS.TENANT_EXAMS_PROCTOR.key,
+      PERMISSIONS.TENANT_EXAMS_GRADE.key,
+    ] as PermissionKey[],
+    isSystem: true,
+  },
+  {
+    // Exam-day staff: watch the live room and act on it, nothing else.
+    name: "Invigilator",
+    permissions: [
+      PERMISSIONS.TENANT_EXAMS_READ.key,
+      PERMISSIONS.TENANT_EXAMS_PROCTOR.key,
     ] as PermissionKey[],
     isSystem: true,
   },

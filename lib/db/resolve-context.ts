@@ -97,8 +97,26 @@ async function fromHost(): Promise<RequestContext | null> {
   return null;
 }
 
+/**
+ * A Developer API request (`Authorization: Bearer plms_…`) is bound to its
+ * key's tenant by `lib/api/v1/route.ts` through ALS, and must never fall back
+ * to a cookie or the host: the apex host would resolve to PLATFORM context,
+ * which the guard leaves unfiltered. Answering "no context" instead makes a
+ * lost binding fail closed (the guard throws) rather than leak.
+ */
+async function isApiKeyRequest(): Promise<boolean> {
+  try {
+    const { headers } = await import("next/headers");
+    const auth = (await headers()).get("authorization");
+    return !!auth && /^bearer\s+plms_/i.test(auth.trim());
+  } catch {
+    return false;
+  }
+}
+
 const resolveCached = cache(
   async (): Promise<RequestContext | null> => {
+    if (await isApiKeyRequest()) return null;
     return (await fromSession()) ?? (await fromHost());
   }
 );

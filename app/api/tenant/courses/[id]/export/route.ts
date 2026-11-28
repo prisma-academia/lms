@@ -7,7 +7,9 @@ import {
   type GeneratedLesson,
   type GeneratedQuiz,
 } from "@/lib/schemas/course-builder";
-import { isChoiceQuestion } from "@/lib/schemas/question";
+import { CLASSIC_QUESTION_TYPES, isChoiceQuestion } from "@/lib/schemas/question";
+
+const CLASSIC = new Set<string>(CLASSIC_QUESTION_TYPES);
 import { parseRubric } from "@/lib/schemas/essay-grading";
 import { lessonHeadingsOf } from "@/lib/content/lesson-headings";
 
@@ -75,7 +77,12 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
             title: q.title,
             description: q.description,
             passingScore: q.passingScore,
-            questions: q.questions.slice(0, 20).map((link) => {
+            // The course document carries the classic five types only; an
+            // exam-style question in a quiz is left out rather than mangled.
+            questions: q.questions
+              .filter((link) => CLASSIC.has(link.question.type))
+              .slice(0, 20)
+              .map((link) => {
               const question = link.question;
               // Explicit allowlist, not `!== "SHORT_ANSWER"`: under the negated
               // form an ESSAY would export its empty answerJson as correct
@@ -83,7 +90,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
               // silently turn a graded essay into an unanswerable choice question.
               const isChoice = isChoiceQuestion(question.type);
               return {
-                type: question.type,
+                type: question.type as (typeof CLASSIC_QUESTION_TYPES)[number],
                 prompt: question.prompt,
                 options: isChoice ? asStringArray(question.optionsJson) : [],
                 correctOptionIndexes: isChoice ? asNumberArray(question.answerJson) : [],
@@ -114,7 +121,9 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
             : null;
       return {
         title: lesson.title,
-        contentType: quiz || lesson.contentType !== "QUIZ" ? lesson.contentType : "TEXT",
+        // An exam lives outside the course document: exported as a note.
+        contentType:
+          lesson.contentType === "EXAM" ? "TEXT" : quiz || lesson.contentType !== "QUIZ" ? lesson.contentType : "TEXT",
         body: typeof json.body === "string" ? json.body : null,
         html: typeof json.html === "string" ? json.html : null,
         quiz,

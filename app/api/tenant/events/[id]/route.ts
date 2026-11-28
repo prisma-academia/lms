@@ -4,6 +4,7 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { syncLiveSessionMeeting } from "@/lib/integrations/meetings";
 
 const PatchBody = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -58,6 +59,10 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
           : {}),
       },
     });
+    // Integrations hub: create or update the session's Zoom / Meet meeting.
+    // Never throws or blocks the save.
+    const joinUrl = await syncLiveSessionMeeting(actor.tenantId, event.id);
+    if (joinUrl) event.url = joinUrl;
     return ok({ event });
   } catch (e) {
     return handleError(e);

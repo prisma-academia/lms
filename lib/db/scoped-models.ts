@@ -66,6 +66,39 @@ export const STRICT_SCOPED: ReadonlySet<string> = new Set([
   "SiteLayout",
   "ReferralCode",
   "ReferralEvent",
+  // CBT / exams.
+  "QuestionGroup",
+  "Exam",
+  "ExamSection",
+  "ExamSectionItem",
+  "ExamSitting",
+  "ExamCandidate",
+  "ExamAttempt",
+  "ExamResponse",
+  "ExamEvent",
+  "ExamAnnouncement",
+  // Looked up by token hash through rawPrisma before any context exists;
+  // every other access is tenant-bound.
+  "ExamSession",
+  // Developer API & webhooks. ApiKey and LoginLinkToken are looked up by hash
+  // through rawPrisma before any context exists; every other access is
+  // tenant-bound. The webhook sweeper job reads due deliveries through
+  // rawPrisma, then works each one inside its tenant's context.
+  "ApiKey",
+  "ApiUsage",
+  "ApiIdempotency",
+  "ApiRequestLog",
+  "WebhookEndpoint",
+  "WebhookEvent",
+  "WebhookDelivery",
+  "LoginLinkToken",
+  // Integrations hub. CalendarFeedToken is looked up by hash through rawPrisma
+  // (the public .ics URL carries no session); SSO callbacks bind the tenant
+  // from the host before touching SsoIdentity. Everything else is tenant-bound.
+  "TenantIntegration",
+  "SsoIdentity",
+  "IntegrationMeeting",
+  "CalendarFeedToken",
 ]);
 
 export const NULLABLE_SCOPED: ReadonlySet<string> = new Set([

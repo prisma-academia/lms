@@ -4,6 +4,7 @@ import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
+import { isManualQuestion } from "@/lib/schemas/question";
 
 const SetBody = z.object({
   questions: z
@@ -33,10 +34,19 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (items.length > 0) {
       const found = await prisma.question.findMany({
         where: { id: { in: items.map((q) => q.questionId) } },
-        select: { id: true },
+        select: { id: true, type: true },
       });
       if (found.length !== items.length) {
         throw new DomainError(400, "invalid_questions", "One or more questions do not belong to this tenant.");
+      }
+      // A quiz grades on submit and gates the next lesson, so it cannot wait
+      // for a person to mark an upload, a recording or code. Exams can.
+      if (found.some((q) => isManualQuestion(q.type))) {
+        throw new DomainError(
+          400,
+          "manual_in_quiz",
+          "File-upload, audio and code questions need a marker, so they can only be used in exams."
+        );
       }
     }
 

@@ -6,13 +6,14 @@ import { courseBuilderAgent } from './agents/course-builder-agent';
 import { essayGraderAgent } from './agents/essay-grader-agent';
 import { certificateDesignerAgent } from './agents/certificate-designer-agent';
 import { siteBuilderAgent } from './agents/site-builder-agent';
+import { questionWriterAgent } from './agents/question-writer-agent';
 import { ensureStorageReady, getPgStore } from './storage';
 // Relative, not `@/lib/...` — see the path-alias note in lib/schemas/course-builder.ts.
 import { AiError } from '../../lib/ai/run';
 
 export const mastra = new Mastra({
   workflows: { courseBuilderWorkflow },
-  agents: { courseBuilderAgent, essayGraderAgent, certificateDesignerAgent, siteBuilderAgent },
+  agents: { courseBuilderAgent, essayGraderAgent, certificateDesignerAgent, siteBuilderAgent, questionWriterAgent },
   // Postgres covers memory, workflows, and observability (no LibSQL/DuckDB needed).
   // Its tables are NOT created automatically — see ./storage.ts.
   storage: getPgStore(),

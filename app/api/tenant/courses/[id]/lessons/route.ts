@@ -6,11 +6,12 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
 import { assertLessonContent, withLessonAnchors } from "@/lib/courses/lesson-content";
+import { assertExamLessonContent } from "@/lib/exams/admin";
 
 const CreateBody = z.object({
   title: z.string().min(1).max(200),
   sortOrder: z.number().int().min(0).optional(),
-  contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ"]).optional(),
+  contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ", "EXAM"]).optional(),
   contentJson: z.record(z.string(), z.unknown()).optional(),
   assetKey: z.string().max(300).nullable().optional(),
   libraryItemId: z.string().min(1).nullable().optional(),
@@ -52,6 +53,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
     const contentType = body.contentType ?? "TEXT";
     assertLessonContent(contentType, body.contentJson);
+    await assertExamLessonContent(actor.tenantId, contentType, body.contentJson);
     const ref = await resolveLessonLibraryRef({
       tenantId: actor.tenantId,
       contentType,

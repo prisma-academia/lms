@@ -40,6 +40,8 @@ const QUIZ_GRADING_INCLUDE = {
           answerJson: true,
           rubricJson: true,
           points: true,
+          partialCredit: true,
+          mediaJson: true,
           hint: true,
           sourceLessonId: true,
           sourceAnchor: true,
@@ -63,6 +65,9 @@ function scorableOf(quiz: QuizForGrading): (ScorableQuestion & { effectivePoints
   return quiz.questions.map((qq) => ({
     id: qq.question.id,
     type: qq.question.type,
+    prompt: qq.question.prompt,
+    optionsJson: qq.question.optionsJson,
+    partialCredit: qq.question.partialCredit,
     answerJson: qq.question.answerJson,
     rubricJson: qq.question.rubricJson,
     points: qq.question.points,

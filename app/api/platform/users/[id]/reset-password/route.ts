@@ -6,10 +6,8 @@ import {
   recordPassword,
 } from "@/lib/auth/password";
 import { revokeAllSessionsForUser } from "@/lib/auth/session";
-import { sendEmail } from "@/lib/email/send";
-import { tempPasswordEmail } from "@/lib/email/templates";
+import { sendAdminReset } from "@/lib/auth/setup-email";
 import { platformBranding } from "@/lib/email/branding";
-import { platformHttpOrigin } from "@/lib/url/platform";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
@@ -26,8 +24,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const user = await prisma.platformUser.findUnique({ where: { id } });
     if (!user) throw new DomainError(404, "not_found", "User not found.");
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    // Replace the password with one nobody knows, so the old one stops working
+    // now; the person chooses the next one through the link we email them.
+    const passwordHash = await hashPassword(generateTempPassword());
     await prisma.platformUser.update({
       where: { id },
       data: { passwordHash, mustChangePassword: true },
@@ -45,13 +44,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       userAgent: meta.userAgent,
     });
 
-    const loginUrl = `${platformHttpOrigin()}/auth/login`;
-    await sendEmail({
+    const email = await sendAdminReset({
+      userType: "PLATFORM",
+      userId: id,
+      tenantId: null,
+      tenantSlug: null,
+      branding: platformBranding(),
       to: user.email,
-      subject: "Your password has been reset",
-      html: tempPasswordEmail(platformBranding(), { name: displayName(user), loginUrl, tempPassword }),
+      name: displayName(user),
     });
-    return ok({ reset: true });
+    return ok({ reset: true, emailSent: email.sent });
   } catch (e) {
     return handleError(e);
   }

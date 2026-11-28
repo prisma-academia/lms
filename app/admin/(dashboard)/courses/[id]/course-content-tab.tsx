@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<LessonContentType, string> = {
   VIDEO_URL: "Video",
   FILE: "File",
   QUIZ: "Quiz",
+  EXAM: "Exam",
 };
 
 export function CourseContentTab({

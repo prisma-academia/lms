@@ -2,16 +2,13 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { hashPassword, generateTempPassword, recordPassword } from "@/lib/auth/password";
 import { revokeAllSessionsForUser } from "@/lib/auth/session";
-import { sendEmail } from "@/lib/email/send";
-import { tempPasswordEmail } from "@/lib/email/templates";
+import { sendAdminReset } from "@/lib/auth/setup-email";
 import { tenantBranding } from "@/lib/email/branding";
-import { env } from "@/lib/env";
 import { audit, requestMeta } from "@/lib/auth/audit";
 import { ok } from "@/lib/api/respond";
 import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { displayName } from "@/lib/auth/display";
-import { appScheme } from "@/lib/url/scheme";
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -27,8 +24,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const tenant = await prisma.tenant.findUnique({ where: { id: actor.tenantId } });
     if (!tenant) throw new DomainError(404, "not_found", "Tenant not found.");
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    // Replace the password with one nobody knows, so the old one stops working
+    // now; the person chooses the next one through the link we email them.
+    const passwordHash = await hashPassword(generateTempPassword());
     await prisma.client.update({
       where: { id },
       data: { passwordHash, mustChangePassword: true },
@@ -46,24 +44,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       userAgent: meta.userAgent,
     });
 
-    const loginUrl = `${appScheme()}://${tenant.slug}.${env.APP_DOMAIN}/auth/login`;
-    const branding = tenantBranding(tenant);
-    await sendEmail({
+    const email = await sendAdminReset({
+      userType: "CLIENT",
+      userId: id,
+      tenantId: actor.tenantId,
+      tenantSlug: tenant.slug,
+      branding: tenantBranding(tenant),
       to: target.email,
-      subject: "Your password has been reset",
-      replyTo: branding.supportEmail,
-      fromName: branding.name,
-      html: tempPasswordEmail(branding, {
-        name: displayName({
-          firstName: target.firstName,
-          lastName: target.lastName,
-          email: target.email,
-        }),
-        loginUrl,
-        tempPassword,
-      }),
+      name: displayName({ firstName: target.firstName, lastName: target.lastName, email: target.email }),
     });
-    return ok({ reset: true });
+    return ok({ reset: true, emailSent: email.sent });
   } catch (e) {
     return handleError(e);
   }

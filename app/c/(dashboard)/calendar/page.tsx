@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/shell";
 import { MonthCalendar } from "@/components/month-calendar";
 import { tenantFormatContext } from "../_lib/format-context";
 import { DAY_MS, zonedParts } from "../_lib/zoned";
+import { feedStatus } from "@/lib/calendar/feeds";
+import { CalendarFeedCard } from "@/components/calendar-feed-card";
 
 function parseMonth(month: string | undefined, timeZone: string): { year: number; month: number } {
   const m = month && /^\d{4}-\d{2}$/.test(month) ? month : null;
@@ -48,6 +50,7 @@ export default async function ClientCalendarPage({ searchParams }: { searchParam
   // what falls inside the month once each event is placed on its local day.
   const rangeStart = new Date(Date.UTC(year, month0, 1) - DAY_MS);
   const rangeEnd = new Date(Date.UTC(year, month0 + 1, 1) + DAY_MS);
+  const feed = await feedStatus(actor.tenantId, { type: "CLIENT", id: actor.clientId });
   const occurrences = expandOccurrences(
     events.map((e) => ({
       id: e.id,
@@ -73,6 +76,9 @@ export default async function ClientCalendarPage({ searchParams }: { searchParam
         timeZone={format.timeZone}
         locale={format.locale}
       />
+      <div className="mt-6">
+        <CalendarFeedCard endpoint="/api/client/calendar-feed" initial={feed} />
+      </div>
     </div>
   );
 }

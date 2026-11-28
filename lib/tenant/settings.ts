@@ -62,6 +62,12 @@ export const tenantSettingsSchema = z.object({
    * lets "Remove" actually remove.
    */
   heroImageKey: z.string().min(1).max(300).nullable().optional(),
+  /**
+   * One line saying what the academy is, asked for when the academy is set up.
+   * Nullable so it can be cleared (see `heroImageKey` above for why omission
+   * cannot express removal).
+   */
+  tagline: z.string().min(1).max(160).nullable().optional(),
   /** Default SEO title for public pages when a SitePage has no seoTitle. */
   metaTitle: z.string().min(1).max(120).optional(),
   /** Default SEO description for public pages when a SitePage has no seoDescription. */

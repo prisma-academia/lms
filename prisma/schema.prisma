@@ -33,6 +33,8 @@ enum ActorType {
   TENANT_USER
   CLIENT
   SYSTEM
+  /// A tenant Developer API key (lib/api/v1). actorId is the ApiKey id.
+  API_KEY
 }
 
 enum SessionUserType {
@@ -125,6 +127,8 @@ enum LessonContentType {
   VIDEO_URL
   FILE
   QUIZ
+  /// contentJson: { examId }. Opens the exam's own locked window.
+  EXAM
 }
 
 enum SitePageStatus {
@@ -151,6 +155,111 @@ enum QuestionType {
   SHORT_ANSWER
   /// Free-text, graded by AI against the author's rubric (see Question.rubricJson).
   ESSAY
+  /// Cloze: several blanks inside the prompt, each typed or picked.
+  FILL_BLANKS
+  /// A number, accepted within a tolerance.
+  NUMERIC
+  /// Pair each left item with a right item.
+  MATCHING
+  /// Put the items in the right order.
+  ORDERING
+  /// Drag each item into the right group.
+  CATEGORIZE
+  /// Click the right region of an image.
+  HOTSPOT
+  /// Rows x columns of choices (Likert, true/false per statement).
+  MATRIX
+  /// A typed maths expression, checked against accepted forms or numerically.
+  EQUATION
+  /// Exams only, marked by staff: an uploaded file (worked solution).
+  FILE_UPLOAD
+  /// Exams only, marked by staff: a recorded spoken answer.
+  AUDIO_RESPONSE
+  /// Exams only, marked by staff (keyword hints optional). Code is never run.
+  CODE
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ExamStatus {
+  DRAFT
+  /// Published; candidates can see it and sit it inside its window.
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum ExamKind {
+  /// Sat by learners enrolled on a course (optionally as a course lesson).
+  COURSE
+  /// A test on its own: entrance exams, mocks, certification.
+  STANDALONE
+}
+
+enum ExamNavigation {
+  FREE
+  /// Forward only: an answered question cannot be revisited.
+  LINEAR
+  /// Free inside a section; a finished section cannot be reopened.
+  SECTION_LOCKED
+}
+
+enum ExamResultRelease {
+  IMMEDIATE
+  AFTER_CLOSE
+  MANUAL
+}
+
+enum ExamReviewMode {
+  NONE
+  SCORE_ONLY
+  ANSWERS
+  ANSWERS_WITH_EXPLANATIONS
+}
+
+enum ExamCalculator {
+  NONE
+  BASIC
+  SCIENTIFIC
+}
+
+/// How a learner who is not yet on the candidate list can join.
+enum ExamAccessMode {
+  /// Only candidates staff added.
+  INVITED
+  /// Any learner enrolled on the exam's course.
+  ENROLLED
+  /// Any learner of the academy who has the access code.
+  ACCESS_CODE
+}
+
+enum ExamCandidateStatus {
+  ACTIVE
+  BLOCKED
+  WITHDRAWN
+}
+
+enum ExamAttemptStatus {
+  IN_PROGRESS
+  /// Paused by an invigilator; the clock is stopped.
+  PAUSED
+  /// Frozen after too many integrity violations until an invigilator unlocks it.
+  LOCKED
+  SUBMITTED
+  /// Ended by the invigilator without the candidate's submit.
+  TERMINATED
+}
+
+enum ExamSubmitReason {
+  MANUAL
+  TIME_UP
+  MAX_VIOLATIONS
+  PROCTOR
+  WINDOW_CLOSED
 }
 
 /// Whether an attempt's score is final. Only GRADED attempts can unlock a lesson.
@@ -289,6 +398,12 @@ model Tenant {
   siteLayout                 SiteLayout?
   referralCodes              ReferralCode[]
   referralEvents             ReferralEvent[]
+  exams                      Exam[]
+  apiKeys                    ApiKey[]
+  webhookEndpoints           WebhookEndpoint[]
+  webhookEvents              WebhookEvent[]
+  integrations               TenantIntegration[]
+  calendarFeedTokens         CalendarFeedToken[]
 
   @@index([status])
   @@index([plan, trialEndsAt])
@@ -394,6 +509,8 @@ model Course {
   currency      String            @default("NGN")
   thumbnailKey  String?
   instructorId  String?
+  /// The id an outside system (school portal, HR / CRM) knows this course by.
+  externalId    String?
   publishedAt   DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
@@ -405,8 +522,10 @@ model Course {
   assignments   Assignment[]
   programmes    ProgrammeCourse[]
   certificates  Certificate[]
+  exams         Exam[]
 
   @@unique([tenantId, slug])
+  @@unique([tenantId, externalId])
   @@index([tenantId, status])
 }
 
@@ -713,8 +832,29 @@ model QuestionBank {
   updatedAt    DateTime             @updatedAt
   questions    Question[]
   accessGroups QuestionBankAccess[]
+  groups       QuestionGroup[]
 
   @@index([tenantId])
+}
+
+/// A shared stimulus — a reading passage, case study or diagram — that several
+/// questions in the same bank are asked about. Shown beside them in a split pane.
+model QuestionGroup {
+  id           String       @id @default(cuid())
+  tenantId     String
+  bankId       String
+  bank         QuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  title        String?
+  /// Sanitised HTML; may contain $..$ maths.
+  stimulusHtml String
+  /// Optional media: { kind: "image"|"audio"|"video", url, maxPlays? }
+  mediaJson    Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  questions    Question[]
+
+  @@index([tenantId])
+  @@index([bankId])
 }
 
 /// Restricts a question bank to a user group. Presence of any row = restricted.
@@ -743,40 +883,59 @@ model QuestionTag {
 }
 
 model Question {
-  id             String            @id @default(cuid())
+  id             String              @id @default(cuid())
   tenantId       String
   bankId         String
-  bank           QuestionBank      @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  type           QuestionType      @default(SINGLE_CHOICE)
+  bank           QuestionBank        @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  type           QuestionType        @default(SINGLE_CHOICE)
   prompt         String
-  optionsJson    Json              @default("[]")
-  answerJson     Json              @default("[]")
+  optionsJson    Json                @default("[]")
+  answerJson     Json                @default("[]")
   /// ESSAY only; NULL for every other type. Shape: lib/schemas/essay-grading.ts
   /// `essayRubricSchema` — weighted criteria, an optional model answer, word bounds.
   /// A separate column rather than overloading answerJson, whose "option indices
   /// or accepted strings" meaning the scorer, seeds and export path all rely on.
   rubricJson     Json?
-  points         Int               @default(1)
+  points         Int                 @default(1)
   /// A nudge shown on request while answering. Never the answer itself.
   hint           String?
   /// Where this question's answer is taught, so a learner who gets it wrong can
   /// be sent back to read it. Only honoured when the lesson is in the course
   /// the learner is taking the quiz through, and unlocked for them.
   sourceLessonId String?
-  sourceLesson   Lesson?           @relation("QuestionSource", fields: [sourceLessonId], references: [id], onDelete: SetNull)
+  sourceLesson   Lesson?             @relation("QuestionSource", fields: [sourceLessonId], references: [id], onDelete: SetNull)
   /// The `id` of the heading inside that lesson. May go stale if the heading
   /// is removed; the reader then falls back to `sourceExcerpt`.
   sourceAnchor   String?
   /// A short phrase from the passage, used to find it when the anchor is gone.
   sourceExcerpt  String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  difficulty     QuestionDifficulty?
+  /// Shown to the candidate after results are released (if the exam allows).
+  explanation    String?
+  /// Points taken away for a wrong (not blank) answer in an exam with negative
+  /// marking. NULL = use the exam's default fraction.
+  negativePoints Float?
+  /// Multi-part types award proportional credit instead of all-or-nothing.
+  partialCredit  Boolean             @default(false)
+  /// Optional stimulus on the question itself: { kind, url, maxPlays? }.
+  mediaJson      Json?
+  groupId        String?
+  group          QuestionGroup?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  /// Optional per-question time limit inside an exam.
+  timeLimitSec   Int?
+  /// Normalised prompt hash, for duplicate detection inside a bank.
+  promptHash     String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   tags           QuestionTagLink[]
   quizLinks      QuizQuestion[]
+  examItems      ExamSectionItem[]
 
   @@index([tenantId])
   @@index([bankId])
   @@index([sourceLessonId])
+  @@index([bankId, promptHash])
+  @@index([groupId])
 }
 
 model QuestionTagLink {
@@ -866,6 +1025,297 @@ model QuizAttempt {
   @@index([clientId, quizId])
   /// Serves the staff list of attempts waiting on a grade.
   @@index([quizId, gradingStatus])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CBT / exams. Quizzes stay the light in-lesson check; an Exam is the formal,
+// timed, invigilated sitting with its own locked window. See lib/exams/.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Exam {
+  id               String             @id @default(cuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title            String
+  /// Short human code, e.g. "MTH101-MOCK". Unique per academy when set.
+  code             String?
+  description      String?
+  /// Sanitised HTML shown in the lobby before the candidate starts.
+  instructionsHtml String?
+  status           ExamStatus         @default(DRAFT)
+  kind             ExamKind           @default(STANDALONE)
+  courseId         String?
+  course           Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  durationMin      Int                @default(60)
+  opensAt          DateTime?
+  closesAt         DateTime?
+  /// Minutes after opensAt (or a sitting's start) a candidate may still begin.
+  lateEntryMin     Int?
+  attemptsAllowed  Int                @default(1)
+  cooldownMin      Int?
+  navigation       ExamNavigation     @default(FREE)
+  shuffleQuestions Boolean            @default(true)
+  shuffleOptions   Boolean            @default(true)
+  /// Percent of the total needed to pass.
+  passMark         Int                @default(50)
+  /// Fraction of a question's points deducted for a wrong answer. NULL = off.
+  negativeMarking  Float?
+  /// [{ min: 70, label: "A", remark: "Excellent" }, ...] highest first.
+  gradeBandsJson   Json               @default("[]")
+  resultRelease    ExamResultRelease  @default(IMMEDIATE)
+  reviewMode       ExamReviewMode     @default(SCORE_ONLY)
+  calculator       ExamCalculator     @default(NONE)
+  formulaSheetHtml String?
+  /// Candidate tools: { scratchpad, highlighter, lineReader, tts, fontScale }.
+  toolsJson        Json               @default("{}")
+  /// Lockdown policy; shape in lib/exams/settings.ts (securitySchema).
+  securityJson     Json               @default("{}")
+  accessMode       ExamAccessMode     @default(INVITED)
+  accessCode       String?
+  /// Whether candidates may sign in with Exam ID + PIN instead of an account.
+  pinLogin         Boolean            @default(true)
+  /// Minutes past the deadline in which answers saved while offline still count.
+  offlineGraceMin  Int                @default(3)
+  /// Award this certificate template on a pass.
+  certificateId    String?
+  publishedAt      DateTime?
+  createdById      String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  sections         ExamSection[]
+  sittings         ExamSitting[]
+  candidates       ExamCandidate[]
+  attempts         ExamAttempt[]
+  announcements    ExamAnnouncement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([courseId])
+  @@index([status, closesAt])
+}
+
+model ExamSection {
+  id           String            @id @default(cuid())
+  tenantId     String
+  examId       String
+  exam         Exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  title        String
+  instructions String?
+  sortOrder    Int               @default(0)
+  /// Optional own timer; when it runs out the section locks.
+  timeLimitMin Int?
+  /// Random draw rules: [{ id, bankId, tagIds[], difficulty?, types[], count, points? }]
+  poolsJson    Json              @default("[]")
+  shuffle      Boolean           @default(true)
+  items        ExamSectionItem[]
+
+  @@index([tenantId])
+  @@index([examId, sortOrder])
+}
+
+model ExamSectionItem {
+  id         String      @id @default(cuid())
+  tenantId   String
+  sectionId  String
+  section    ExamSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  sortOrder  Int         @default(0)
+  points     Int?
+
+  @@unique([sectionId, questionId])
+  @@index([tenantId])
+  @@index([questionId])
+}
+
+/// A batch / session of an exam: a time slot, a venue, an IP range.
+model ExamSitting {
+  id          String          @id @default(cuid())
+  tenantId    String
+  examId      String
+  exam        Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  name        String
+  startsAt    DateTime?
+  endsAt      DateTime?
+  venue       String?
+  capacity    Int?
+  /// CIDR ranges a candidate in this sitting must start from. Empty = anywhere.
+  ipAllowlist String[]        @default([])
+  /// A centre-wide pause: every attempt in this sitting is frozen.
+  pausedAt    DateTime?
+  createdAt   DateTime        @default(now())
+  candidates  ExamCandidate[]
+
+  @@index([tenantId])
+  @@index([examId])
+}
+
+model ExamCandidate {
+  id                String              @id @default(cuid())
+  tenantId          String
+  examId            String
+  exam              Exam                @relation(fields: [examId], references: [id], onDelete: Cascade)
+  /// Set for a learner with an account; NULL for an external candidate.
+  clientId          String?
+  client            Client?             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fullName          String
+  email             String?
+  regNumber         String?
+  photoKey          String?
+  /// The "Exam ID" printed on the slip. Unique per academy.
+  candidateNo       String
+  /// argon2 hash of the PIN. The PIN itself is shown once, on creation/reset.
+  pinHash           String?
+  pinFailedAttempts Int                 @default(0)
+  pinLockedUntil    DateTime?
+  sittingId         String?
+  sitting           ExamSitting?        @relation(fields: [sittingId], references: [id], onDelete: SetNull)
+  /// Accommodation: extra time as a percentage of the duration.
+  extraTimePct      Int                 @default(0)
+  status            ExamCandidateStatus @default(ACTIVE)
+  createdAt         DateTime            @default(now())
+  attempts          ExamAttempt[]
+  sessions          ExamSession[]
+
+  @@unique([tenantId, candidateNo])
+  @@unique([examId, clientId])
+  @@index([tenantId])
+  @@index([examId])
+  @@index([clientId])
+}
+
+model ExamAttempt {
+  id                String            @id @default(cuid())
+  tenantId          String
+  examId            String
+  exam              Exam              @relation(fields: [examId], references: [id], onDelete: Cascade)
+  candidateId       String
+  candidate         ExamCandidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  attemptNo         Int               @default(1)
+  status            ExamAttemptStatus @default(IN_PROGRESS)
+  /// Seed the paper was drawn and shuffled with.
+  seed              Int
+  /// The fixed paper (order, option permutations, sections). No answer keys.
+  paperJson         Json
+  startedAt         DateTime          @default(now())
+  /// Server-authoritative end. Extensions and pauses move it.
+  deadlineAt        DateTime
+  pausedAt          DateTime?
+  extraSec          Int               @default(0)
+  lockedAt          DateTime?
+  submittedAt       DateTime?
+  submitReason      ExamSubmitReason?
+  /// Binds the attempt to the device that started it.
+  deviceToken       String?
+  ip                String?
+  userAgent         String?
+  sebVerified       Boolean           @default(false)
+  lastHeartbeatAt   DateTime?
+  /// Some answers arrived after the deadline, inside the offline grace window.
+  offlineSubmitted  Boolean           @default(false)
+  violationCount    Int               @default(0)
+  answeredCount     Int               @default(0)
+  scorePoints       Float?
+  maxPoints         Float?
+  scorePercent      Float?
+  sectionScoresJson Json?
+  passed            Boolean?
+  grade             String?
+  /// PENDING = something needs a staff (or AI) mark before the score is final.
+  gradingStatus     GradingStatus?
+  gradedAt          DateTime?
+  releasedAt        DateTime?
+  createdAt         DateTime          @default(now())
+  responses         ExamResponse[]
+  events            ExamEvent[]
+
+  @@unique([candidateId, attemptNo])
+  @@index([tenantId])
+  @@index([examId, status])
+  @@index([status, deadlineAt])
+}
+
+model ExamResponse {
+  id               String      @id @default(cuid())
+  tenantId         String
+  attemptId        String
+  attempt          ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  /// The paper item this answers (the question id).
+  itemKey          String
+  answerJson       Json?
+  flagged          Boolean     @default(false)
+  timeSpentSec     Int         @default(0)
+  /// Client revision counter. A sync only overwrites with a higher rev.
+  rev              Int         @default(0)
+  clientSavedAt    DateTime?
+  updatedAt        DateTime    @updatedAt
+  autoPoints       Float?
+  manualPoints     Float?
+  maxPoints        Float?
+  /// The grader's detail (per blank / per pair / rubric criteria).
+  detailJson       Json?
+  feedback         String?
+  aiSuggestionJson Json?
+  markedById       String?
+  markedAt         DateTime?
+
+  @@unique([attemptId, itemKey])
+  @@index([tenantId])
+}
+
+/// The integrity log: every focus loss, fullscreen exit, reconnect, proctor action.
+model ExamEvent {
+  id            String      @id @default(cuid())
+  tenantId      String
+  attemptId     String
+  attempt       ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  type          String
+  /// 0 info, 1 warning, 2 violation (counts toward the strike limit).
+  severity      Int         @default(0)
+  /// Client-generated id, so a resent batch is not double-counted.
+  clientEventId String?
+  clientAt      DateTime?
+  detailJson    Json?
+  actorId       String?
+  createdAt     DateTime    @default(now())
+
+  @@unique([attemptId, clientEventId])
+  @@index([tenantId])
+  @@index([attemptId, createdAt])
+}
+
+model ExamAnnouncement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  /// NULL = everyone in the exam.
+  sittingId   String?
+  candidateId String?
+  message     String
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([examId, createdAt])
+}
+
+/// A sign-in for an exam candidate who used Exam ID + PIN. Scoped to one exam.
+model ExamSession {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tokenHash   String        @unique
+  candidateId String
+  candidate   ExamCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  examId      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime      @default(now())
+
+  @@index([tenantId])
+  @@index([candidateId])
 }
 
 /// A certificate template (design stored as contentJson for the WYSIWYG editor),
@@ -1342,13 +1792,19 @@ model Client {
   fees                 Fee[]
   feePayments          FeePayment[]
   quizAttempts         QuizAttempt[]
+  examCandidates       ExamCandidate[]
   certificateAwards    CertificateAward[]
   events               Event[]
   messageReceipts      MessageRecipient[]
   notifications        Notification[]
   notificationPrefs    NotificationPreference[]
+  loginLinks           LoginLinkToken[]
+  /// The id an outside system (school portal, HR / CRM) knows this learner by.
+  /// Set through the Developer API; unique per academy so upserts are idempotent.
+  externalId           String?
 
   @@unique([tenantId, email])
+  @@unique([tenantId, externalId])
   @@index([tenantId])
   @@index([referralCodeId])
 }
@@ -1397,8 +1853,11 @@ model ClientGroup {
   fees          Fee[]
   events        Event[]
   libraryGrants LibraryGrant[]
+  /// The id an outside system knows this group (class, cohort) by.
+  externalId    String?
 
   @@unique([tenantId, name])
+  @@unique([tenantId, externalId])
   @@index([tenantId])
 }
 
@@ -1653,4 +2112,311 @@ model ReservedSlug {
   slug      String   @id
   reason    String
   createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Developer API & webhooks. See lib/api/v1/ and lib/integrations/.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ApiUsagePeriod {
+  MINUTE
+  DAY
+}
+
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  DEAD
+}
+
+/// A tenant's Developer API key. The full key ("plms_live_<prefix>_<secret>")
+/// is shown once; only its sha256 is kept. Looked up by hash through rawPrisma
+/// before any tenant context exists; every other access is tenant-bound.
+model ApiKey {
+  id               String            @id @default(cuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  /// "plms_live_ab12cd34" — what lists show, and how a leaked key is identified.
+  prefix           String            @unique
+  keyHash          String            @unique
+  scopes           String[]          @default([])
+  /// CIDR ranges / addresses the key may be used from. Empty = anywhere.
+  ipAllowlist      String[]          @default([])
+  rateLimitPerMin  Int               @default(120)
+  expiresAt        DateTime?
+  lastUsedAt       DateTime?
+  lastUsedIp       String?
+  revokedAt        DateTime?
+  /// Set on the key that replaced another; the old key expires 24h after.
+  rotatedFromId    String?
+  createdById      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  usage            ApiUsage[]
+  idempotency      ApiIdempotency[]
+  requestLogs      ApiRequestLog[]
+  webhookEndpoints WebhookEndpoint[]
+
+  @@index([tenantId])
+}
+
+/// Request counters per key: MINUTE buckets back the rate limit (Upstash fails
+/// open), DAY buckets feed the usage charts.
+model ApiUsage {
+  id         String         @id @default(cuid())
+  tenantId   String
+  apiKeyId   String
+  apiKey     ApiKey         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  period     ApiUsagePeriod
+  bucket     DateTime
+  count      Int            @default(0)
+  errorCount Int            @default(0)
+
+  @@unique([apiKeyId, period, bucket])
+  @@index([tenantId, period, bucket])
+}
+
+/// Idempotency-Key replay store: the first response to a key is kept 24 hours.
+model ApiIdempotency {
+  id           String   @id @default(cuid())
+  tenantId     String
+  apiKeyId     String
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  key          String
+  method       String
+  path         String
+  requestHash  String
+  /// NULL while the first request is still running.
+  status       Int?
+  responseBody String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@unique([apiKeyId, key])
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+/// One authenticated /api/v1 request. Pruned after 30 days.
+model ApiRequestLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  apiKeyId   String
+  apiKey     ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  requestId  String
+  method     String
+  path       String
+  query      String?
+  status     Int
+  durationMs Int
+  errorCode  String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([apiKeyId, createdAt])
+}
+
+model WebhookEndpoint {
+  id                      String                @id @default(cuid())
+  tenantId                String
+  tenant                  Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  url                     String
+  description             String?
+  /// Event types, or ["*"] for every event.
+  events                  String[]              @default([])
+  /// Signing secret, encrypted with lib/crypto/secret-box.
+  secretEnc               String
+  /// The secret being rotated out; deliveries are signed with both until it expires.
+  previousSecretEnc       String?
+  previousSecretExpiresAt DateTime?
+  status                  WebhookEndpointStatus @default(ACTIVE)
+  /// "portal" (made in the developer portal) or "rest_hook" (POST /v1/webhooks).
+  source                  String                @default("portal")
+  apiKeyId                String?
+  apiKey                  ApiKey?               @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  consecutiveFailures     Int                   @default(0)
+  /// First failure of the current unbroken run of failures.
+  failingSince            DateTime?
+  lastSuccessAt           DateTime?
+  lastFailureAt           DateTime?
+  disabledAt              DateTime?
+  disabledReason          String?
+  createdById             String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  deliveries              WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+/// The outbox: one row per event that at least one endpoint subscribed to.
+model WebhookEvent {
+  id          String            @id @default(cuid())
+  tenantId    String
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type        String
+  payloadJson Json
+  createdAt   DateTime          @default(now())
+  deliveries  WebhookDelivery[]
+
+  @@index([tenantId, createdAt])
+}
+
+model WebhookDelivery {
+  id                 String                @id @default(cuid())
+  tenantId           String
+  eventId            String
+  event              WebhookEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  endpointId         String
+  endpoint           WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  status             WebhookDeliveryStatus @default(PENDING)
+  /// Attempts made so far.
+  attempt            Int                   @default(0)
+  nextAttemptAt      DateTime?             @default(now())
+  /// Claim lease, so the inline first attempt and the sweeper never double-send.
+  lockedUntil        DateTime?
+  lastAttemptAt      DateTime?
+  responseStatus     Int?
+  /// The first 2 KB of the response body.
+  responseBody       String?
+  errorMessage       String?
+  durationMs         Int?
+  requestHeadersJson Json?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([eventId])
+}
+
+/// One-time magic sign-in link for a learner, minted by
+/// POST /v1/learners/{id}/login-link. Looked up by hash through rawPrisma.
+model LoginLinkToken {
+  id           String    @id @default(cuid())
+  tenantId     String
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique
+  redirectPath String?
+  apiKeyId     String?
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  consumedIp   String?
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integrations hub (/admin/integrations). See lib/integrations/registry.ts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum IntegrationStatus {
+  CONNECTED
+  /// Kept but switched off by the academy.
+  DISABLED
+  /// The last call to the provider failed; see lastError.
+  ERROR
+}
+
+/// One connection to an outside service: an alert channel, Zoom, Google
+/// Calendar, or a single sign-on provider. Settings that are not secret live
+/// in configJson; credentials are sealed with lib/crypto/secret-box in
+/// secretsEnc (a JSON object, encrypted as one value).
+model TenantIntegration {
+  id            String             @id @default(cuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// A provider id from lib/integrations/registry.ts ("slack", "zoom", "oidc_google"…).
+  provider      String
+  /// The academy's label. Providers that allow several connections (alert
+  /// channels, SSO) tell them apart by it; single ones use "".
+  name          String             @default("")
+  status        IntegrationStatus  @default(CONNECTED)
+  configJson    Json               @default("{}")
+  secretsEnc    String?
+  connectedById String?
+  lastSyncAt    DateTime?
+  lastError     String?
+  lastErrorAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  ssoIdentities SsoIdentity[]
+  meetings      IntegrationMeeting[]
+
+  @@unique([tenantId, provider, name])
+  @@index([tenantId, provider])
+}
+
+/// Which outside account a learner or staff member signs in with, per SSO
+/// connection. Exactly one of clientId / userId is set, matching userType.
+model SsoIdentity {
+  id            String            @id @default(cuid())
+  tenantId      String
+  integrationId String
+  integration   TenantIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  /// "CLIENT" (learner) or "TENANT" (staff).
+  userType      String
+  /// The identity provider's stable subject ("sub").
+  subject       String
+  email         String
+  clientId      String?
+  userId        String?
+  lastLoginAt   DateTime?
+  createdAt     DateTime          @default(now())
+
+  @@unique([integrationId, userType, subject])
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([userId])
+}
+
+/// A meeting created at Zoom or Google for a LIVE_SESSION event, so editing
+/// the event updates the same meeting instead of making another.
+model IntegrationMeeting {
+  id            String            @id @default(cuid())
+  tenantId      String
+  integrationId String
+  integration   TenantIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  eventId       String
+  /// "zoom" or "google_calendar".
+  provider      String
+  /// Zoom meeting id, or Google Calendar event id.
+  externalId    String
+  joinUrl       String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([eventId, provider])
+  @@index([tenantId])
+}
+
+/// A private calendar subscription (ICS) URL for one learner or staff member.
+/// Only the sha256 of the token is kept; the URL is shown once. Looked up by
+/// hash through rawPrisma, before any tenant context exists.
+model CalendarFeedToken {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// "CLIENT" (learner) or "TENANT" (staff).
+  ownerType  String
+  ownerId    String
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId, ownerType, ownerId])
 }

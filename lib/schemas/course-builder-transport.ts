@@ -1,6 +1,6 @@
 import { z } from "zod";
 // Sibling imports, not `@/lib/...` — see the path-alias note in ./course-builder.
-import { questionTypeSchema } from "./question";
+import { classicQuestionTypeSchema as questionTypeSchema } from "./question";
 import {
   lessonContentTypeSchema,
   type CourseOutline,

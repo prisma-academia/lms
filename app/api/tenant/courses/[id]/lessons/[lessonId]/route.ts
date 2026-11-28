@@ -6,11 +6,12 @@ import { handleError, DomainError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { resolveLessonLibraryRef } from "@/lib/courses/lesson-library";
 import { assertLessonContent, withLessonAnchors } from "@/lib/courses/lesson-content";
+import { assertExamLessonContent } from "@/lib/exams/admin";
 
 const PatchBody = z.object({
   title: z.string().min(1).max(200).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ"]).optional(),
+  contentType: z.enum(["TEXT", "HTML", "VIDEO_URL", "FILE", "QUIZ", "EXAM"]).optional(),
   contentJson: z.record(z.string(), z.unknown()).optional(),
   assetKey: z.string().max(300).nullable().optional(),
   libraryItemId: z.string().min(1).nullable().optional(),
@@ -40,6 +41,14 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
     const contentType = body.contentType ?? lesson.contentType;
     assertLessonContent(contentType, body.contentJson);
+    // Switching a lesson to EXAM, or changing which exam it opens.
+    if (contentType === "EXAM" && (body.contentType !== undefined || body.contentJson !== undefined)) {
+      await assertExamLessonContent(
+        actor.tenantId,
+        contentType,
+        body.contentJson ?? (lesson.contentJson as Record<string, unknown> | null) ?? undefined
+      );
+    }
     const needsRef =
       body.libraryItemId !== undefined ||
       body.assetKey !== undefined ||

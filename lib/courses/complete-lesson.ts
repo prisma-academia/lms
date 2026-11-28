@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { awardCourseCompletion, syncProgrammeCompletion } from "@/lib/certificates/award";
+import { emitEvent } from "@/lib/integrations/events";
 
 /**
  * The single write path for "this lesson is done".
@@ -50,6 +51,21 @@ export async function recordLessonCompletion(params: {
     },
     select: { progressPercent: true, completedAt: true },
   });
+
+  // Webhooks. emitEvent never throws and defers its work past the response.
+  if (!existing?.completedAt) {
+    await emitEvent(
+      tenantId,
+      "lesson.completed",
+      { learnerId: clientId, courseId, lessonId, enrollmentId: enrollment.id, progressPercent, completedAt: now.toISOString() },
+      { learnerId: clientId }
+    );
+  }
+  if (courseDone && !enrollment.completedAt) {
+    const done = { learnerId: clientId, courseId, enrollmentId: enrollment.id, completedAt: (updated.completedAt ?? now).toISOString() };
+    await emitEvent(tenantId, "course.completed", done, { learnerId: clientId });
+    await emitEvent(tenantId, "enrollment.completed", done, { learnerId: clientId });
+  }
 
   if (courseDone) {
     await awardCourseCompletion(tenantId, courseId, clientId);

@@ -7,7 +7,7 @@ export default function ChangePasswordPage() {
       title="Set a new password"
       subtitle="Enter the password you have now, then choose a new one that only you know."
     >
-      <ChangePasswordForm />
+      <ChangePasswordForm surface="platform" />
     </AuthCard>
   );
 }

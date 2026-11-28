@@ -111,6 +111,10 @@ export const RESERVED_SITE_SLUGS = new Set([
   "my-courses",
   "inbox",
   "assignments",
+  // CBT: the Exam ID + PIN sign-in, the exam window and the learner's list.
+  "exam",
+  "my-exams",
+  "exam-sw.js",
   "t",
   "c",
   "m",

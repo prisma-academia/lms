@@ -60,7 +60,8 @@ const GROUPS: Array<{ id: string; key: string; links: AdminLink[] }> = [
     key: "groupAssessment",
     links: [
       { href: "/admin/question-banks", key: "questionBanks", module: "quizzes", icon: "help-circle", keywords: "questions" },
-      { href: "/admin/quizzes", key: "quizzes", module: "quizzes", icon: "check-circle", keywords: "tests exams attempts marking grading" },
+      { href: "/admin/quizzes", key: "quizzes", module: "quizzes", icon: "check-circle", keywords: "tests attempts marking grading" },
+      { href: "/admin/exams", key: "exams", module: "quizzes", icon: "monitor", keywords: "cbt exams tests invigilation proctoring candidates results" },
       { href: "/admin/certificates", key: "certificates", module: "certificates", icon: "award", keywords: "awards" },
     ],
   },
@@ -96,6 +97,8 @@ const GROUPS: Array<{ id: string; key: string; links: AdminLink[] }> = [
       { href: "/admin/settings", key: "settings", module: null, icon: "settings", keywords: "branding logo theme" },
       { href: "/admin/role-templates", key: "roles", module: "roles", icon: "shield", keywords: "permissions access" },
       { href: "/admin/activity", key: "activity", module: "activity", icon: "activity", keywords: "audit log history" },
+      { href: "/admin/developers", key: "developers", module: null, icon: "code", keywords: "api keys webhooks integrations zapier make n8n developer docs" },
+      { href: "/admin/integrations", key: "integrations", module: null, icon: "link", keywords: "slack discord teams google chat zoom meet calendar ics sso single sign-on oidc entra okta" },
     ],
   },
 ];
@@ -105,6 +108,7 @@ const CREATE: Array<{ href: string; label: string; module: ModuleKey; icon: Icon
   { href: "/admin/courses/new", label: "New course", module: "courses", icon: "plus" },
   { href: "/admin/clients/new", label: "New learner", module: "clients", icon: "plus" },
   { href: "/admin/quizzes/new", label: "New quiz", module: "quizzes", icon: "plus" },
+  { href: "/admin/exams/new", label: "New exam", module: "quizzes", icon: "plus" },
   { href: "/admin/question-banks/new", label: "New question bank", module: "quizzes", icon: "plus" },
   { href: "/admin/programmes/new", label: "New programme", module: "programmes", icon: "plus" },
   { href: "/admin/events/new", label: "New event", module: "events", icon: "plus" },

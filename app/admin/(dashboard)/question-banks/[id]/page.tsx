@@ -3,8 +3,9 @@ import { prisma } from "@/lib/db/client";
 import { requireTenantPage } from "@/lib/auth/page-guards";
 import { hasPermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { canAccessBank } from "@/lib/assessments/bank-access";
+import { toEditorQuestion } from "@/lib/assessments/question-io";
+import { aiStatus } from "@/lib/ai/config";
 import { PageHeader } from "@/components/shell";
-import { parseRubric } from "@/lib/schemas/essay-grading";
 import { BankEditor, type BankQuestion } from "./bank-editor";
 
 export default async function BankDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,8 +18,12 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
     include: {
       questions: {
         orderBy: { createdAt: "desc" },
-        include: { tags: { select: { tagId: true } } },
+        include: {
+          tags: { select: { tagId: true } },
+          _count: { select: { quizLinks: true, examItems: true } },
+        },
       },
+      groups: { orderBy: { createdAt: "asc" }, include: { _count: { select: { questions: true } } } },
       accessGroups: { select: { userGroupId: true } },
     },
   });
@@ -30,28 +35,28 @@ export default async function BankDetailPage({ params }: { params: Promise<{ id:
   ]);
 
   const questions: BankQuestion[] = bank.questions.map((q) => ({
-    id: q.id,
-    type: q.type,
-    prompt: q.prompt,
-    options: (q.optionsJson as string[]) ?? [],
-    answer: (q.answerJson as (number | string)[]) ?? [],
-    rubric: parseRubric(q.rubricJson),
-    points: q.points,
-    tagIds: q.tags.map((t) => t.tagId),
-    hint: q.hint,
+    ...toEditorQuestion(q),
+    usage: q._count.quizLinks + q._count.examItems,
   }));
 
   return (
     <div>
-      <PageHeader title={bank.name} subtitle="Manage questions, tags, and sharing." backHref="/admin/question-banks" backLabel="Question banks" />
+      <PageHeader
+        title={bank.name}
+        subtitle="Write, import or generate questions of every type, then use them in quizzes and CBT exams."
+        backHref="/admin/question-banks"
+        backLabel="Question banks"
+      />
       <BankEditor
         id={bank.id}
         initial={{ name: bank.name, description: bank.description ?? "" }}
         questions={questions}
         tags={tags.map((t) => ({ id: t.id, name: t.name }))}
         groups={groups}
+        passages={bank.groups.map((g) => ({ id: g.id, title: g.title, stimulus: g.stimulusHtml, questionCount: g._count.questions }))}
         accessGroupIds={bank.accessGroups.map((a) => a.userGroupId)}
         canWrite={hasPermission(actor, PERMISSIONS.TENANT_QUIZZES_WRITE.key)}
+        aiEnabled={aiStatus().configured}
       />
     </div>
   );

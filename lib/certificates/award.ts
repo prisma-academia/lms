@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/client";
+import { emitEvent } from "@/lib/integrations/events";
 
 export function makeSerial(): string {
   return `CERT-${randomBytes(5).toString("hex").toUpperCase()}`;
@@ -70,7 +71,7 @@ async function upsertAward(input: {
   });
   if (existing) return 0;
 
-  await prisma.certificateAward.upsert({
+  const award = await prisma.certificateAward.upsert({
     where: {
       certificateId_clientId: {
         certificateId: input.certificateId,
@@ -89,6 +90,21 @@ async function upsertAward(input: {
     // otherwise race past the check above and one would fail on the unique index.
     update: {},
   });
+  // Webhook; never throws, deferred past the response.
+  await emitEvent(
+    input.tenantId,
+    "certificate.issued",
+    {
+      awardId: award.id,
+      certificateId: award.certificateId,
+      learnerId: award.clientId,
+      courseId: award.courseId,
+      programmeId: award.programmeId,
+      serial: award.serial,
+      issuedAt: award.issuedAt.toISOString(),
+    },
+    { learnerId: award.clientId }
+  );
   return 1;
 }
 
@@ -140,4 +156,17 @@ export async function syncProgrammeCompletion(
     });
     await awardProgrammeCompletion(tenantId, programmeId, clientId);
   }
+}
+
+/**
+ * Issue one specific certificate to a learner (an exam's "award on pass"
+ * certificate, for example). Idempotent: a second call issues nothing.
+ */
+export async function awardCertificate(
+  tenantId: string,
+  certificateId: string,
+  clientId: string,
+  opts: { courseId?: string | null } = {}
+): Promise<number> {
+  return upsertAward({ tenantId, certificateId, clientId, courseId: opts.courseId ?? undefined });
 }

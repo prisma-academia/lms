@@ -466,6 +466,7 @@ This is the **canonical, locked stack**. Do not substitute, do not add alternati
 | Variants | `class-variance-authority` | `^0.7.1` | For component variants only. Not a general utility — don't use it for one-off conditional classes. |
 | Animations | `tw-animate-css` | `^1.4.0` | Tailwind v4 animation utilities. No `framer-motion` unless added here later. |
 | Icons | `@hugeicons/react`, `@hugeicons/core-free-icons` | `^1.1.6`, `^4.1.4` | Hugeicons only. Do not import `lucide-react`, `heroicons`, or any other icon set. |
+| Maths rendering | `katex` | `^0.16` | Renders `$…$` / `$$…$$` LaTeX in questions, options, explanations and the CBT equation input. Added 2026-11-27 for the CBT module: maths and science exams are unreadable without it, and hand-rolling TeX layout is not viable. Render with `trust: false` and `throwOnError: false`; never pass tenant HTML through it. |
 
 ### 16.4 Authentication, Sessions & Crypto
 

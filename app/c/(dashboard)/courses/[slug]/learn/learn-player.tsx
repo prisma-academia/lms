@@ -1,5 +1,6 @@
 "use client";
 
+import { ExamLessonCard } from "@/components/exam/exam-lesson-card";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -92,6 +93,7 @@ const TYPE_META: Record<GateContentType, { icon: IconName; label: string }> = {
   VIDEO_URL: { icon: "video", label: "Video" },
   FILE: { icon: "file", label: "File" },
   QUIZ: { icon: "clipboard", label: "Quiz" },
+  EXAM: { icon: "monitor", label: "Exam" },
 };
 
 function lessonBody(lesson: LearnLesson): string | null {
@@ -244,6 +246,12 @@ function LessonContent({
       );
     }
     return <p className="text-sm font-medium text-muted-foreground">This quiz is not configured yet.</p>;
+  }
+
+  if (lesson.contentType === "EXAM") {
+    const examId = typeof lesson.contentJson.examId === "string" ? lesson.contentJson.examId : null;
+    if (examId) return <ExamLessonCard key={examId} examId={examId} onPassed={gate.reportQuizPassed} />;
+    return <p className="text-sm font-medium text-muted-foreground">This exam is not configured yet.</p>;
   }
 
   if (lesson.contentType === "HTML") {

@@ -27,6 +27,7 @@ const ACTOR_KIND: Record<string, string> = {
   CLIENT: "Learner",
   PLATFORM_USER: "Platform user",
   SYSTEM: "System",
+  API_KEY: "API key",
 };
 
 function buildColumns(variant: "tenant" | "platform"): ColumnDef<ActivityRow>[] {

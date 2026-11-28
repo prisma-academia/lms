@@ -35,6 +35,7 @@ const TYPE_META: Record<GateContentType, { icon: IconName; label: string }> = {
   VIDEO_URL: { icon: "video", label: "Video" },
   FILE: { icon: "file", label: "File" },
   QUIZ: { icon: "clipboard", label: "Quiz" },
+  EXAM: { icon: "monitor", label: "Exam" },
 };
 
 function lessonText(lesson: PreviewLesson): string | null {

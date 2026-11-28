@@ -160,6 +160,7 @@ export function useContentGate(opts: {
     if (satisfied) return null;
     if (!consumed) {
       if (contentType === "QUIZ") return "Pass this quiz to continue.";
+      if (contentType === "EXAM") return "Pass this exam to continue (once your result is released).";
       if (isTimedMedia) return "Watch to the end to continue.";
       if (isPaged) return "Read to the last page to continue.";
       if (scrollGate) return "Scroll to the end of the lesson to continue.";

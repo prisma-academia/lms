@@ -2,13 +2,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { requireTenantActor, PERMISSIONS } from "@/lib/auth/guards";
 import { ok } from "@/lib/api/respond";
-import { handleError, DomainError } from "@/lib/api/errors";
+import { handleError } from "@/lib/api/errors";
 import { requireCsrf } from "@/lib/api/csrf-guard";
 import { parsePagination, buildPageMeta } from "@/lib/api/pagination";
-import { sendEmail } from "@/lib/email/send";
-import { enrollmentConfirmationEmail } from "@/lib/email/templates";
-import { loadTenantBrandingById } from "@/lib/email/branding";
-import { logger } from "@/lib/logger";
+import { enrollLearner } from "@/lib/courses/enroll";
 
 const EnrollBody = z.object({
   clientId: z.string().min(1),
@@ -46,52 +43,11 @@ export async function POST(request: Request) {
     const actor = await requireTenantActor(PERMISSIONS.TENANT_ENROLLMENTS_WRITE.key);
     const body = EnrollBody.parse(await request.json());
 
-    const course = await prisma.course.findFirst({
-      where: { id: body.courseId, tenantId: actor.tenantId, status: "PUBLISHED" },
-    });
-    if (!course) throw new DomainError(404, "not_found", "Course not found.");
     // Staff may manually onboard a learner into any published course —
     // including private and paid offerings (comped / offline payment).
-
-    const client = await prisma.client.findFirst({
-      where: { id: body.clientId, tenantId: actor.tenantId },
-    });
-    if (!client) throw new DomainError(404, "not_found", "Learner not found.");
-
-    const existing = await prisma.enrollment.findUnique({
-      where: { courseId_clientId: { courseId: body.courseId, clientId: body.clientId } },
-      select: { id: true },
-    });
-    const enrollment = await prisma.enrollment.upsert({
-      where: { courseId_clientId: { courseId: body.courseId, clientId: body.clientId } },
-      create: {
-        tenantId: actor.tenantId,
-        courseId: body.courseId,
-        clientId: body.clientId,
-      },
-      update: {},
-    });
-
-    // Confirmation email on first enrollment only — best-effort.
-    if (!existing && client.email) {
-      try {
-        const branding = await loadTenantBrandingById(actor.tenantId);
-        await sendEmail({
-          to: client.email,
-          subject: `You're enrolled — ${course.title}`,
-          replyTo: branding.supportEmail,
-          fromName: branding.name,
-          html: enrollmentConfirmationEmail(branding, {
-            name: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim() || null,
-            itemName: course.title,
-            itemType: "course",
-            actionUrl: `${branding.appOrigin}/my-courses`,
-          }),
-        });
-      } catch (err) {
-        logger.error({ err, courseId: body.courseId }, "enrollment_email_failed");
-      }
-    }
+    // Shared with the Developer API (lib/courses/enroll.ts): confirmation email
+    // and `enrollment.created` on the first enrolment only.
+    const { enrollment } = await enrollLearner(actor.tenantId, body);
     return ok({ enrollment }, undefined, 201);
   } catch (e) {
     return handleError(e);
