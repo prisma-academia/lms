@@ -59,7 +59,7 @@ export default function OpenGraphImage() {
             boxShadow: `8px 8px 0 ${BRAND.ink}`,
           }}
         >
-          Learning platform for organizations
+          LMS, CBT exams and website builder
         </div>
       </div>
     ),

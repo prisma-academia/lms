@@ -21,6 +21,9 @@ export type MarketingPlanCard = {
   features: string[];
   highlighted: boolean;
   ctaLabel: string;
+  /** Machine-readable price for structured data; null for custom pricing. */
+  monthlyAmount: number | null;
+  currency: string;
 };
 
 function formatLimit(value: number | null, label: string): string {
@@ -85,6 +88,8 @@ export function toMarketingPlanCard(
     features: planFeatures(plan),
     highlighted,
     ctaLabel: plan.code === "enterprise" ? "Contact us" : "Get started",
+    monthlyAmount: plan.priceMonthlyCents === 0 ? null : plan.priceMonthlyCents / 100,
+    currency: plan.currency,
   };
 }
 

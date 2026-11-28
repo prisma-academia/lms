@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
+import { env } from "@/lib/env";
 import { RegisterWizard } from "./wizard";
+
+export const metadata: Metadata = {
+  title: "Create your academy",
+  description: `Register your organization on ${env.PRODUCT_NAME} and start a ${env.TENANT_TRIAL_DAYS}-day free trial. No card needed.`,
+  alternates: { canonical: "/register" },
+};
 
 export default function RegisterPage() {
   return (

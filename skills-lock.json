@@ -15,6 +15,13 @@
       "skillPath": "skills/mastra/SKILL.md",
       "computedHash": "59cc93d93f6dbc136eb25e3879811263a1d34e24022f57c9cfd9ee18bd8d2ad3"
     },
+    "seo": {
+      "source": "addyosmani/web-quality-skills",
+      "commit": "afa8da942115f2961fdbfa80807ea0b232ff6c00",
+      "sourceType": "github",
+      "skillPath": "skills/seo/SKILL.md",
+      "computedHash": "fa30e94756c5c40663f4527e8220a985393abbe3a6256e43d02589948027467e"
+    },
     "shadcn": {
       "source": "shadcn-ui/ui",
       "commit": "055aa6b7837b1808456a24beb4c97a677864aa82",

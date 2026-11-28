@@ -9,7 +9,25 @@ import { brandingAssetUrls } from "@/lib/tenant/branding-assets";
 import { appScheme } from "@/lib/url/scheme";
 
 export const PRODUCT_TAGLINE =
-  "Deliver learning content, assess learners, keep everyone engaged, and manage your organization with built-in billing.";
+  "Courses, proctored CBT exams, certificates, an academy website and online payments in one learning management system.";
+
+/** Apex landing-page meta description (~150 characters; see the seo skill). */
+export const MARKETING_DESCRIPTION =
+  "Run your academy online: courses, proctored CBT exams, certificates, a website builder and Monnify, Paystack or Flutterwave payments in one LMS.";
+
+export const MARKETING_KEYWORDS = [
+  "learning management system",
+  "LMS",
+  "CBT exam software",
+  "computer-based testing",
+  "online exam platform",
+  "online academy",
+  "course builder",
+  "academy website builder",
+  "certificate generator",
+  "Paystack",
+  "Monnify",
+];
 
 export function productDescription(): string {
   return `${env.PRODUCT_NAME} — ${PRODUCT_TAGLINE}`;
